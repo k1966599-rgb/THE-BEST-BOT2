@@ -106,8 +106,10 @@ class InteractiveTelegramBot(BaseNotifier):
     async def _main_button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
-        # ... (button logic for start/stop/menu remains the same)
         callback_data = query.data
+        logger.info(f"DEBUG: Received callback_data: '{callback_data}'") # DEBUG LOGGING
+
+        # ... (button logic for start/stop/menu remains the same)
         if callback_data.startswith("analyze_"):
             parts = callback_data.split("_")
             analysis_scope = parts[1]
