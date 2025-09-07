@@ -1,0 +1,11 @@
+{
+  "prices": {
+    "TEST-USDT": {
+      "price": 100.5,
+      "change_percent": 2.5,
+      "timestamp": 1757010858883
+    }
+  },
+  "last_update": "2025-09-04T18:34:18.883119",
+  "total_symbols": 1
+}
