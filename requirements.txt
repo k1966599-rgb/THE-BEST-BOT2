@@ -16,3 +16,4 @@ aiohttp>=3.8.0
 asyncio-throttle>=1.0.2
 pytest>=7.4.0
 pandas-ta
+scikit-learn

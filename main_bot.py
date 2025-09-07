@@ -140,50 +140,98 @@ class ComprehensiveTradingBot:
 
     def run_trade_management_analysis(self):
         try:
-            tm = TradeManagement(self.df, self.config['trading']['ACCOUNT_BALANCE'])
+            # Ensure the necessary config keys exist before proceeding.
+            balance = self.config['trading']['ACCOUNT_BALANCE']
+            tm = TradeManagement(self.df, balance)
             self.analysis_results['trade_management'] = tm.get_comprehensive_trade_plan(self.final_recommendation, self.analysis_results)
-        except Exception as e: self.analysis_results['trade_management'] = {'error': str(e)}
+        except KeyError as e:
+            error_msg = f"Missing key in configuration or analysis results for trade management: {e}"
+            logger.error(error_msg)
+            self.analysis_results['trade_management'] = {'error': error_msg}
+        except TypeError as e:
+            error_msg = f"Type error in data passed to trade management: {e}"
+            logger.error(error_msg)
+            self.analysis_results['trade_management'] = {'error': error_msg}
+        except Exception as e:
+            # Fallback for any other unexpected errors
+            logger.exception("An unexpected error occurred in the trade management module.")
+            self.analysis_results['trade_management'] = {'error': 'An unexpected error occurred in trade management.'}
 
     def calculate_final_recommendation(self):
-        scores = { 'indicators': self.analysis_results.get('indicators', {}).get('total_score', 0), 'trends': self.analysis_results.get('trends', {}).get('total_score', 0), 'channels': self.analysis_results.get('channels', {}).get('total_score', 0), 'support_resistance': self.analysis_results.get('support_resistance', {}).get('sr_score', 0), 'fibonacci': self.analysis_results.get('fibonacci', {}).get('fib_score', 0), 'patterns': self.analysis_results.get('patterns', {}).get('pattern_score', 0) }
-        weights = { 'indicators': 1.5, 'trends': 3.0, 'channels': 1.0, 'support_resistance': 2.0, 'fibonacci': 1.0, 'patterns': 3.0 }
-        total_score = sum(scores[key] * weights[key] for key in scores)
+        # --- 1. Calculate Weighted Score ---
+        # This section calculates the final weighted score based on the results of all analysis modules.
+        # The weights for each module are loaded from the configuration file, making the strategy easily adjustable.
+        scores = {
+            'indicators': self.analysis_results.get('indicators', {}).get('total_score', 0),
+            'trends': self.analysis_results.get('trends', {}).get('total_score', 0),
+            'channels': self.analysis_results.get('channels', {}).get('total_score', 0),
+            'support_resistance': self.analysis_results.get('support_resistance', {}).get('sr_score', 0),
+            'fibonacci': self.analysis_results.get('fibonacci', {}).get('fib_score', 0),
+            'patterns': self.analysis_results.get('patterns', {}).get('pattern_score', 0)
+        }
+        rec_config = self.config.get('recommendation', {})
+        weights = rec_config.get('SCORE_WEIGHTS', {})
+        total_score = sum(scores.get(key, 0) * weights.get(key, 0) for key in weights)
 
-        if total_score >= 20: main_action, confidence = "شراء قوي 🚀", 95
-        elif total_score >= 10: main_action, confidence = "شراء 📈", 85
-        elif total_score >= -5: main_action, confidence = "انتظار ⏳", 60
-        elif total_score >= -15: main_action, confidence = "بيع 📉", 85
-        else: main_action, confidence = "بيع قوي 🔻", 95
+        # --- 2. Determine Action based on Score ---
+        # The total score is compared against thresholds defined in the config to determine the trading action.
+        thresholds = rec_config.get('THRESHOLDS', {})
+        actions = rec_config.get('ACTIONS', {})
+        confidences = rec_config.get('CONFIDENCE_LEVELS', {})
 
-        okx_symbol = self.symbol.replace('/', '-')
-        live_price_data = self.okx_fetcher.get_cached_price(okx_symbol)
-        current_price = live_price_data['price'] if live_price_data else self.df['close'].iloc[-1]
+        if total_score >= thresholds.get('strong_buy', 20):
+            action_key = 'strong_buy'
+        elif total_score >= thresholds.get('buy', 10):
+            action_key = 'buy'
+        elif total_score >= thresholds.get('hold', -5):
+            action_key = 'hold'
+        elif total_score >= thresholds.get('sell', -15):
+            action_key = 'sell'
+        else:
+            action_key = 'strong_sell'
 
-        # --- Resolve Contradictions ---
-        # Check for conflicts between indicator-based signals and strong chart patterns.
+        main_action = actions.get(action_key, "انتظار ⏳")
+        confidence = confidences.get(action_key, 60)
+
+        # --- 3. Resolve Contradictions with Chart Patterns ---
+        # This crucial logic prevents making a trade that goes directly against a strong, forming chart pattern.
+        # For example, it avoids selling if a powerful bullish pattern is about to complete.
         conflict_note = None
         found_patterns = self.analysis_results.get('patterns', {}).get('found_patterns', [])
 
         if found_patterns:
-            p = found_patterns[0] # Focus on the primary pattern
+            p = found_patterns[0]  # Focus on the primary pattern
             is_bullish_pattern = 'صاعد' in p.get('name', '') or 'قاع' in p.get('name', '')
             is_bearish_action = 'بيع' in main_action
 
-            # If a bullish pattern is forming but indicators suggest selling, override to Wait.
             if is_bullish_pattern and is_bearish_action and 'قيد التكوين' in p.get('status', ''):
                 original_action = main_action
-                main_action = "انتظار ⏳" # Override to Wait
-                confidence = p.get('confidence', 70) # Use pattern's confidence
-                conflict_note = f"تم تعديل الإشارة من '{original_action}' إلى 'انتظار' لوجود نمط إيجابي قوي ({p.get('name')}) قيد التكوين."
+                main_action = actions.get('hold', "انتظار ⏳")  # Override to Wait
+                confidence = p.get('confidence', 70)  # Use pattern's confidence
+                conflict_note = rec_config.get('CONFLICT_NOTE_TEMPLATE', "").format(
+                    original_action=original_action,
+                    new_action=main_action,
+                    pattern_type="إيجابي",
+                    pattern_name=p.get('name')
+                )
 
-            # Similarly, if a bearish pattern is forming but indicators suggest buying.
             is_bearish_pattern = 'هابط' in p.get('name', '') or 'قمة' in p.get('name', '')
             is_bullish_action = 'شراء' in main_action
             if is_bearish_pattern and is_bullish_action and 'قيد التكوين' in p.get('status', ''):
                 original_action = main_action
-                main_action = "انتظار ⏳" # Override to Wait
-                confidence = p.get('confidence', 70) # Use pattern's confidence
-                conflict_note = f"تم تعديل الإشارة من '{original_action}' إلى 'انتظار' لوجود نمط سلبي قوي ({p.get('name')}) قيد التكوين."
+                main_action = actions.get('hold', "انتظار ⏳")  # Override to Wait
+                confidence = p.get('confidence', 70)  # Use pattern's confidence
+                conflict_note = rec_config.get('CONFLICT_NOTE_TEMPLATE', "").format(
+                    original_action=original_action,
+                    new_action=main_action,
+                    pattern_type="سلبي",
+                    pattern_name=p.get('name')
+                )
+
+        # --- 4. Finalize Recommendation ---
+        okx_symbol = self.symbol.replace('/', '-')
+        live_price_data = self.okx_fetcher.get_cached_price(okx_symbol)
+        current_price = live_price_data['price'] if live_price_data else self.df['close'].iloc[-1]
 
 
         self.final_recommendation = {
