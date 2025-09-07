@@ -16,8 +16,6 @@ from ..reporting.report_builder import ReportBuilder
 from ..config import WATCHLIST, get_config
 from ..utils.data_preprocessor import standardize_dataframe_columns
 
-# --- Logging Setup ---
-# (TokenFilter and logging setup remains the same)
 class TokenFilter(logging.Filter):
     def filter(self, record):
         if hasattr(record, 'msg'):
@@ -39,7 +37,6 @@ class InteractiveTelegramBot(BaseNotifier):
         self.bot_state = {"is_active": True}
         self.token = self.config.get('BOT_TOKEN')
 
-    # --- UI Helper Methods (_get_start_message_text, etc.) remain the same ---
     def _get_start_message_text(self) -> str:
         status = "🟢 متصل وجاهز للعمل" if self.bot_state["is_active"] else "🔴 متوقف"
         return f"💎 <b>THE BEST BOT</b> 💎\n<b>حالة النظام:</b> {status}"
@@ -62,44 +59,40 @@ class InteractiveTelegramBot(BaseNotifier):
         await update.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
     async def _run_analysis_for_request(self, symbol: str, timeframes: list, analysis_type: str) -> str:
+        # This function remains the same as the previous correct version
         logger.info(f"Bot request: Starting analysis for {symbol} on timeframes: {timeframes}...")
         all_results = []
         for tf in timeframes:
             try:
                 okx_symbol = symbol.replace('/', '-')
                 api_timeframe = tf.replace('d', 'D').replace('h', 'H')
-
                 historical_data = await asyncio.to_thread(
                     self.fetcher.fetch_historical_data,
                     symbol=okx_symbol, timeframe=api_timeframe, days_to_fetch=365
                 )
                 if not historical_data:
                     raise ConnectionError(f"Failed to fetch data for {symbol} on {tf}")
-
                 df = pd.DataFrame(historical_data)
                 df = standardize_dataframe_columns(df)
                 df.set_index('timestamp', inplace=True)
-
                 analysis_results = self.orchestrator.run(df)
                 recommendation = self.decision_engine.make_recommendation(analysis_results)
                 recommendation['timeframe'] = tf
                 recommendation['symbol'] = symbol
+                recommendation['current_price'] = df['close'].iloc[-1]
                 all_results.append({'success': True, 'recommendation': recommendation})
             except Exception as e:
                 logger.exception(f"Analysis failed for {symbol} on {tf} in bot request.")
                 all_results.append({'success': False, 'timeframe': tf, 'error': str(e)})
-
         successful_recs = [r['recommendation'] for r in all_results if r.get('success')]
         if not successful_recs:
             return f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."
-
         ranked_recs = self.decision_engine.rank_recommendations(successful_recs)
-
         last_price_data = await asyncio.to_thread(self.fetcher.get_cached_price, symbol.replace('/', '-')) or {}
         general_info = {
             'symbol': symbol,
             'analysis_type': analysis_type,
-            'current_price': last_price_data.get('price', 0)
+            'current_price': last_price_data.get('price', successful_recs[0].get('current_price', 0))
         }
         return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
 
@@ -107,10 +100,26 @@ class InteractiveTelegramBot(BaseNotifier):
         query = update.callback_query
         await query.answer()
         callback_data = query.data
-        logger.info(f"DEBUG: Received callback_data: '{callback_data}'") # DEBUG LOGGING
+        logger.info(f"DEBUG: Received callback_data: '{callback_data}'")
 
-        # ... (button logic for start/stop/menu remains the same)
-        if callback_data.startswith("analyze_"):
+        # THIS IS THE CORRECTED LOGIC BLOCK
+        if callback_data == "start_menu":
+            await query.edit_message_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
+        elif callback_data == "start_bot":
+            self.bot_state["is_active"] = True
+            await query.edit_message_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
+        elif callback_data == "stop_bot":
+            self.bot_state["is_active"] = False
+            await query.edit_message_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
+        elif callback_data == "analyze_menu":
+            if not self.bot_state["is_active"]:
+                await query.message.reply_text("البوت متوقف حاليًا. يرجى الضغط على 'تشغيل' أولاً.")
+                return
+            await query.edit_message_text(text="الرجاء اختيار عملة للتحليل:", reply_markup=self._get_coin_list_keyboard())
+        elif callback_data.startswith("coin_"):
+            symbol = callback_data.split("_", 1)[1]
+            await query.edit_message_text(text=f"اختر نوع التحليل لـ <code>{symbol}</code>:", reply_markup=self._get_analysis_timeframe_keyboard(symbol), parse_mode='HTML')
+        elif callback_data.startswith("analyze_"):
             parts = callback_data.split("_")
             analysis_scope = parts[1]
             symbol = "_".join(parts[2:])
@@ -120,18 +129,18 @@ class InteractiveTelegramBot(BaseNotifier):
                 "short": ("مضاربة سريعة", get_config()['trading']['TIMEFRAME_GROUPS']['short'])
             }
             analysis_name, timeframes = analysis_map.get(analysis_scope, ("غير محدد", []))
+            if not symbol or not timeframes:
+                 await query.message.reply_text("خطأ: لم يتم تحديد العملة أو نوع التحليل بشكل صحيح.")
+                 return
             await query.edit_message_text(text=f"جاري إعداد <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
-                # Correct way to run the async analysis function
                 final_report = await self._run_analysis_for_request(symbol, timeframes, analysis_name)
                 await query.message.reply_text(text=final_report, parse_mode='HTML')
-                await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
             except Exception as e:
                 logger.exception(f"Unhandled error in bot callback for {symbol}.")
                 await query.message.reply_text(f"حدث خطأ فادح: {e}", parse_mode='HTML')
-        else: # Handle other callbacks
-            # ...
-            pass
+            finally:
+                await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
     def send(self, message: str, parse_mode: str = 'HTML') -> bool:
         logger.info("The `send` method is not implemented for the interactive bot. Use `start()` instead.")
