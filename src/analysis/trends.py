@@ -2,20 +2,20 @@ import pandas as pd
 from typing import Dict, Any
 import logging
 
+from .base_analysis import BaseAnalysis
+
 logger = logging.getLogger(__name__)
 
-class TrendAnalysis:
-    def __init__(self, df: pd.DataFrame, config: dict = None):
-        self.df = df.copy()
-        if config is None: config = {}
-        self.config = config
+class TrendAnalysis(BaseAnalysis):
+    def __init__(self, config: dict = None, timeframe: str = None):
+        super().__init__(config, timeframe)
         # Using more descriptive names for periods based on their default values
-        self.short_period = config.get('TREND_SHORT_PERIOD', 20)
-        self.medium_period = config.get('TREND_MEDIUM_PERIOD', 50)
-        self.long_period = config.get('TREND_LONG_PERIOD', 100)
-        self.adx_period = config.get('ADX_PERIOD', 14)
+        self.short_period = self.config.get('TREND_SHORT_PERIOD', 20)
+        self.medium_period = self.config.get('TREND_MEDIUM_PERIOD', 50)
+        self.long_period = self.config.get('TREND_LONG_PERIOD', 100)
+        self.adx_period = self.config.get('ADX_PERIOD', 14)
 
-    def get_comprehensive_trends_analysis(self) -> Dict[str, Any]:
+    def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
         Performs trend analysis using pre-calculated EMAs and ADX from the dataframe.
         This focuses on trend direction and strength based on indicators.
@@ -23,11 +23,11 @@ class TrendAnalysis:
         try:
             logger.info("Starting Trend analysis.")
             required_len = self.long_period
-            if len(self.df) < required_len:
-                logger.warning(f"Not enough data for Trend analysis. Data has {len(self.df)} rows, need {required_len}.")
+            if len(df) < required_len:
+                logger.warning(f"Not enough data for Trend analysis. Data has {len(df)} rows, need {required_len}.")
                 return {'error': f'Not enough data for Trend analysis. Need {required_len} periods.', 'total_score': 0}
 
-            latest = self.df.iloc[-1]
+            latest = df.iloc[-1]
 
             # Ensure required columns exist
             required_cols = [
