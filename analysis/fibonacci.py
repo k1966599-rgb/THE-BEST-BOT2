@@ -94,41 +94,42 @@ class FibonacciAnalysis:
                 return {'error': 'Not enough data for Fibonacci analysis.', 'fib_score': 0}
 
             swing = self.find_major_swing()
-        if not swing:
-            logger.warning("find_major_swing returned no swing. Falling back to simple min/max.")
-            major_high_price = self.data['high'].max()
-            major_low_price = self.data['low'].min()
-            major_high_time = self.data['high'].idxmax()
-            major_low_time = self.data['low'].idxmin()
-            swing = {'high': {'price': major_high_price, 'time': major_high_time}, 'low': {'price': major_low_price, 'time': major_low_time}}
 
-        if not swing:
-            logger.error("Could not determine any swing points, even with fallback.")
-            return {'error': 'Could not determine swing points.', 'fib_score': 0}
+            if not swing:
+                logger.warning("find_major_swing returned no swing. Falling back to simple min/max.")
+                major_high_price = self.data['high'].max()
+                major_low_price = self.data['low'].min()
+                major_high_time = self.data['high'].idxmax()
+                major_low_time = self.data['low'].idxmin()
+                swing = {'high': {'price': major_high_price, 'time': major_high_time}, 'low': {'price': major_low_price, 'time': major_low_time}}
 
-        high, low = swing['high'], swing['low']
-        logger.info(f"Found swing: Low at {low['price']:.2f} (t={low['time']}), High at {high['price']:.2f} (t={high['time']}).")
-        price_range = high['price'] - low['price']
-        if price_range <= 0:
-            logger.error(f"Price range is zero or invalid: {price_range}")
-            return {'error': 'Price range is zero or invalid.', 'fib_score': 0}
+            if not swing:
+                logger.error("Could not determine any swing points, even with fallback.")
+                return {'error': 'Could not determine swing points.', 'fib_score': 0}
 
-        retracements, extensions = [], []
-        if high['time'] > low['time']: # Uptrend swing
-            for ratio in self.retracement_ratios: retracements.append({'level': f"{ratio*100:.1f}%", 'price': high['price'] - price_range * ratio})
-            for ratio in self.extension_ratios: extensions.append({'level': f"{ratio*100:.1f}%", 'price': high['price'] + price_range * (ratio - 1)})
-        else: # Downtrend swing
-            for ratio in self.retracement_ratios: retracements.append({'level': f"{ratio*100:.1f}%", 'price': low['price'] + price_range * ratio})
-            for ratio in self.extension_ratios: extensions.append({'level': f"{ratio*100:.1f}%", 'price': low['price'] - price_range * (ratio - 1)})
+            high, low = swing['high'], swing['low']
+            logger.info(f"Found swing: Low at {low['price']:.2f} (t={low['time']}), High at {high['price']:.2f} (t={high['time']}).")
+            price_range = high['price'] - low['price']
+            if price_range <= 0:
+                logger.error(f"Price range is zero or invalid: {price_range}")
+                return {'error': 'Price range is zero or invalid.', 'fib_score': 0}
 
-        fib_score = 0
-        for r in retracements:
-            if abs(self.current_price - r['price']) / self.current_price < 0.015:
-                if r['level'] in ['38.2%', '50.0%', '61.8%']: fib_score += 2
-                else: fib_score += 1
+            retracements, extensions = [], []
+            if high['time'] > low['time']: # Uptrend swing
+                for ratio in self.retracement_ratios: retracements.append({'level': f"{ratio*100:.1f}%", 'price': high['price'] - price_range * ratio})
+                for ratio in self.extension_ratios: extensions.append({'level': f"{ratio*100:.1f}%", 'price': high['price'] + price_range * (ratio - 1)})
+            else: # Downtrend swing
+                for ratio in self.retracement_ratios: retracements.append({'level': f"{ratio*100:.1f}%", 'price': low['price'] + price_range * ratio})
+                for ratio in self.extension_ratios: extensions.append({'level': f"{ratio*100:.1f}%", 'price': low['price'] - price_range * (ratio - 1)})
 
-        logger.info(f"Fibonacci analysis complete. Final score: {fib_score}.")
-        return {'retracement_levels': retracements, 'extension_levels': extensions, 'fib_score': fib_score}
+            fib_score = 0
+            for r in retracements:
+                if abs(self.current_price - r['price']) / self.current_price < 0.015:
+                    if r['level'] in ['38.2%', '50.0%', '61.8%']: fib_score += 2
+                    else: fib_score += 1
+
+            logger.info(f"Fibonacci analysis complete. Final score: {fib_score}.")
+            return {'retracement_levels': retracements, 'extension_levels': extensions, 'fib_score': fib_score}
         except Exception as e:
             logger.exception("An unexpected error occurred during Fibonacci analysis.")
             return {'error': str(e), 'fib_score': 0, 'retracement_levels': [], 'extension_levels': []}

@@ -90,6 +90,38 @@ OUTPUT_CONFIG = {
     'SAVE_CHARTS': False
 }
 
+RECOMMENDATION_CONFIG = {
+    'SCORE_WEIGHTS': {
+        'indicators': 1.5,
+        'trends': 3.0,
+        'channels': 1.0,
+        'support_resistance': 2.0,
+        'fibonacci': 1.0,
+        'patterns': 3.0
+    },
+    'THRESHOLDS': {
+        'strong_buy': 20,
+        'buy': 10,
+        'hold': -5,
+        'sell': -15
+    },
+    'ACTIONS': {
+        'strong_buy': "شراء قوي 🚀",
+        'buy': "شراء 📈",
+        'hold': "انتظار ⏳",
+        'sell': 'بيع 📉',
+        'strong_sell': "بيع قوي 🔻"
+    },
+    'CONFIDENCE_LEVELS': {
+        'strong_buy': 95,
+        'buy': 85,
+        'hold': 60,
+        'sell': 85,
+        'strong_sell': 95
+    },
+    'CONFLICT_NOTE_TEMPLATE': "تم تعديل الإشارة من '{original_action}' إلى '{new_action}' لوجود نمط {pattern_type} قوي ({pattern_name}) قيد التكوين."
+}
+
 def get_config():
     """استرجاع جميع الإعدادات"""
     return {
@@ -98,7 +130,8 @@ def get_config():
         'telegram': TELEGRAM_CONFIG,
         'analysis': ANALYSIS_CONFIG,
         'watchlist': WATCHLIST,
-        'output': OUTPUT_CONFIG
+        'output': OUTPUT_CONFIG,
+        'recommendation': RECOMMENDATION_CONFIG
     }
 
 def print_current_config():

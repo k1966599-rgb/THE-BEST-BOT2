@@ -25,25 +25,23 @@ from okx_data import OKXDataFetcher, validate_symbol_timeframe
 def run_analysis_for_timeframe(symbol: str, timeframe: str, config: dict, okx_fetcher: OKXDataFetcher) -> dict:
     """Runs the complete analysis for a single symbol on a specific timeframe."""
     try:
-        # First, validate if the timeframe is supported for the symbol
         validate_symbol_timeframe(symbol, timeframe)
-
         logger.info(f"--- ⏳ Analyzing {symbol} on {timeframe} ---")
-        timeframe_config = copy.deepcopy(config)
-        timeframe_config['trading']['INTERVAL'] = timeframe
-        
-        bot = ComprehensiveTradingBot(symbol=symbol, timeframe=timeframe, config=timeframe_config, okx_fetcher=okx_fetcher)
+        bot = ComprehensiveTradingBot(symbol=symbol, timeframe=timeframe, config=config, okx_fetcher=okx_fetcher)
         bot.run_complete_analysis()
         bot.final_recommendation['timeframe'] = timeframe
         return {'success': True, 'bot': bot}
+    except ValueError as e:
+        # Expected error for unsupported timeframes
+        logger.warning(f"Validation error for {symbol} on {timeframe}: {e}")
+        return {'success': False, 'timeframe': timeframe, 'error': str(e)}
+    except ConnectionError as e:
+        logger.error(f"❌ Network connection error during analysis of {symbol} on {timeframe}: {e}")
+        return {'success': False, 'timeframe': timeframe, 'error': "Failed to fetch data due to network issue."}
     except Exception as e:
-        error_message = f"❌ Exception during analysis of {symbol} on {timeframe}. Error: {type(e).__name__}: {str(e)}"
-        logger.error(error_message)
-        # We don't print the full traceback for validation errors as they are expected.
-        if not isinstance(e, ValueError):
-            # Using logger.exception will automatically include traceback info
-            logger.exception(f"Full traceback for error in {symbol} on {timeframe}:")
-        return {'success': False, 'timeframe': timeframe, 'error': error_message}
+        error_message = f"❌ Unhandled exception during analysis of {symbol} on {timeframe}."
+        logger.exception(error_message) # Log the full traceback for unexpected errors
+        return {'success': False, 'timeframe': timeframe, 'error': f"An unexpected error occurred: {type(e).__name__}"}
 
 def rank_opportunities(results: list) -> list:
     """
@@ -95,10 +93,12 @@ def get_ranked_analysis_for_symbol(symbol: str, config: dict, okx_fetcher: OKXDa
             try:
                 result = future.result()
                 all_timeframe_results.append(result)
+            except concurrent.futures.CancelledError:
+                logger.warning(f"Analysis for {symbol} on {tf} was cancelled.")
+                all_timeframe_results.append({'success': False, 'timeframe': tf, 'error': 'Analysis was cancelled.'})
             except Exception as exc:
-                logger.error(f'❌ Timeframe {tf} for {symbol} generated an exception in the main loop: {exc}')
-                # Optionally, append a failure result to still show it in the report
-                all_timeframe_results.append({'success': False, 'timeframe': tf, 'error': str(exc)})
+                logger.exception(f'❌ Future for {tf} generated an unhandled exception in the main loop.')
+                all_timeframe_results.append({'success': False, 'timeframe': tf, 'error': f'An unexpected error occurred: {type(exc).__name__}'})
 
     # Check if all analyses failed
     if not any(r.get('success') for r in all_timeframe_results):
