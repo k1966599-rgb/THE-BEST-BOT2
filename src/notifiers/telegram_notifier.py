@@ -2,6 +2,7 @@ import logging
 import re
 import threading
 import time
+import asyncio
 from typing import Dict, Any
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -11,7 +12,7 @@ from .base_notifier import BaseNotifier
 from ..data.base_fetcher import BaseDataFetcher
 from ..analysis.orchestrator import AnalysisOrchestrator
 from ..decision_engine.engine import DecisionEngine
-from ..utils.report_generator import generate_final_report_text
+from ..reporting.report_builder import ReportBuilder
 from ..config import WATCHLIST, get_config
 
 # --- Logging Setup ---
@@ -40,6 +41,7 @@ class InteractiveTelegramBot(BaseNotifier):
         self.fetcher = fetcher
         self.orchestrator = orchestrator
         self.decision_engine = decision_engine
+        self.report_builder = ReportBuilder(config)
         self.bot_state = {"is_active": True}
         self.token = self.config.get('BOT_TOKEN')
 
@@ -70,22 +72,31 @@ class InteractiveTelegramBot(BaseNotifier):
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
-    def _run_analysis_for_request(self, symbol: str, timeframes: list, analysis_type: str) -> str:
+    async def _run_analysis_for_request(self, symbol: str, timeframes: list, analysis_type: str) -> str:
         """
         This method replaces the old, tightly-coupled analysis call.
         It uses the injected orchestrator and decision engine to get a result.
+        It's now a coroutine to avoid blocking the entire bot.
         """
         logger.info(f"Bot request: Starting analysis for {symbol} on timeframes: {timeframes}...")
         all_results = []
         for tf in timeframes:
-            # Re-using the pipeline from app.py, this could be further refactored
             try:
                 okx_symbol = symbol.replace('/', '-')
                 api_timeframe = tf.replace('d', 'D').replace('h', 'H')
-                df = self.fetcher.fetch_historical_data(symbol=okx_symbol, timeframe=api_timeframe, days_to_fetch=365)
+
+                # Run blocking I/O in a separate thread
+                df = await asyncio.to_thread(
+                    self.fetcher.fetch_historical_data,
+                    symbol=okx_symbol,
+                    timeframe=api_timeframe,
+                    days_to_fetch=365
+                )
+
                 if not df:
                     raise ConnectionError(f"Failed to fetch data for {symbol} on {tf}")
 
+                # The rest of the pipeline is CPU-bound but should be fast enough
                 analysis_results = self.orchestrator.run(df)
                 recommendation = self.decision_engine.make_recommendation(analysis_results)
                 recommendation['timeframe'] = tf
@@ -100,7 +111,14 @@ class InteractiveTelegramBot(BaseNotifier):
             return f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."
 
         ranked_recs = self.decision_engine.rank_recommendations(successful_recs)
-        return generate_final_report_text(symbol=symbol, analysis_type=analysis_type, ranked_results=ranked_recs)
+
+        last_price = await asyncio.to_thread(self.fetcher.get_cached_price, symbol.replace('/', '-')) or {}
+        general_info = {
+            'symbol': symbol,
+            'analysis_type': analysis_type,
+            'current_price': last_price.get('price', 0)
+        }
+        return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
 
     async def _main_button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -138,11 +156,8 @@ class InteractiveTelegramBot(BaseNotifier):
             await query.edit_message_text(text=f"جاري إعداد <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
 
             try:
-                # Run analysis in a separate thread to avoid blocking the bot
-                final_report = await context.application.create_task(
-                    self._run_analysis_for_request,
-                    symbol, timeframes, analysis_name
-                )
+                # Await the async analysis function directly. The library handles concurrency.
+                final_report = await self._run_analysis_for_request(symbol, timeframes, analysis_name)
                 await query.message.reply_text(text=final_report, parse_mode='HTML')
                 await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
             except Exception as e:
