@@ -12,7 +12,7 @@ from .base_notifier import BaseNotifier
 from ..data.base_fetcher import BaseDataFetcher
 from ..analysis.orchestrator import AnalysisOrchestrator
 from ..decision_engine.engine import DecisionEngine
-from ..utils.report_generator import generate_final_report_text
+from ..reporting.report_builder import ReportBuilder
 from ..config import WATCHLIST, get_config
 
 # --- Logging Setup ---
@@ -41,6 +41,7 @@ class InteractiveTelegramBot(BaseNotifier):
         self.fetcher = fetcher
         self.orchestrator = orchestrator
         self.decision_engine = decision_engine
+        self.report_builder = ReportBuilder(config)
         self.bot_state = {"is_active": True}
         self.token = self.config.get('BOT_TOKEN')
 
@@ -110,7 +111,14 @@ class InteractiveTelegramBot(BaseNotifier):
             return f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."
 
         ranked_recs = self.decision_engine.rank_recommendations(successful_recs)
-        return generate_final_report_text(symbol=symbol, analysis_type=analysis_type, ranked_results=ranked_recs)
+
+        last_price = await asyncio.to_thread(self.fetcher.get_cached_price, symbol.replace('/', '-')) or {}
+        general_info = {
+            'symbol': symbol,
+            'analysis_type': analysis_type,
+            'current_price': last_price.get('price', 0)
+        }
+        return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
 
     async def _main_button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query

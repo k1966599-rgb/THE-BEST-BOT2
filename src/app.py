@@ -9,7 +9,7 @@ from .data.okx_fetcher import OKXDataFetcher
 from .analysis.orchestrator import AnalysisOrchestrator
 from .decision_engine.engine import DecisionEngine
 from .notifiers.telegram_sender import SimpleTelegramNotifier
-from .utils.report_generator import generate_final_report_text
+from .reporting.report_builder import ReportBuilder
 from .utils.validators import validate_symbol_timeframe
 from .analysis import (
     TechnicalIndicators, TrendAnalysis, PriceChannels,
@@ -49,6 +49,7 @@ def main(config, fetcher, orchestrator, decision_engine):
     args = parser.parse_args()
     symbols_to_analyze = args.symbols
     notifier = SimpleTelegramNotifier(config.get('telegram', {}))
+    report_builder = ReportBuilder(config)
 
     logger.info("🚀 Starting background data services for CLI mode...")
     okx_symbols = [s.replace('/', '-') for s in symbols_to_analyze]
@@ -65,7 +66,18 @@ def main(config, fetcher, orchestrator, decision_engine):
                 logger.error(f"❌ All analyses failed for {symbol}. No report to generate.")
                 continue
             ranked_recs = decision_engine.rank_recommendations(successful_recommendations)
-            final_report = generate_final_report_text(symbol=symbol, analysis_type="تحليل شامل", ranked_results=ranked_recs)
+
+            # Get current price for the header
+            last_price = fetcher.get_cached_price(symbol.replace('/', '-')) or {}
+            general_info = {
+                'symbol': symbol,
+                'analysis_type': "تحليل شامل",
+                'current_price': last_price.get('price', 0)
+            }
+            final_report = report_builder.build_report(
+                ranked_results=ranked_recs,
+                general_info=general_info
+            )
             logger.info(f"Generated report for {symbol}:\n{final_report}")
             notifier.send(final_report, parse_mode='HTML')
             if len(symbols_to_analyze) > 1:
