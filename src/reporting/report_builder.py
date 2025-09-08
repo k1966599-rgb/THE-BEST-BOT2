@@ -108,10 +108,10 @@ class ReportBuilder:
         bear_prob = result.get('confidence', 60) if 'بيع' in result.get('main_action', '') else 20
         neutral_prob = 100 - bull_prob - bear_prob
 
-        pattern = pattern_data.get('found_patterns', [{}])[0]
-        target = pattern.get('price_target', current_price * 1.05)
-        activation = pattern.get('activation_level', current_price * 1.01)
-        invalidation = pattern.get('invalidation_level', current_price * 0.99)
+        pattern = pattern_data.get('found_patterns')
+        target = pattern[0].get('price_target', current_price * 1.05) if pattern else current_price * 1.05
+        activation = pattern[0].get('activation_level', current_price * 1.01) if pattern else current_price * 1.01
+        invalidation = pattern[0].get('invalidation_level', current_price * 0.99) if pattern else current_price * 0.99
 
         section += f"📈 **السيناريو الصاعد ({bull_prob}%)**\n- اختراق المقاومة ${activation:,.2f} ➡️ الهدف الأول ${target:,.2f}\n\n"
         section += f"➡️ **السيناريو المحايد ({neutral_prob}%)**\n- البقاء داخل النطاق ➡️ تداول عرضي بين ${invalidation:,.2f} – ${activation:,.2f}\n\n"
@@ -146,15 +146,19 @@ class ReportBuilder:
         summary += "### 🔍 نقاط المراقبة الحرجة\n"
         summary += "📈 **اختراق المقاومة:**\n"
         for res in ranked_results:
-            pattern = res.get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
-            if pattern.get('activation_level'):
-                summary += f"- {res.get('timeframe')}: ${pattern['activation_level']:,.2f}\n"
+            patterns = res.get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns')
+            if patterns:
+                pattern = patterns[0]
+                if pattern.get('activation_level'):
+                    summary += f"- {res.get('timeframe')}: ${pattern['activation_level']:,.2f}\n"
 
         summary += "\n📉 **كسر الدعم:**\n"
         for res in ranked_results:
-            pattern = res.get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
-            if pattern.get('invalidation_level'):
-                summary += f"- {res.get('timeframe')}: ${pattern['invalidation_level']:,.2f}\n"
+            patterns = res.get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns')
+            if patterns:
+                pattern = patterns[0]
+                if pattern.get('invalidation_level'):
+                    summary += f"- {res.get('timeframe')}: ${pattern['invalidation_level']:,.2f}\n"
 
         return summary
 
