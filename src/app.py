@@ -36,6 +36,8 @@ def run_full_analysis_for_symbol(symbol: str, timeframe: str, fetcher: OKXDataFe
 
         analysis_results = orchestrator.run(df)
         recommendation = decision_engine.make_recommendation(analysis_results, df, symbol, timeframe)
+        recommendation['timeframe'] = timeframe
+        recommendation['symbol'] = symbol
         return {'success': True, 'recommendation': recommendation}
     except Exception as e:
         logger.exception(f"❌ Unhandled exception during analysis of {symbol} on {timeframe}.")

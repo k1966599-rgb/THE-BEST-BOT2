@@ -102,8 +102,7 @@ class ReportBuilder:
         section += "\n**📐 النموذج الفني**\n"
         if pattern_data.get('found_patterns'):
             p = pattern_data['found_patterns'][0]
-            status_emoji = "✅" if "مكتمل" in p.get('status', '') else "🟡"
-            section += f"**{p.get('name')}** - ({p.get('status', '')} {status_emoji})\n"
+            section += f"**{p.get('name')}** - ({p.get('status', '')})\n"
             section += f"- 🎯 **هدف النموذج:** ${p.get('price_target', 0):,.2f}\n"
             section += f"- 🛑 **وقف خسارة:** ${p.get('stop_loss', 0):,.2f}\n"
             section += f"- ▶️ **تفعيل النموذج:** عند اختراق المقاومة ${p.get('activation_level', 0):,.2f}\n"
@@ -118,9 +117,26 @@ class ReportBuilder:
 
         # --- Scenarios ---
         section += "\n**🎲 السيناريوهات المحتملة**\n"
-        bull_prob = result.get('confidence', 60) if 'شراء' in result.get('main_action', '') else 20
-        bear_prob = result.get('confidence', 60) if 'بيع' in result.get('main_action', '') else 20
-        neutral_prob = 100 - bull_prob - bear_prob
+        confidence = result.get('confidence', 60)
+        main_action = result.get('main_action', '')
+
+        if 'شراء' in main_action:
+            bull_prob = confidence
+            bear_prob = max(10, (100 - bull_prob) / 2 - 5)
+            neutral_prob = 100 - bull_prob - bear_prob
+        elif 'بيع' in main_action:
+            bear_prob = confidence
+            bull_prob = max(10, (100 - bear_prob) / 2 - 5)
+            neutral_prob = 100 - bull_prob - bear_prob
+        else: # Neutral
+            bull_prob = 40
+            bear_prob = 40
+            neutral_prob = 20
+
+        # Ensure probabilities are not negative and sum to 100
+        bull_prob = round(max(0, bull_prob))
+        bear_prob = round(max(0, bear_prob))
+        neutral_prob = round(max(0, 100 - bull_prob - bear_prob))
 
         pattern = pattern_data.get('found_patterns')
         target = pattern[0].get('price_target', current_price * 1.05) if pattern else current_price * 1.05
