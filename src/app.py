@@ -9,7 +9,7 @@ from .data.okx_fetcher import OKXDataFetcher
 from .analysis.orchestrator import AnalysisOrchestrator
 from .decision_engine.engine import DecisionEngine
 from .notifiers.telegram_sender import SimpleTelegramNotifier
-from .reporting.report_builder_v2 import ReportBuilderV2
+from .reporting.report_builder import ReportBuilder
 from .utils.validators import validate_symbol_timeframe
 from .analysis import (
     TechnicalIndicators, TrendAnalysis, PriceChannels,
@@ -35,9 +35,7 @@ def run_full_analysis_for_symbol(symbol: str, timeframe: str, fetcher: OKXDataFe
         df.set_index('timestamp', inplace=True)
 
         analysis_results = orchestrator.run(df)
-        recommendation = decision_engine.make_recommendation(analysis_results)
-        recommendation['timeframe'] = timeframe
-        recommendation['symbol'] = symbol
+        recommendation = decision_engine.make_recommendation(analysis_results, symbol, timeframe)
         return {'success': True, 'recommendation': recommendation}
     except Exception as e:
         logger.exception(f"❌ Unhandled exception during analysis of {symbol} on {timeframe}.")
@@ -49,7 +47,7 @@ def main(config, fetcher, orchestrator, decision_engine):
     args = parser.parse_args()
     symbols_to_analyze = args.symbols
     notifier = SimpleTelegramNotifier(config.get('telegram', {}))
-    report_builder = ReportBuilderV2(config)
+    report_builder = ReportBuilder(config)
 
     logger.info("🚀 Starting background data services for CLI mode...")
     okx_symbols = [s.replace('/', '-') for s in symbols_to_analyze]
