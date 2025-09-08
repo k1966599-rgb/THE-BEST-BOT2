@@ -95,6 +95,34 @@ class InteractiveTelegramBot(BaseNotifier):
         }
         return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
 
+    async def _send_long_message(self, chat_id, text: str, **kwargs):
+        """
+        Splits a long message into multiple messages if it exceeds Telegram's limit.
+        """
+        MAX_LENGTH = 4096
+        if len(text) <= MAX_LENGTH:
+            await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
+            return
+
+        parts = []
+        while len(text) > 0:
+            if len(text) > MAX_LENGTH:
+                part = text[:MAX_LENGTH]
+                first_newline = part.rfind('\n')
+                if first_newline != -1:
+                    parts.append(part[:first_newline])
+                    text = text[first_newline:]
+                else:
+                    parts.append(part)
+                    text = text[MAX_LENGTH:]
+            else:
+                parts.append(text)
+                break
+
+        for part in parts:
+            await self.bot.send_message(chat_id=chat_id, text=part, **kwargs)
+            await asyncio.sleep(0.5) # Small delay to avoid rate limiting
+
     async def _main_button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -134,7 +162,8 @@ class InteractiveTelegramBot(BaseNotifier):
             await query.edit_message_text(text=f"جاري إعداد <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
                 final_report = await self._run_analysis_for_request(symbol, timeframes, analysis_name)
-                await query.message.reply_text(text=final_report, parse_mode='HTML')
+                # Use the new function to send the report
+                await self._send_long_message(chat_id=query.message.chat_id, text=final_report, parse_mode='HTML')
             except Exception as e:
                 logger.exception(f"Unhandled error in bot callback for {symbol}.")
                 await query.message.reply_text(f"حدث خطأ فادح: {e}", parse_mode='HTML')
@@ -150,6 +179,7 @@ class InteractiveTelegramBot(BaseNotifier):
             logger.error("CRITICAL: Telegram bot token not found.")
             return
         application = Application.builder().token(self.token).build()
+        self.bot = application.bot
         application.add_handler(CommandHandler("start", self._start_command))
         application.add_handler(CallbackQueryHandler(self._main_button_callback))
         logger.info("🤖 Interactive bot is starting...")
