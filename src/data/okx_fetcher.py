@@ -78,15 +78,23 @@ class OKXDataFetcher(BaseDataFetcher):
         logger.warning(f"Unknown timeframe format '{timeframe}', defaulting to 1440 minutes (1 day).")
         return 1440
 
-    def fetch_historical_data(self, symbol: str = 'BTC-USDT', timeframe: str = '1D', days_to_fetch: int = 365) -> List[Dict]:
+    def fetch_historical_data(self, symbol: str = 'BTC-USDT', timeframe: str = '1D', days_to_fetch: int = 365) -> Dict[str, Any]:
         """
-        Fetches historical data, checking cache first.
-        This version uses a more robust while loop to ensure all required data is fetched.
+        Fetches historical data, checking local JSON files and in-memory cache first.
         """
         cache_key = (symbol, timeframe, days_to_fetch)
         if cache_key in self.historical_cache:
             logger.info(f"✅ Found historical data for {cache_key} in cache.")
             return self.historical_cache[cache_key]
+
+        # Check for local JSON file
+        file_path = Path(f"{symbol}_historical.json")
+        if file_path.exists():
+            logger.info(f"💾 Loading historical data for {symbol} from {file_path}...")
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                self.historical_cache[cache_key] = data
+                return data
 
         try:
             logger.info(f"📊 Fetching historical data for {symbol} ({timeframe}) for {days_to_fetch} days from network...")
@@ -142,12 +150,20 @@ class OKXDataFetcher(BaseDataFetcher):
                     seen_timestamps.add(timestamp)
 
             historical_data.sort(key=lambda x: x['timestamp'])
-            self.historical_cache[cache_key] = historical_data
+
+            # Wrap in the standard dictionary format
+            data_to_return = {
+                'symbol': symbol.replace('-', '/'),
+                'last_update': datetime.now().isoformat(),
+                'data': historical_data
+            }
+
+            self.historical_cache[cache_key] = data_to_return
             logger.info(f"✅ Fetched and cached {len(historical_data)} unique candles for {symbol}")
-            return historical_data
+            return data_to_return
         except Exception as e:
             logger.error(f"❌ Error fetching historical data for {symbol}: {e}")
-            return []
+            return {}
 
     def get_cached_price(self, symbol: str) -> Optional[Dict[str, Any]]:
         return self.price_cache.get(symbol)
