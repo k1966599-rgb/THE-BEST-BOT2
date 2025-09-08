@@ -1,5 +1,6 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
+from .trade_setup import TradeSetup
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +36,12 @@ class DecisionEngine:
         logger.warning(f"Could not find a score key in result for '{result_key}'. Defaulting to 0.")
         return 0.0
 
-    def make_recommendation(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+    def make_recommendation(self, analysis_results: Dict[str, Any], symbol: str, timeframe: str) -> Dict[str, Any]:
         """
         Calculates a final recommendation based on the collected analysis results.
         This encapsulates the logic from the old `calculate_final_recommendation`.
         """
-        logger.info("Decision Engine: Making recommendation from analysis results.")
+        logger.info(f"Decision Engine: Making recommendation for {symbol} on {timeframe}.")
 
         # --- 1. Calculate Weighted Score ---
         scores = {
@@ -120,13 +121,33 @@ class DecisionEngine:
 
         logger.info(f"Recommendation: {main_action} with score {total_score:.2f} and confidence {confidence}%.")
 
+        # --- 4. Create TradeSetup if a pattern exists ---
+        trade_setup: Optional[TradeSetup] = None
+        if found_patterns:
+            p = found_patterns[0]
+            try:
+                trade_setup = TradeSetup(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    pattern_name=p.get('name', 'N/A'),
+                    pattern_status=p.get('status', 'مكتمل'),
+                    entry_price=p.get('activation_level', 0),
+                    stop_loss=p.get('stop_loss', 0),
+                    target1=p.get('price_target', 0),
+                    raw_pattern_data=p
+                )
+            except Exception as e:
+                logger.error(f"Failed to create TradeSetup: {e}")
+
+
         return {
             'main_action': main_action,
             'confidence': confidence,
             'total_score': total_score,
             'individual_scores': scores,
             'conflict_note': conflict_note,
-            'raw_analysis': analysis_results
+            'raw_analysis': analysis_results,
+            'trade_setup': trade_setup
         }
 
     def rank_recommendations(self, recommendations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

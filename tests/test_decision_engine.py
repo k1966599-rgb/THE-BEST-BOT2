@@ -59,21 +59,21 @@ def sample_conflict_analysis():
 
 def test_make_bullish_recommendation(decision_engine, sample_bullish_analysis):
     """Test that bullish analysis results in a 'Buy' or 'Strong Buy' action."""
-    recommendation = decision_engine.make_recommendation(sample_bullish_analysis)
+    recommendation = decision_engine.make_recommendation(sample_bullish_analysis, "BTC/USDT", "1h")
     assert 'شراء' in recommendation['main_action']
     assert recommendation['total_score'] > 0
     assert recommendation['conflict_note'] is None
 
 def test_make_bearish_recommendation(decision_engine, sample_bearish_analysis):
     """Test that bearish analysis results in a 'Sell' or 'Strong Sell' action."""
-    recommendation = decision_engine.make_recommendation(sample_bearish_analysis)
+    recommendation = decision_engine.make_recommendation(sample_bearish_analysis, "BTC/USDT", "1h")
     assert 'بيع' in recommendation['main_action']
     assert recommendation['total_score'] < 0
     assert recommendation['conflict_note'] is None
 
 def test_conflict_resolution(decision_engine, sample_conflict_analysis):
     """Test that a forming bullish pattern overrides a bearish score."""
-    recommendation = decision_engine.make_recommendation(sample_conflict_analysis)
+    recommendation = decision_engine.make_recommendation(sample_conflict_analysis, "BTC/USDT", "1h")
     # The bearish score should be overridden by the forming bullish pattern
     assert 'انتظار' in recommendation['main_action']
     assert recommendation['conflict_note'] is not None

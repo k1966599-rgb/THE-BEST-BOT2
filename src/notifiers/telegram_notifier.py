@@ -12,7 +12,7 @@ from .base_notifier import BaseNotifier
 from ..data.base_fetcher import BaseDataFetcher
 from ..analysis.orchestrator import AnalysisOrchestrator
 from ..decision_engine.engine import DecisionEngine
-from ..reporting.report_builder_v2 import ReportBuilderV2
+from ..reporting.report_builder import ReportBuilder
 from ..config import WATCHLIST, get_config
 from ..utils.data_preprocessor import standardize_dataframe_columns
 
@@ -33,7 +33,7 @@ class InteractiveTelegramBot(BaseNotifier):
         self.fetcher = fetcher
         self.orchestrator = orchestrator
         self.decision_engine = decision_engine
-        self.report_builder = ReportBuilderV2(config)
+        self.report_builder = ReportBuilder(config)
         self.bot_state = {"is_active": True}
         self.token = self.config.get('BOT_TOKEN')
 
@@ -76,10 +76,8 @@ class InteractiveTelegramBot(BaseNotifier):
                 df = standardize_dataframe_columns(df)
                 df.set_index('timestamp', inplace=True)
                 analysis_results = self.orchestrator.run(df)
-                recommendation = self.decision_engine.make_recommendation(analysis_results)
-                recommendation['timeframe'] = tf
-                recommendation['symbol'] = symbol
-                recommendation['current_price'] = df['close'].iloc[-1]
+                recommendation = self.decision_engine.make_recommendation(analysis_results, symbol, tf)
+                recommendation['current_price'] = df['close'].iloc[-1] # Keep this for the header price
                 all_results.append({'success': True, 'recommendation': recommendation})
             except Exception as e:
                 logger.exception(f"Analysis failed for {symbol} on {tf} in bot request.")
