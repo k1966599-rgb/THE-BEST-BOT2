@@ -9,7 +9,7 @@ from .data.okx_fetcher import OKXDataFetcher
 from .analysis.orchestrator import AnalysisOrchestrator
 from .decision_engine.engine import DecisionEngine
 from .notifiers.telegram_sender import SimpleTelegramNotifier
-from .reporting.report_builder import ReportBuilder
+from .reporting.report_builder_v2 import ReportBuilderV2
 from .utils.validators import validate_symbol_timeframe
 from .analysis import (
     TechnicalIndicators, TrendAnalysis, PriceChannels,
@@ -49,7 +49,7 @@ def main(config, fetcher, orchestrator, decision_engine):
     args = parser.parse_args()
     symbols_to_analyze = args.symbols
     notifier = SimpleTelegramNotifier(config.get('telegram', {}))
-    report_builder = ReportBuilder(config)
+    report_builder = ReportBuilderV2(config)
 
     logger.info("🚀 Starting background data services for CLI mode...")
     okx_symbols = [s.replace('/', '-') for s in symbols_to_analyze]
@@ -72,7 +72,8 @@ def main(config, fetcher, orchestrator, decision_engine):
             general_info = {
                 'symbol': symbol,
                 'analysis_type': "تحليل شامل",
-                'current_price': last_price.get('price', 0)
+                'current_price': last_price.get('price', 0),
+                'timeframes': timeframes
             }
             final_report = report_builder.build_report(
                 ranked_results=ranked_recs,
