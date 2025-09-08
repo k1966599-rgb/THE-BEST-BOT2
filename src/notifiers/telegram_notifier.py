@@ -12,7 +12,7 @@ from .base_notifier import BaseNotifier
 from ..data.base_fetcher import BaseDataFetcher
 from ..analysis.orchestrator import AnalysisOrchestrator
 from ..decision_engine.engine import DecisionEngine
-from ..reporting.report_builder import ReportBuilder
+from ..reporting.report_builder_v2 import ReportBuilderV2
 from ..config import WATCHLIST, get_config
 from ..utils.data_preprocessor import standardize_dataframe_columns
 
@@ -33,7 +33,7 @@ class InteractiveTelegramBot(BaseNotifier):
         self.fetcher = fetcher
         self.orchestrator = orchestrator
         self.decision_engine = decision_engine
-        self.report_builder = ReportBuilder(config)
+        self.report_builder = ReportBuilderV2(config)
         self.bot_state = {"is_active": True}
         self.token = self.config.get('BOT_TOKEN')
 
@@ -92,7 +92,8 @@ class InteractiveTelegramBot(BaseNotifier):
         general_info = {
             'symbol': symbol,
             'analysis_type': analysis_type,
-            'current_price': last_price_data.get('price', successful_recs[0].get('current_price', 0))
+            'current_price': last_price_data.get('price', successful_recs[0].get('current_price', 0)),
+            'timeframes': timeframes
         }
         return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
 

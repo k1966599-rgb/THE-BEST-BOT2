@@ -14,7 +14,7 @@ def trend_analysis_instance():
 
 def test_uptrend_detection(trend_analysis_instance):
     df = pd.DataFrame({
-        'Close': [i for i in range(100, 200)],
+        'close': [i for i in range(100, 200)],
         'EMA_20': [i - 5 for i in range(100, 200)],
         'EMA_50': [i - 10 for i in range(100, 200)],
         'EMA_100': [i - 15 for i in range(100, 200)],
