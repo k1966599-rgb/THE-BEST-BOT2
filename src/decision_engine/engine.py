@@ -1,3 +1,4 @@
+import pandas as pd
 from typing import Dict, Any, List, Optional
 import logging
 from .trade_setup import TradeSetup
@@ -36,12 +37,13 @@ class DecisionEngine:
         logger.warning(f"Could not find a score key in result for '{result_key}'. Defaulting to 0.")
         return 0.0
 
-    def make_recommendation(self, analysis_results: Dict[str, Any], symbol: str, timeframe: str) -> Dict[str, Any]:
+    def make_recommendation(self, analysis_results: Dict[str, Any], df: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
         """
         Calculates a final recommendation based on the collected analysis results.
         This encapsulates the logic from the old `calculate_final_recommendation`.
         """
         logger.info(f"Decision Engine: Making recommendation for {symbol} on {timeframe}.")
+        analysis_results['df'] = df
 
         # --- 1. Calculate Weighted Score ---
         scores = {

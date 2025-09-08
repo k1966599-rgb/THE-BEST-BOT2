@@ -59,6 +59,12 @@ class ReportBuilder:
         lower_band = channel_data.get('lower_band')
         if lower_band:
             section += f"🟢 **قناة سعرية دعم عند:** ${lower_band:,.2f}\n"
+
+        uptrend_line = trend_data.get('uptrend')
+        if uptrend_line:
+            trend_line_price = uptrend_line['slope'] * len(analysis.get('df', [])) + uptrend_line['intercept']
+            section += f"🟢 **ترند عند دعم:** ${trend_line_price:,.2f}\n"
+
         demand_zones = sr_data.get('all_demand_zones', [])
         if demand_zones:
             zone = demand_zones[0]
@@ -74,6 +80,11 @@ class ReportBuilder:
         upper_band = channel_data.get('upper_band')
         if upper_band:
             section += f"🔴 **قناة سعرية مقاومة عند:** ${upper_band:,.2f}\n"
+
+        downtrend_line = trend_data.get('downtrend')
+        if downtrend_line:
+            trend_line_price = downtrend_line['slope'] * len(analysis.get('df', [])) + downtrend_line['intercept']
+            section += f"🔴 **ترند عند مقاومة:** ${trend_line_price:,.2f}\n"
         supply_zones = sr_data.get('all_supply_zones', [])
         if supply_zones:
             zone = supply_zones[0]
@@ -101,7 +112,9 @@ class ReportBuilder:
             section += "❌ لا يوجد نموذج فني واضح.\n"
 
         # --- Indicators ---
-        section += "\n**📊 المؤشرات الفنية**\n**الإيجابية:** (3/5) 📊\n"
+        indicators_score = analysis.get('TechnicalIndicators', {}).get('total_score', 0)
+        indicator_rating, indicator_emoji = self._get_indicator_rating(indicators_score)
+        section += f"\n**📊 المؤشرات الفنية**\n**الإيجابية:** ({indicator_rating}/5) {indicator_emoji}\n"
 
         # --- Scenarios ---
         section += "\n**🎲 السيناريوهات المحتملة**\n"
@@ -162,6 +175,19 @@ class ReportBuilder:
                     summary += f"- {res.get('timeframe')}: ${pattern['invalidation_level']:,.2f}\n"
 
         return summary
+
+    def _get_indicator_rating(self, score: float) -> (int, str):
+        """Scales a score to a 1-5 rating and selects an emoji."""
+        if score > 4:
+            return 5, "🚀"
+        elif score > 2:
+            return 4, "📈"
+        elif score > -1:
+            return 3, "📊"
+        elif score > -3:
+            return 2, "📉"
+        else:
+            return 1, "🔻"
 
     def _format_final_recommendation(self, ranked_results: List[Dict]) -> str:
         primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
