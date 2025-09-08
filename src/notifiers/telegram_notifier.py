@@ -161,9 +161,19 @@ class InteractiveTelegramBot(BaseNotifier):
                  return
             await query.edit_message_text(text=f"جاري إعداد <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
-                final_report = await self._run_analysis_for_request(symbol, timeframes, analysis_name)
-                # Use the new function to send the report
-                await self._send_long_message(chat_id=query.message.chat_id, text=final_report, parse_mode='HTML')
+                report_parts = await self._run_analysis_for_request(symbol, timeframes, analysis_name)
+
+                # Send the report in parts
+                if report_parts.get("header"):
+                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["header"], parse_mode='HTML')
+
+                for section in report_parts.get("timeframe_sections", []):
+                    await self._send_long_message(chat_id=query.message.chat_id, text=section, parse_mode='HTML')
+                    await asyncio.sleep(1) # Delay between timeframe messages
+
+                if report_parts.get("summary_and_recommendation"):
+                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["summary_and_recommendation"], parse_mode='HTML')
+
             except Exception as e:
                 logger.exception(f"Unhandled error in bot callback for {symbol}.")
                 await query.message.reply_text(f"حدث خطأ فادح: {e}", parse_mode='HTML')
