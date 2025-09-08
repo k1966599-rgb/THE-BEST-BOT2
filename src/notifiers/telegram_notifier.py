@@ -76,7 +76,7 @@ class InteractiveTelegramBot(BaseNotifier):
                 df = standardize_dataframe_columns(df)
                 df.set_index('timestamp', inplace=True)
                 analysis_results = self.orchestrator.run(df)
-                recommendation = self.decision_engine.make_recommendation(analysis_results, symbol, tf)
+                recommendation = self.decision_engine.make_recommendation(analysis_results, df, symbol, tf)
                 recommendation['current_price'] = df['close'].iloc[-1] # Keep this for the header price
                 all_results.append({'success': True, 'recommendation': recommendation})
             except Exception as e:
