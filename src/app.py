@@ -35,7 +35,7 @@ def run_full_analysis_for_symbol(symbol: str, timeframe: str, fetcher: OKXDataFe
         df.set_index('timestamp', inplace=True)
 
         analysis_results = orchestrator.run(df)
-        recommendation = decision_engine.make_recommendation(analysis_results, df, symbol, timeframe)
+        recommendation = decision_engine.make_recommendation(analysis_results)
         recommendation['timeframe'] = timeframe
         recommendation['symbol'] = symbol
         return {'success': True, 'recommendation': recommendation}
@@ -72,8 +72,7 @@ def main(config, fetcher, orchestrator, decision_engine):
             general_info = {
                 'symbol': symbol,
                 'analysis_type': "تحليل شامل",
-                'current_price': last_price.get('price', 0),
-                'timeframes': timeframes
+                'current_price': last_price.get('price', 0)
             }
             final_report = report_builder.build_report(
                 ranked_results=ranked_recs,

@@ -58,7 +58,7 @@ class InteractiveTelegramBot(BaseNotifier):
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
-    async def _run_analysis_for_request(self, symbol: str, timeframes: list, analysis_type: str) -> str:
+    async def _run_analysis_for_request(self, symbol: str, timeframes: list, analysis_type: str) -> Dict[str, Any]:
         # This function remains the same as the previous correct version
         logger.info(f"Bot request: Starting analysis for {symbol} on timeframes: {timeframes}...")
         all_results = []
@@ -76,54 +76,25 @@ class InteractiveTelegramBot(BaseNotifier):
                 df = standardize_dataframe_columns(df)
                 df.set_index('timestamp', inplace=True)
                 analysis_results = self.orchestrator.run(df)
-                recommendation = self.decision_engine.make_recommendation(analysis_results, df, symbol, tf)
+                recommendation = self.decision_engine.make_recommendation(analysis_results)
                 recommendation['timeframe'] = tf
                 recommendation['symbol'] = symbol
-                recommendation['current_price'] = df['close'].iloc[-1] # Keep this for the header price
+                recommendation['current_price'] = df['close'].iloc[-1]
                 all_results.append({'success': True, 'recommendation': recommendation})
             except Exception as e:
                 logger.exception(f"Analysis failed for {symbol} on {tf} in bot request.")
                 all_results.append({'success': False, 'timeframe': tf, 'error': str(e)})
         successful_recs = [r['recommendation'] for r in all_results if r.get('success')]
         if not successful_recs:
-            return f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."
+            return {'error': f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."}
         ranked_recs = self.decision_engine.rank_recommendations(successful_recs)
         last_price_data = await asyncio.to_thread(self.fetcher.get_cached_price, symbol.replace('/', '-')) or {}
         general_info = {
             'symbol': symbol,
             'analysis_type': analysis_type,
-            'current_price': last_price_data.get('price', successful_recs[0].get('current_price', 0)),
-            'timeframes': timeframes
+            'current_price': last_price_data.get('price', successful_recs[0].get('current_price', 0))
         }
         return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
-
-    async def _send_long_message(self, chat_id, text: str, **kwargs):
-        """
-        Splits a long message into multiple messages if it exceeds Telegram's limit.
-        """
-        MAX_LENGTH = 4096
-        if len(text) <= MAX_LENGTH:
-            await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
-            return
-
-        parts = []
-        while len(text) > 0:
-            if len(text) > MAX_LENGTH:
-                part = text[:MAX_LENGTH]
-                first_newline = part.rfind('\n')
-                if first_newline != -1:
-                    parts.append(part[:first_newline])
-                    text = text[first_newline:]
-                else:
-                    parts.append(part)
-                    text = text[MAX_LENGTH:]
-            else:
-                parts.append(text)
-                break
-
-        for part in parts:
-            await self.bot.send_message(chat_id=chat_id, text=part, **kwargs)
-            await asyncio.sleep(0.5) # Small delay to avoid rate limiting
 
     async def _main_button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -163,19 +134,15 @@ class InteractiveTelegramBot(BaseNotifier):
                  return
             await query.edit_message_text(text=f"جاري إعداد <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
-                report_parts = await self._run_analysis_for_request(symbol, timeframes, analysis_name)
+                # _run_analysis_for_request returns a dict on error, and a string on success
+                result = await self._run_analysis_for_request(symbol, timeframes, analysis_name)
 
-                # Send the report in parts
-                if report_parts.get("header"):
-                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["header"], parse_mode='HTML')
-
-                for section in report_parts.get("timeframe_sections", []):
-                    await self._send_long_message(chat_id=query.message.chat_id, text=section, parse_mode='HTML')
-                    await asyncio.sleep(1) # Delay between timeframe messages
-
-                if report_parts.get("summary_and_recommendation"):
-                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["summary_and_recommendation"], parse_mode='HTML')
-
+                if isinstance(result, dict) and 'error' in result:
+                    await query.message.reply_text(result['error'])
+                else:
+                    # The result is the report string
+                    final_report = result
+                    await query.message.reply_text(text=final_report, parse_mode='HTML')
             except Exception as e:
                 logger.exception(f"Unhandled error in bot callback for {symbol}.")
                 await query.message.reply_text(f"حدث خطأ فادح: {e}", parse_mode='HTML')
@@ -191,7 +158,6 @@ class InteractiveTelegramBot(BaseNotifier):
             logger.error("CRITICAL: Telegram bot token not found.")
             return
         application = Application.builder().token(self.token).build()
-        self.bot = application.bot
         application.add_handler(CommandHandler("start", self._start_command))
         application.add_handler(CallbackQueryHandler(self._main_button_callback))
         logger.info("🤖 Interactive bot is starting...")
