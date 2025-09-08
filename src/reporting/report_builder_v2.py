@@ -37,9 +37,8 @@ class ReportBuilderV2:
 
     def _format_timeframe_section(self, result: Dict, priority: str) -> str:
         timeframe = result.get('timeframe', 'N/A')
-        recommendation = result.get('recommendation', {})
-        analysis = recommendation.get('raw_analysis', {})
-        current_price = recommendation.get('current_price', 0)
+        analysis = result.get('raw_analysis', {})
+        current_price = result.get('current_price', 0)
 
         section = f"فريم {timeframe} - {priority}\n"
         section += f"السعر الحالي\n${current_price:,.2f}\n\n"
@@ -188,7 +187,7 @@ class ReportBuilderV2:
         for res in ranked_results:
             tf = res.get('timeframe')
             horizon = timeframe_map.get(tf, 'غير محدد')
-            pattern_data = res.get('recommendation', {}).get('raw_analysis', {}).get('ClassicPatterns', {})
+            pattern_data = res.get('raw_analysis', {}).get('ClassicPatterns', {})
             if pattern_data.get('found_patterns'):
                 pattern_name = pattern_data['found_patterns'][0]['name']
                 if horizon not in strongest_patterns:
@@ -204,7 +203,7 @@ class ReportBuilderV2:
         critical_supports = []
         for res in ranked_results:
             tf = res.get('timeframe')
-            pattern = res.get('recommendation', {}).get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
+            pattern = res.get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
             if pattern.get('activation_level'):
                 critical_resistances.append(f"{tf} ${pattern['activation_level']:,.2f}")
             if pattern.get('invalidation_level'):
@@ -215,8 +214,7 @@ class ReportBuilderV2:
 
         # Final Recommendation based on the primary (highest ranked) result
         primary_rec = ranked_results[0]
-        primary_rec_data = primary_rec.get('recommendation', {})
-        primary_pattern = primary_rec_data.get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
+        primary_pattern = primary_rec.get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
         primary_timeframe = primary_rec.get('timeframe')
 
         text += "التوصية النهائية بعد دمج تحليل الفريمات الثلاثة\n"
@@ -234,7 +232,7 @@ class ReportBuilderV2:
         text += "استراتيجية دعم الفريمات:\n"
         for res in ranked_results[1:]: # The rest of the timeframes
              tf = res.get('timeframe')
-             pattern = res.get('recommendation', {}).get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
+             pattern = res.get('raw_analysis', {}).get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
              if pattern.get('activation_level') and pattern.get('price_target'):
                  text += f"متابعة فريم {tf} لاختراق ${pattern['activation_level']:,.2f} للأهداف ${pattern['price_target']:,.2f}\n"
 
