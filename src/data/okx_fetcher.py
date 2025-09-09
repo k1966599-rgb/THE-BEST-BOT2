@@ -87,8 +87,8 @@ class OKXDataFetcher(BaseDataFetcher):
             logger.info(f"✅ Found historical data for {cache_key} in cache.")
             return self.historical_cache[cache_key]
 
-        # Check for local JSON file
-        file_path = Path(f"{symbol}_historical.json")
+        # Check for local JSON file (filename includes timeframe for uniqueness)
+        file_path = Path(f"{symbol}_{timeframe}_historical.json")
         if file_path.exists():
             logger.info(f"💾 Loading historical data for {symbol} from {file_path}...")
             with open(file_path, 'r') as f:

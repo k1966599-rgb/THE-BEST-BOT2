@@ -34,12 +34,12 @@ class FibonacciAnalysis(BaseAnalysis):
             # In an uptrend, retracements are measured down from the high
             for ratio in self.retracement_ratios:
                 level = highest_high - (price_range * ratio)
-                retracements[f'Retracement_{ratio}'] = level
+                retracements[ratio] = level
         else:
             # In a downtrend, retracements are measured up from the low
             for ratio in self.retracement_ratios:
                 level = lowest_low + (price_range * ratio)
-                retracements[f'Retracement_{ratio}'] = level
+                retracements[ratio] = level
 
         # Classify levels as support or resistance
         support_levels = {f'{ratio*100:.1f}%': round(level, 2) for ratio, level in retracements.items() if level < current_price}

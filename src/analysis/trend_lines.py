@@ -45,8 +45,15 @@ class TrendLineAnalysis(BaseAnalysis):
             trend_line_price_at_current_time = downtrend_line['slope'] * len(data) + downtrend_line['intercept']
             if current_price < trend_line_price_at_current_time:
                 price_position = "Below Downtrend"
+        score = 0
+        if price_position == "Above Uptrend":
+            score = 10
+        elif price_position == "Below Downtrend":
+            score = -10
+
         return {
             'uptrend': uptrend_line,
             'downtrend': downtrend_line,
-            'price_position': price_position
+            'price_position': price_position,
+            'total_score': score
         }

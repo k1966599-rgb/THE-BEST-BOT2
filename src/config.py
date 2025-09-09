@@ -96,7 +96,8 @@ RECOMMENDATION_CONFIG = {
         'channels': 1.0,
         'support_resistance': 2.0,
         'fibonacci': 1.0,
-        'patterns': 3.0
+        'patterns': 3.0,
+        'trend_lines': 1.5
     },
     'THRESHOLDS': {
         'strong_buy': 20,
