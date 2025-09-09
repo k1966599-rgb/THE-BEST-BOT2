@@ -117,8 +117,8 @@ class SupportResistanceAnalysis(BaseAnalysis):
                 return {'error': 'Could not find pivots.', 'total_score': 0}
 
             # Cluster S/R levels
-            support_levels = self._cluster_levels([l for l in lows if l < current_price], current_price)
-            resistance_levels = self._cluster_levels([h for h in highs if h > current_price], current_price)
+            support_levels = self._cluster_levels([l['price'] for l in lows if l['price'] < current_price], current_price)
+            resistance_levels = self._cluster_levels([h['price'] for h in highs if h['price'] > current_price], current_price)
 
             # Create demand and supply zones
             demand_zones = self._create_zones(support_levels, data, 'demand')
