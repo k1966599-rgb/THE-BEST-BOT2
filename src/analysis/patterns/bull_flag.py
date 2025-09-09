@@ -1,67 +1,61 @@
 import numpy as np
 import pandas as pd
 from typing import Dict, List
-from sklearn.linear_model import LinearRegression
 
-def find_trend_line(x_values: List[int], y_values: List[float]) -> Dict:
-    if len(x_values) < 2: return {'slope': 0, 'intercept': 0}
-    x_array = np.array(x_values).reshape(-1, 1)
-    y_array = np.array(y_values)
-    reg = LinearRegression().fit(x_array, y_array)
-    return {'slope': reg.coef_[0], 'intercept': reg.intercept_}
+from .base_pattern import BasePattern
 
-def check_bull_flag(df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
-                   current_price: float, price_tolerance: float) -> List[Dict]:
+class BullFlag(BasePattern):
     """
-    Detects Bull Flag patterns.
+    A class for detecting the Bull Flag pattern.
     """
-    patterns = []
-    if len(highs) < 2 or len(lows) < 2:
-        return patterns
+    def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
+                 current_price: float, price_tolerance: float):
+        super().__init__(df, config, highs, lows, current_price, price_tolerance)
+        self.name = "Bull Flag"
 
-    # Find flagpole
-    for i in range(len(lows) - 1, -1, -1):
-        flagpole_start = lows[i]
-        potential_pole_highs = [h for h in highs if h['index'] > flagpole_start['index']]
-        if not potential_pole_highs: continue
+    def check(self) -> List[Dict]:
+        """
+        Checks for the Bull Flag pattern.
+        """
+        if len(self.highs) < 2 or len(self.lows) < 2:
+            return []
 
-        flagpole_end = max(potential_pole_highs, key=lambda x: x['price'])
-        flagpole_height = flagpole_end['price'] - flagpole_start['price']
+        for i in range(len(self.lows) - 1, -1, -1):
+            flagpole_start = self.lows[i]
+            potential_pole_highs = [h for h in self.highs if h['index'] > flagpole_start['index']]
+            if not potential_pole_highs: continue
 
-        if flagpole_height <= 0: continue
+            flagpole_end = max(potential_pole_highs, key=lambda x: x['price'])
+            flagpole_height = flagpole_end['price'] - flagpole_start['price']
 
-        # Find flag
-        flag_highs = [h for h in highs if h['index'] > flagpole_end['index']]
-        flag_lows = [l for l in lows if l['index'] > flagpole_end['index']]
+            if flagpole_height <= 0: continue
 
-        if len(flag_highs) < 2 or len(flag_lows) < 2: continue
+            flag_highs = [h for h in self.highs if h['index'] > flagpole_end['index']]
+            flag_lows = [l for l in self.lows if l['index'] > flagpole_end['index']]
 
-        # Check for retracement
-        deepest_low = min(flag_lows, key=lambda x: x['price'])['price']
-        if (flagpole_end['price'] - deepest_low) / flagpole_height > 0.5: # Retracement > 50%
-            continue
+            if len(flag_highs) < 2 or len(flag_lows) < 2: continue
 
-        # Check for parallel-ish channel
-        upper_line = find_trend_line([p['index'] for p in flag_highs], [p['price'] for p in flag_highs])
-        lower_line = find_trend_line([p['index'] for p in flag_lows], [p['price'] for p in flag_lows])
+            deepest_low = min(flag_lows, key=lambda x: x['price'])['price']
+            if (flagpole_end['price'] - deepest_low) / flagpole_height > 0.5:
+                continue
 
-        # Slopes should be negative (downtrending flag)
-        if upper_line['slope'] > 0 or lower_line['slope'] > 0:
-            continue
+            upper_line, lower_line = self._calculate_trend_lines(flag_highs, flag_lows)
 
-        resistance_current = upper_line['slope'] * (len(df) - 1) + upper_line['intercept']
+            if upper_line['slope'] > 0 or lower_line['slope'] > 0:
+                continue
 
-        patterns.append({
-            'name': 'علم صاعد (Bull Flag)',
-            'status': 'قيد التكوين 🟡' if current_price < resistance_current else 'مكتمل ✅',
-            'confidence': 70.0,
-            'activation_level': resistance_current,
-            'invalidation_level': min([l['price'] for l in flag_lows]),
-            'price_target': resistance_current + flagpole_height,
-            'stop_loss': min([l['price'] for l in flag_lows]) * 0.99
-        })
-        # Found the most recent one, break
-        if patterns:
-            break
+            resistance_current = upper_line['slope'] * (len(self.df) - 1) + upper_line['intercept']
 
-    return patterns
+            self.found_patterns.append({
+                'name': 'علم صاعد (Bull Flag)',
+                'status': 'قيد التكوين 🟡' if self.current_price < resistance_current else 'مكتمل ✅',
+                'confidence': 70.0,
+                'activation_level': resistance_current,
+                'invalidation_level': min([l['price'] for l in flag_lows]),
+                'price_target': resistance_current + flagpole_height,
+                'stop_loss': min([l['price'] for l in flag_lows]) * 0.99
+            })
+            if self.found_patterns:
+                break
+
+        return self.found_patterns

@@ -5,8 +5,8 @@ from .patterns.pattern_utils import get_pivots, calculate_dynamic_confidence
 
 # Import all the individual pattern checker functions
 from .patterns.ascending_triangle import AscendingTriangle
-from .patterns.bull_flag import check_bull_flag
-from .patterns.double_bottom import check_double_bottom
+from .patterns.bull_flag import BullFlag
+from .patterns.double_bottom import DoubleBottom
 from .patterns.bear_flag import BearFlag
 from .patterns.falling_wedge import FallingWedge
 from .patterns.rising_wedge import RisingWedge
@@ -18,8 +18,8 @@ class ClassicPatterns(BaseAnalysis):
         self.price_tolerance = self.config.get('PATTERN_PRICE_TOLERANCE', 0.03)
         self.pattern_checkers = [
             AscendingTriangle,
-            check_bull_flag,
-            check_double_bottom,
+            BullFlag,
+            DoubleBottom,
             BearFlag,
             FallingWedge,
             RisingWedge,
