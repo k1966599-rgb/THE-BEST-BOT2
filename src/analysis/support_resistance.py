@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any
 from .base_analysis import BaseAnalysis
 import logging
 from .patterns.pattern_utils import get_pivots

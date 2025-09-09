@@ -3,76 +3,75 @@ import pandas as pd
 from typing import Dict, List
 from sklearn.linear_model import LinearRegression
 
-from .pattern_utils import calculate_dynamic_confidence # Import from the central location
+from .base_pattern import BasePattern
 
-def check_ascending_triangle(df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
-                           current_price: float, price_tolerance: float) -> List[Dict]:
+class AscendingTriangle(BasePattern):
     """
-    Detects Ascending Triangle patterns.
-    This function contains the core logic and will be called by the analysis module.
+    A class for detecting the Ascending Triangle pattern.
     """
-    patterns = []
-    if len(highs) < 2 or len(lows) < 2:
-        return patterns
+    def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
+                 current_price: float, price_tolerance: float):
+        super().__init__(df, config, highs, lows, current_price, price_tolerance)
+        self.name = "Ascending Triangle"
 
-    # Find a flat resistance line
-    resistance_candidates = []
-    for i in range(len(highs) - 1):
-        for j in range(i + 1, len(highs)):
-            price_diff = abs(highs[j]['price'] - highs[i]['price']) / highs[i]['price']
-            if price_diff <= price_tolerance:
-                resistance_candidates.append((highs[i], highs[j]))
+    def check(self) -> List[Dict]:
+        """
+        Checks for the Ascending Triangle pattern.
+        """
+        if len(self.highs) < 2 or len(self.lows) < 2:
+            return []
 
-    if not resistance_candidates:
-        return patterns
+        resistance_candidates = []
+        for i in range(len(self.highs) - 1):
+            for j in range(i + 1, len(self.highs)):
+                price_diff = abs(self.highs[j]['price'] - self.highs[i]['price']) / self.highs[i]['price']
+                if price_diff <= self.price_tolerance:
+                    resistance_candidates.append((self.highs[i], self.highs[j]))
 
-    # Find the best resistance line (most touches, most recent)
-    best_resistance_price = 0
-    max_touches = 0
-    for r_pair in resistance_candidates:
-        price = np.mean([p['price'] for p in r_pair])
-        touches = len([h for h in highs if abs(h['price'] - price) / price <= price_tolerance])
-        if touches > max_touches:
-            max_touches = touches
-            best_resistance_price = price
+        if not resistance_candidates:
+            return []
 
-    if best_resistance_price == 0:
-        return patterns
+        best_resistance_price = 0
+        max_touches = 0
+        for r_pair in resistance_candidates:
+            price = np.mean([p['price'] for p in r_pair])
+            touches = len([h for h in self.highs if abs(h['price'] - price) / price <= self.price_tolerance])
+            if touches > max_touches:
+                max_touches = touches
+                best_resistance_price = price
 
-    resistance_line_price = best_resistance_price
+        if best_resistance_price == 0:
+            return []
 
-    # Find higher lows below the resistance
-    support_lows = [l for l in lows if l['price'] < resistance_line_price]
-    if len(support_lows) < 2:
-        return patterns
+        resistance_line_price = best_resistance_price
 
-    # Fit a line to the lows
-    x = np.array([l['index'] for l in support_lows]).reshape(-1, 1)
-    y = np.array([l['price'] for l in support_lows])
-    lr = LinearRegression().fit(x, y)
+        support_lows = [l for l in self.lows if l['price'] < resistance_line_price]
+        if len(support_lows) < 2:
+            return []
 
-    # Check if the support line is ascending
-    if lr.coef_[0] <= 0:
-        return patterns
+        x = np.array([l['index'] for l in support_lows]).reshape(-1, 1)
+        y = np.array([l['price'] for l in support_lows])
+        lr = LinearRegression().fit(x, y)
 
-    # Check for convergence
-    current_support_price = lr.predict(np.array([[len(df)-1]]))[0]
-    if current_support_price > resistance_line_price:
-        return patterns # Lines have crossed
+        if lr.coef_[0] <= 0:
+            return []
 
-    # Calculate target and stop loss
-    height = resistance_line_price - lr.predict(np.array([[support_lows[0]['index']]]))[0]
-    target = resistance_line_price + height
-    stop_loss = support_lows[-1]['price'] * 0.99 # 1% below the last low
+        current_support_price = lr.predict(np.array([[len(self.df)-1]]))[0]
+        if current_support_price > resistance_line_price:
+            return []
 
-    patterns.append({
-        'name': 'مثلث صاعد (Ascending Triangle)',
-        'status': 'قيد التكوين 🟡' if current_price < resistance_line_price else 'مكتمل ✅',
-        'confidence': 75.0, # Placeholder, can use dynamic confidence later
-        'activation_level': resistance_line_price,
-        'invalidation_level': stop_loss,
-        'price_target': target,
-        'stop_loss': stop_loss
-    })
+        height = resistance_line_price - lr.predict(np.array([[support_lows[0]['index']]]))[0]
+        target = resistance_line_price + height
+        stop_loss = support_lows[-1]['price'] * 0.99
 
-    return patterns
+        self.found_patterns.append({
+            'name': 'مثلث صاعد (Ascending Triangle)',
+            'status': 'قيد التكوين 🟡' if self.current_price < resistance_line_price else 'مكتمل ✅',
+            'confidence': 75.0,
+            'activation_level': resistance_line_price,
+            'invalidation_level': stop_loss,
+            'price_target': target,
+            'stop_loss': stop_loss
+        })
+
+        return self.found_patterns

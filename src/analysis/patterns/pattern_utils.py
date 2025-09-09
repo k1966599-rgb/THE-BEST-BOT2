@@ -30,9 +30,18 @@ def calculate_dynamic_confidence(df: pd.DataFrame, base_confidence: float = 70) 
     return min(95, max(30, confidence))
 
 def find_trend_line(x_values: List[int], y_values: List[float]) -> Dict:
-    """Finds a trend line using linear regression."""
-    if len(x_values) < 2: return {'slope': 0, 'intercept': 0}
+    """إيجاد خط الاتجاه باستخدام الانحدار الخطي"""
+    if len(x_values) < 2 or len(y_values) < 2:
+        return {'slope': 0, 'intercept': 0, 'r_squared': 0}
+
     x_array = np.array(x_values).reshape(-1, 1)
     y_array = np.array(y_values)
+
     reg = LinearRegression().fit(x_array, y_array)
-    return {'slope': reg.coef_[0], 'intercept': reg.intercept_}
+    r_squared = reg.score(x_array, y_array)
+
+    return {
+        'slope': reg.coef_[0],
+        'intercept': reg.intercept_,
+        'r_squared': r_squared
+    }
