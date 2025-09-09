@@ -73,10 +73,9 @@ class ReportBuilder:
         if lower_band:
             section += f"🟢 قناة سعرية دعم عند: ${lower_band:,.2f}\n"
 
-        uptrend_line_data = analysis.get('TrendLineAnalysis', {}).get('uptrend')
-        if uptrend_line_data:
-            trend_line_price = uptrend_line_data['slope'] * len(analysis.get('df', [])) + uptrend_line_data['intercept']
-            section += f"🟢 ترند عند دعم: ${trend_line_price:,.2f}\n"
+        support_trendline_price = analysis.get('TrendLineAnalysis', {}).get('support_trendline_price')
+        if support_trendline_price:
+            section += f"🟢 ترند عند دعم: ${support_trendline_price:,.2f}\n"
 
         demand_zones = sr_data.get('all_demand_zones', [])
         if demand_zones:
@@ -99,10 +98,9 @@ class ReportBuilder:
         if upper_band:
             section += f"🔴 قناة سعرية مقاومة عند: ${upper_band:,.2f}\n"
 
-        downtrend_line_data = analysis.get('TrendLineAnalysis', {}).get('downtrend')
-        if downtrend_line_data:
-            trend_line_price = downtrend_line_data['slope'] * len(analysis.get('df', [])) + downtrend_line_data['intercept']
-            section += f"🔴 ترند عند مقاومة: ${trend_line_price:,.2f}\n"
+        resistance_trendline_price = analysis.get('TrendLineAnalysis', {}).get('resistance_trendline_price')
+        if resistance_trendline_price:
+            section += f"🔴 ترند عند مقاومة: ${resistance_trendline_price:,.2f}\n"
 
         fib_resistances = analysis.get('FibonacciAnalysis', {}).get('resistances', {})
         if fib_resistances:
@@ -168,7 +166,8 @@ class ReportBuilder:
 
         section += f"📈 السيناريو الصاعد ({bull_prob}%)**\n- اختراق المقاومة ${activation:,.2f} ➡️ الهدف الأول ${target:,.2f}\n\n"
         section += f"➡️ السيناريو المحايد ({neutral_prob}%)**\n- البقاء داخل النطاق ➡️ تداول عرضي بين ${invalidation:,.2f} – ${activation:,.2f}\n\n"
-        section += f"📉 السيناريو الهابط ({bear_prob}%)**\n- كسر الدعم ${invalidation:,.2f} ➡️ الهدف الأول ${invalidation:,.2f}\n"
+        bearish_target = invalidation - (activation - invalidation)
+        section += f"📉 السيناريو الهابط ({bear_prob}%)**\n- كسر الدعم ${invalidation:,.2f} ➡️ الهدف الأول ${bearish_target:,.2f}\n"
 
         return section
 
