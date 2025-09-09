@@ -61,15 +61,13 @@ class InteractiveTelegramBot(BaseNotifier):
                     [InlineKeyboardButton("🔙 رجوع لقائمة العملات", callback_data="analyze_menu")]]
         return InlineKeyboardMarkup(keyboard)
 
-    def _get_follow_keyboard(self, trade_setups: List[TradeSetup]) -> InlineKeyboardMarkup:
-        keyboard = []
-        for setup in trade_setups:
-            symbol = setup.symbol
-            timeframe = setup.timeframe
-            keyboard.append([
-                InlineKeyboardButton(f"📈 متابعة {symbol} على فريم {timeframe}", callback_data=f"follow_{symbol}_{timeframe}")
-            ])
-        keyboard.append([InlineKeyboardButton("🗑️ تجاهل الكل", callback_data="ignore")])
+    def _get_follow_keyboard(self, trade_setup: TradeSetup) -> InlineKeyboardMarkup:
+        symbol = trade_setup.symbol
+        timeframe = trade_setup.timeframe
+        keyboard = [[
+            InlineKeyboardButton(f"📈 متابعة توصية {symbol}/{timeframe}", callback_data=f"follow_{symbol}_{timeframe}"),
+            InlineKeyboardButton("🗑️ تجاهل", callback_data="ignore")
+        ]]
         return InlineKeyboardMarkup(keyboard)
 
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -98,9 +96,6 @@ class InteractiveTelegramBot(BaseNotifier):
 
                 analysis_results = self.orchestrator.run(df)
                 recommendation = self.decision_engine.make_recommendation(analysis_results, df, symbol, tf)
-                recommendation['timeframe'] = tf
-                recommendation['symbol'] = symbol
-                recommendation['current_price'] = df['close'].iloc[-1]
                 all_results.append({'success': True, 'recommendation': recommendation})
             except Exception as e:
                 logger.exception(f"Analysis failed for {symbol} on {tf} in bot request.")
@@ -186,25 +181,25 @@ class InteractiveTelegramBot(BaseNotifier):
 
                 if 'error' in report_parts:
                     await query.message.reply_text(report_parts['error'])
-                else:
-                    if report_parts.get("header"):
-                        await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["header"], parse_mode='HTML')
+                    return
 
-                    for section in report_parts.get("timeframe_sections", []):
-                        await self._send_long_message(chat_id=query.message.chat_id, text=section, parse_mode='HTML')
-                        await asyncio.sleep(1)
+                if report_parts.get("header"):
+                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["header"], parse_mode='HTML')
 
-                    if report_parts.get("summary_and_recommendation"):
-                        await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["summary_and_recommendation"], parse_mode='HTML')
+                for section in report_parts.get("timeframe_sections", []):
+                    await self._send_long_message(chat_id=query.message.chat_id, text=section, parse_mode='HTML')
+                    await asyncio.sleep(1)
 
-                    ranked_results = report_parts.get('ranked_results', [])
-                    self.last_analysis_results[query.message.chat_id] = ranked_results
+                if report_parts.get("summary_and_recommendation"):
+                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["summary_and_recommendation"], parse_mode='HTML')
 
-                    trade_setups = [rec['trade_setup'] for rec in ranked_results if rec.get('trade_setup')]
-                    if trade_setups:
-                        await query.message.reply_text(text="اختر التحليل الذي تريد متابعته:", reply_markup=self._get_follow_keyboard(trade_setups))
-                    else:
-                        await query.message.reply_text(text="لم يتم العثور على صفقات قابلة للمتابعة في هذا التحليل.")
+                ranked_results = report_parts.get('ranked_results', [])
+                primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
+
+                if primary_rec and primary_rec.get('trade_setup'):
+                    trade_setup = primary_rec['trade_setup']
+                    self.last_analysis_results[query.message.chat_id] = trade_setup
+                    await query.message.reply_text(text="هل تريد متابعة هذه التوصية النهائية؟", reply_markup=self._get_follow_keyboard(trade_setup))
 
             except Exception as e:
                 logger.exception(f"Unhandled error in bot callback for {symbol}.")
@@ -216,8 +211,8 @@ class InteractiveTelegramBot(BaseNotifier):
             timeframe = parts[2]
             chat_id = query.message.chat_id
             if chat_id in self.last_analysis_results:
-                trade_setup = next((rec['trade_setup'] for rec in self.last_analysis_results[chat_id] if rec.get('trade_setup') and rec['trade_setup'].symbol == symbol and rec['trade_setup'].timeframe == timeframe), None)
-                if trade_setup:
+                trade_setup = self.last_analysis_results[chat_id]
+                if trade_setup and trade_setup.symbol == symbol and trade_setup.timeframe == timeframe:
                     self.followed_trades[f"{symbol}_{timeframe}"] = {"setup": trade_setup, "chat_id": chat_id}
                     await query.edit_message_text(text=f"✅ تمت إضافة {symbol} على فريم {timeframe} للمتابعة.")
                 else:
@@ -237,22 +232,22 @@ class InteractiveTelegramBot(BaseNotifier):
         """
         Sends a trade alert to the user.
         """
+        message = ""
         if alert_type == 'entry':
             message = f"🔔 تنبيه دخول: تم الوصول إلى سعر الدخول لـ {trade_setup.symbol} عند {trade_setup.entry_price:,.2f}"
         elif alert_type == 'stop_loss':
             message = f"🛑 تنبيه وقف الخسارة: تم الوصول إلى وقف الخسارة لـ {trade_setup.symbol} عند {trade_setup.stop_loss:,.2f}"
         elif alert_type == 'target1':
             message = f"🎯 تنبيه تحقيق الهدف الأول: تم الوصول إلى الهدف الأول لـ {trade_setup.symbol} عند {trade_setup.target1:,.2f}"
-        elif alert_type == 'target2':
+        elif alert_type == 'target2' and trade_setup.target2:
             message = f"🎯 تنبيه تحقيق الهدف الثاني: تم الوصول إلى الهدف الثاني لـ {trade_setup.symbol} عند {trade_setup.target2:,.2f}"
-        else:
-            return
 
-        await self.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+        if message:
+            await self.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
 
     async def _monitor_followed_trades(self):
         while True:
-            await asyncio.sleep(10) # Check every 10 seconds
+            await asyncio.sleep(10)
             for key, data in list(self.followed_trades.items()):
                 trade_setup = data['setup']
                 chat_id = data['chat_id']
@@ -276,7 +271,10 @@ class InteractiveTelegramBot(BaseNotifier):
 
                 if trade_setup.target1 and current_price >= trade_setup.target1:
                     await self._send_trade_alert(trade_setup, 'target1', chat_id)
-                    del self.followed_trades[key]
+                    if not trade_setup.target2:
+                        del self.followed_trades[key]
+                    else:
+                        trade_setup.target1 = None
                     continue
 
                 if trade_setup.target2 and current_price >= trade_setup.target2:
@@ -298,5 +296,4 @@ class InteractiveTelegramBot(BaseNotifier):
         application.add_handler(CallbackQueryHandler(self._main_button_callback))
 
         logger.info("🤖 Interactive bot and trade monitor are starting...")
-        # Start the bot
         application.run_polling()
