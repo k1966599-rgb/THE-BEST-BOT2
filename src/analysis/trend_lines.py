@@ -16,15 +16,13 @@ class TrendLineAnalysis(BaseAnalysis):
         super().__init__(config, timeframe)
         self.long_period = self.config.get('TREND_LONG_PERIOD', 100)
 
-    def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
-        data = df.tail(self.long_period)
-        if len(data) < 20:
-            return {'support_trendline': None, 'resistance_trendline': None, 'price_position': 'N/A'}
-
+    def _get_pivots(self, data: pd.DataFrame) -> (list, list):
         prominence = data['close'].std() * 0.75
         high_pivots_idx, _ = find_peaks(data['high'], prominence=prominence, distance=5)
         low_pivots_idx, _ = find_peaks(-data['low'], prominence=prominence, distance=5)
+        return high_pivots_idx, low_pivots_idx
 
+    def _get_trend_lines(self, data: pd.DataFrame, high_pivots_idx: list, low_pivots_idx: list) -> (dict, dict):
         support_trend = None
         resistance_trend = None
 
@@ -40,9 +38,31 @@ class TrendLineAnalysis(BaseAnalysis):
             p2 = (p2_idx, data['high'].iloc[p2_idx])
             resistance_trend = get_line_equation(p1, p2)
 
-        current_price = data['close'].iloc[-1]
-        current_time_index = len(data) -1
+        return support_trend, resistance_trend
 
+    def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
+        data = df.tail(self.long_period)
+        if len(data) < 20:
+            return {'support_trendline': None, 'resistance_trendline': None, 'price_position': 'N/A'}
+
+        high_pivots_idx, low_pivots_idx = self._get_pivots(data)
+        support_trend, resistance_trend = self._get_trend_lines(data, high_pivots_idx, low_pivots_idx)
+
+        current_price = data['close'].iloc[-1]
+        current_time_index = len(data) - 1
+
+        support_price, resistance_price, price_position, score = self._calculate_price_position_and_score(
+            support_trend, resistance_trend, current_price, current_time_index
+        )
+
+        return {
+            'support_trendline_price': support_price,
+            'resistance_trendline_price': resistance_price,
+            'price_position': price_position,
+            'total_score': score
+        }
+
+    def _calculate_price_position_and_score(self, support_trend, resistance_trend, current_price, current_time_index):
         support_price = None
         resistance_price = None
         price_position = "N/A"
@@ -66,10 +86,4 @@ class TrendLineAnalysis(BaseAnalysis):
                         price_position = "Between Lines"
                     score = -10 if score == 0 else 0
 
-
-        return {
-            'support_trendline_price': support_price,
-            'resistance_trendline_price': resistance_price,
-            'price_position': price_position,
-            'total_score': score
-        }
+        return support_price, resistance_price, price_position, score

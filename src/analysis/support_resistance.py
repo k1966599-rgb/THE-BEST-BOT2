@@ -19,7 +19,7 @@ class SupportResistanceAnalysis(BaseAnalysis):
         self.min_touches = overrides.get('SR_MIN_TOUCHES', self.config.get('SR_MIN_TOUCHES', 2))
         self.zone_factor = overrides.get('SR_ZONE_FACTOR', self.config.get('SR_ZONE_FACTOR', 0.8)) # Percentage of ATR for zone height
 
-    def _cluster_levels(self, levels: List[float], current_price: float) -> List[float]:
+    def _cluster_levels(self, levels: List[float]) -> List[float]:
         """
         Clusters a list of price levels to find significant S/R areas.
         """
@@ -54,12 +54,10 @@ class SupportResistanceAnalysis(BaseAnalysis):
             zone_start = level - (atr / 2)
             zone_end = level + (atr / 2)
 
-            # Count touches within the zone
             touches = df[(df['low'] <= zone_end) & (df['high'] >= zone_start)]
             touch_count = len(touches)
 
             if touch_count >= self.min_touches:
-                # Calculate volume in the zone
                 volume_in_zone = touches['volume'].sum()
 
                 zones.append({
@@ -80,13 +78,8 @@ class SupportResistanceAnalysis(BaseAnalysis):
             return []
 
         for zone in zones:
-            # Strength based on touches
-            touch_score = min(zone['touches'] / (self.min_touches * 2), 1.0) # Normalize
-
-            # Strength based on volume
-            volume_score = min(zone['volume'] / (total_volume * 0.1), 1.0) # Normalize
-
-            # Combine scores
+            touch_score = min(zone['touches'] / (self.min_touches * 2), 1.0)
+            volume_score = min(zone['volume'] / (total_volume * 0.1), 1.0)
             total_strength = (touch_score * 0.6) + (volume_score * 0.4)
 
             if total_strength > 0.75:
@@ -100,6 +93,22 @@ class SupportResistanceAnalysis(BaseAnalysis):
             zone['strength_text'] = strength_text
 
         return sorted(zones, key=lambda x: x['strength_score'], reverse=True)
+
+    def _calculate_score(self, rated_zones: List[Dict], current_price: float, is_demand: bool) -> float:
+        """
+        Calculates the score for a set of zones.
+        """
+        score = 0
+        if not rated_zones:
+            return score
+
+        closest_zone = min(rated_zones, key=lambda z: abs(z['level'] - current_price))
+        distance_factor = 1 - min(abs(current_price - closest_zone['level']) / current_price, 1)
+
+        score_modifier = 10 if is_demand else -10
+        score += closest_zone['strength_score'] * score_modifier * distance_factor
+
+        return score
 
     def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
@@ -116,32 +125,18 @@ class SupportResistanceAnalysis(BaseAnalysis):
             if not highs or not lows:
                 return {'error': 'Could not find pivots.', 'total_score': 0}
 
-            # Cluster S/R levels
-            support_levels = self._cluster_levels([l['price'] for l in lows if l['price'] < current_price], current_price)
-            resistance_levels = self._cluster_levels([h['price'] for h in highs if h['price'] > current_price], current_price)
+            support_levels = self._cluster_levels([l['price'] for l in lows if l['price'] < current_price])
+            resistance_levels = self._cluster_levels([h['price'] for h in highs if h['price'] > current_price])
 
-            # Create demand and supply zones
             demand_zones = self._create_zones(support_levels, data, 'demand')
             supply_zones = self._create_zones(resistance_levels, data, 'supply')
 
-            # Rate zone strength
             total_volume = data['volume'].sum()
             rated_demand_zones = self._rate_zone_strength(demand_zones, total_volume)
             rated_supply_zones = self._rate_zone_strength(supply_zones, total_volume)
 
-            # Scoring logic
-            score = 0
-            if rated_demand_zones:
-                closest_demand = min(rated_demand_zones, key=lambda z: abs(z['level'] - current_price))
-                # Higher score if price is close to strong demand
-                distance_factor = 1 - min(abs(current_price - closest_demand['level']) / current_price, 1)
-                score += closest_demand['strength_score'] * 10 * distance_factor
-
-            if rated_supply_zones:
-                closest_supply = min(rated_supply_zones, key=lambda z: abs(z['level'] - current_price))
-                # Lower score if price is close to strong supply
-                distance_factor = 1 - min(abs(current_price - closest_supply['level']) / current_price, 1)
-                score -= closest_supply['strength_score'] * 10 * distance_factor
+            score = self._calculate_score(rated_demand_zones, current_price, is_demand=True)
+            score += self._calculate_score(rated_supply_zones, current_price, is_demand=False)
 
             return {
                 'supports': sorted([round(s, 4) for s in support_levels], reverse=True),
@@ -151,6 +146,6 @@ class SupportResistanceAnalysis(BaseAnalysis):
                 'total_score': round(score, 2)
             }
 
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             logger.exception("Error during S/R analysis")
             return {'error': str(e), 'total_score': 0}
