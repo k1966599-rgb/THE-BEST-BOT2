@@ -218,13 +218,19 @@ class ReportBuilder:
 
     def _format_final_recommendation(self, ranked_results: List[Dict]) -> str:
         primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
-        if not primary_rec:
-            return "🎯 التوصية النهائية\n\n❌ لا توجد توصية واضحة حاليًا."
 
-        setup: TradeSetup = primary_rec['trade_setup']
+        rec_text = "🎯 التوصية النهائية\n\n"
+
+        if not primary_rec:
+            rec_text += "❌ لا توجد توصية واضحة حاليًا."
+            return rec_text
+
+        setup: TradeSetup = primary_rec.get('trade_setup')
+        if not setup:
+            rec_text += "❌ لا توجد توصية واضحة حاليًا."
+            return rec_text
 
         rec_text = "🎯 التوصية النهائية بعد دمج تحليل الفريمات الثلاثة\n\n"
-
         rec_text += "🚀 الدخول الأساسي\n"
 
         fib_resistances = primary_rec.get('raw_analysis', {}).get('FibonacciAnalysis', {}).get('resistances', {})
@@ -241,6 +247,8 @@ class ReportBuilder:
         rec_text += f"🥇 الهدف الأول: ${setup.target1:,.2f}\n"
         if setup.target2:
             rec_text += f"🥈 الهدف الثاني: ${setup.target2:,.2f}\n\n"
+        else:
+            rec_text += "\n"
 
         rec_text += f"🛑 وقف الخسارة\n❌ عند كسر الدعم ${setup.stop_loss:,.2f} (فريم {setup.timeframe})\n\n"
 
@@ -260,11 +268,15 @@ class ReportBuilder:
             rec_text += f"🚨 {condition}\n"
 
         rec_text += "\n🔄 استراتيجية دعم الفريمات\n"
-        for res in ranked_results:
-            if res.get('trade_setup') and res['trade_setup'] != setup:
+        supporting_recs = [r for r in ranked_results if r.get('trade_setup') and r['trade_setup'] != setup]
+        if supporting_recs:
+            for res in supporting_recs:
                 other_setup = res['trade_setup']
                 rec_text += f"📊 متابعة فريم {other_setup.timeframe} لاختراق ${other_setup.entry_price:,.2f} للأهداف ${other_setup.target1:,.2f}\n"
+        else:
+            rec_text += "لا توجد فريمات أخرى داعمة حاليًا.\n"
 
-        rec_text += "\n⚠️ ملاحظات مهمة\n🚨 إذا أي فريم يعطي إشارة عكسية قوية (كسر الدعم أو ضعف المؤشرات) ➡️ إعادة تقييم الدخول أو ضبط وقف الخسارة"
+
+        rec_text += "\n⚠️ ملاحظات مهمة\n🚨 إذا أي فريم يعطي إشارة عكسية قوية (كسر الدعم أو ضعف المؤشرات) ➡️ إعادة تقييم الدخول أو ضبط وقف الخsارة"
 
         return rec_text
