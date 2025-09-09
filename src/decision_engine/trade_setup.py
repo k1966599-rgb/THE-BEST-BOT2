@@ -7,6 +7,7 @@ class TradeSetup:
     Data class to hold all information about a potential trade setup.
     """
     # --- Core Pattern Info ---
+    chat_id: int
     symbol: str
     timeframe: str
     pattern_name: str
