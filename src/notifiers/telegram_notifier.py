@@ -3,7 +3,7 @@ import re
 import time
 import anyio
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, List
 import pandas as pd
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
