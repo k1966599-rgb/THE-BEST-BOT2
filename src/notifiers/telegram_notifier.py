@@ -201,12 +201,11 @@ class InteractiveTelegramBot(BaseNotifier):
                     if trade_setups:
                         await query.message.reply_text(text="اختر التحليل الذي تريد متابعته:", reply_markup=self._get_follow_keyboard(trade_setups))
                     else:
-                        await query.message.reply_text(text="لم يتم العثور على صفقات قابلة للمتابعة في هذا التحليل.")
+                        await query.message.reply_text(text="لم يتم العثور على صفقات قابلة للمتابعة في هذا التحليل.", reply_markup=self._get_main_keyboard())
 
             except Exception as e:
                 logger.exception(f"Unhandled error in bot callback for {symbol}.")
                 await query.message.reply_text(f"حدث خطأ فادح: {e}", parse_mode='HTML')
-            finally:
                 await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
         elif callback_data.startswith("follow_"):
@@ -225,7 +224,7 @@ class InteractiveTelegramBot(BaseNotifier):
                 await query.edit_message_text(text="❌ انتهت صلاحية التحليل. يرجى طلب تحليل جديد.")
 
         elif callback_data == "ignore":
-            await query.edit_message_text(text="تم تجاهل التحليل.")
+            await query.edit_message_text(text="تم تجاهل التحليل.", reply_markup=self._get_main_keyboard())
 
     def send(self, message: str, parse_mode: str = 'HTML') -> bool:
         logger.info("The `send` method is not implemented for the interactive bot. Use `start()` instead.")
@@ -286,16 +285,14 @@ class InteractiveTelegramBot(BaseNotifier):
             logger.error("CRITICAL: Telegram bot token not found.")
             return
 
-        async def main():
-            application = Application.builder().token(self.token).build()
-            self.bot = application.bot
-            application.add_handler(CommandHandler("start", self._start_command))
-            application.add_handler(CallbackQueryHandler(self._main_button_callback))
+        application = Application.builder().token(self.token).build()
+        self.bot = application.bot
+        application.add_handler(CommandHandler("start", self._start_command))
+        application.add_handler(CallbackQueryHandler(self._main_button_callback))
 
-            # Run the bot and the monitor concurrently
-            async with asyncio.TaskGroup() as tg:
-                tg.create_task(application.run_polling(allowed_updates=Update.ALL_TYPES))
-                tg.create_task(self._monitor_followed_trades())
-                logger.info("🤖 Interactive bot and trade monitor are starting...")
+        # Run the monitor as a background task managed by the application
+        application.create_task(self._monitor_followed_trades())
 
-        asyncio.run(main())
+        logger.info("🤖 Interactive bot and trade monitor are starting...")
+        # Start the bot
+        application.run_polling()
