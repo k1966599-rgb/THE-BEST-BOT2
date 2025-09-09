@@ -50,7 +50,7 @@ def run_full_analysis_for_symbol(
         df.set_index('timestamp', inplace=True)
 
         analysis_results = orchestrator.run(df)
-        recommendation = decision_engine.make_recommendation(analysis_results)
+        recommendation = decision_engine.make_recommendation(analysis_results, df, symbol, timeframe)
         recommendation['timeframe'] = timeframe
         recommendation['symbol'] = symbol
         return {'success': True, 'recommendation': recommendation}
