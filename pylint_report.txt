@@ -1,0 +1,408 @@
+************* Module src.app
+src/app.py:60:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src/app.py:72:0: R0914: Too many local variables (16/15) (too-many-locals)
+************* Module src.config
+src/config.py:122:0: C0301: Line too long (149/100) (line-too-long)
+src/config.py:137:0: C0116: Missing function or method docstring (missing-function-docstring)
+************* Module src.analysis.orchestrator
+src/analysis/orchestrator.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/orchestrator.py:6:0: C0115: Missing class docstring (missing-class-docstring)
+src/analysis/orchestrator.py:10:4: C0116: Missing function or method docstring (missing-function-docstring)
+src/analysis/orchestrator.py:6:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/orchestrator.py:2:0: C0411: standard import "typing.Dict" should be placed before third party import "pandas" (wrong-import-order)
+************* Module src.analysis.base_analysis
+src/analysis/base_analysis.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/base_analysis.py:32:8: W0107: Unnecessary pass statement (unnecessary-pass)
+src/analysis/base_analysis.py:5:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/base_analysis.py:3:0: C0411: standard import "typing.Dict" should be placed before third party import "pandas" (wrong-import-order)
+************* Module src.analysis.support_resistance
+src/analysis/support_resistance.py:18:0: C0301: Line too long (110/100) (line-too-long)
+src/analysis/support_resistance.py:20:0: C0301: Line too long (134/100) (line-too-long)
+src/analysis/support_resistance.py:43:0: C0301: Line too long (107/100) (line-too-long)
+src/analysis/support_resistance.py:75:0: C0301: Line too long (108/100) (line-too-long)
+src/analysis/support_resistance.py:120:0: C0301: Line too long (104/100) (line-too-long)
+src/analysis/support_resistance.py:121:0: C0301: Line too long (108/100) (line-too-long)
+src/analysis/support_resistance.py:135:0: C0301: Line too long (103/100) (line-too-long)
+src/analysis/support_resistance.py:137:0: C0301: Line too long (106/100) (line-too-long)
+src/analysis/support_resistance.py:141:0: C0301: Line too long (103/100) (line-too-long)
+src/analysis/support_resistance.py:143:0: C0301: Line too long (106/100) (line-too-long)
+src/analysis/support_resistance.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/support_resistance.py:22:51: W0613: Unused argument 'current_price' (unused-argument)
+src/analysis/support_resistance.py:104:4: R0914: Too many local variables (18/15) (too-many-locals)
+src/analysis/support_resistance.py:154:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/analysis/support_resistance.py:10:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/support_resistance.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/support_resistance.py:5:0: C0411: standard import "logging" should be placed before third party imports "pandas", "numpy" and local import "base_analysis.BaseAnalysis" (wrong-import-order)
+************* Module src.analysis.technical_score
+src/analysis/technical_score.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/technical_score.py:5:0: C0115: Missing class docstring (missing-class-docstring)
+src/analysis/technical_score.py:5:0: R0902: Too many instance attributes (8/7) (too-many-instance-attributes)
+src/analysis/technical_score.py:17:4: R0912: Too many branches (14/12) (too-many-branches)
+src/analysis/technical_score.py:5:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/technical_score.py:2:0: C0411: standard import "typing.Dict" should be placed before third party import "pandas" (wrong-import-order)
+************* Module src.analysis.trend_lines
+src/analysis/trend_lines.py:41:0: C0301: Line too long (108/100) (line-too-long)
+src/analysis/trend_lines.py:45:0: C0301: Line too long (112/100) (line-too-long)
+src/analysis/trend_lines.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/trend_lines.py:6:0: C0116: Missing function or method docstring (missing-function-docstring)
+src/analysis/trend_lines.py:9:17: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/trend_lines.py:14:0: C0115: Missing class docstring (missing-class-docstring)
+src/analysis/trend_lines.py:19:4: R0914: Too many local variables (16/15) (too-many-locals)
+src/analysis/trend_lines.py:14:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/trend_lines.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "pandas", "scipy.signal.find_peaks" (wrong-import-order)
+************* Module src.analysis.channels
+src/analysis/channels.py:19:0: C0301: Line too long (129/100) (line-too-long)
+src/analysis/channels.py:29:0: C0301: Line too long (120/100) (line-too-long)
+src/analysis/channels.py:65:0: C0301: Line too long (101/100) (line-too-long)
+src/analysis/channels.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/channels.py:21:4: R0914: Too many local variables (21/15) (too-many-locals)
+src/analysis/channels.py:97:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/analysis/channels.py:98:12: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+src/analysis/channels.py:10:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/channels.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/channels.py:5:0: C0411: standard import "logging" should be placed before third party imports "pandas", "numpy" and local import "base_analysis.BaseAnalysis" (wrong-import-order)
+src/analysis/channels.py:6:0: C0411: third party import "sklearn.linear_model.LinearRegression" should be placed before local import "base_analysis.BaseAnalysis" (wrong-import-order)
+src/analysis/channels.py:3:0: W0611: Unused Optional imported from typing (unused-import)
+************* Module src.analysis.fibonacci
+src/analysis/fibonacci.py:45:0: C0301: Line too long (129/100) (line-too-long)
+src/analysis/fibonacci.py:46:0: C0301: Line too long (133/100) (line-too-long)
+src/analysis/fibonacci.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/fibonacci.py:6:0: C0115: Missing class docstring (missing-class-docstring)
+src/analysis/fibonacci.py:6:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/fibonacci.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/fibonacci.py:2:0: W0611: Unused numpy imported as np (unused-import)
+src/analysis/fibonacci.py:3:0: W0611: Unused List imported from typing (unused-import)
+************* Module src.analysis.trends
+src/analysis/trends.py:28:0: C0301: Line too long (108/100) (line-too-long)
+src/analysis/trends.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/trends.py:8:0: C0115: Missing class docstring (missing-class-docstring)
+src/analysis/trends.py:51:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/analysis/trends.py:37:66: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/trends.py:38:57: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/trends.py:39:68: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/trends.py:40:57: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/trends.py:8:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/trends.py:2:0: C0411: standard import "typing.Dict" should be placed before third party import "pandas" (wrong-import-order)
+src/analysis/trends.py:3:0: C0411: standard import "logging" should be placed before third party import "pandas" (wrong-import-order)
+************* Module src.analysis.indicators
+src/analysis/indicators.py:43:0: C0301: Line too long (117/100) (line-too-long)
+src/analysis/indicators.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/indicators.py:22:4: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+src/analysis/indicators.py:45:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src/analysis/indicators.py:43:8: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+src/analysis/indicators.py:45:4: W0612: Unused variable 'e' (unused-variable)
+src/analysis/indicators.py:3:0: C0411: standard import "logging" should be placed before third party imports "pandas", "pandas_ta" (wrong-import-order)
+src/analysis/indicators.py:2:0: W0611: Unused pandas_ta imported as ta (unused-import)
+************* Module src.analysis.classic_patterns
+src/analysis/classic_patterns.py:45:0: C0301: Line too long (113/100) (line-too-long)
+src/analysis/classic_patterns.py:48:0: C0301: Line too long (110/100) (line-too-long)
+src/analysis/classic_patterns.py:49:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/classic_patterns.py:58:0: C0301: Line too long (111/100) (line-too-long)
+src/analysis/classic_patterns.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/classic_patterns.py:15:0: C0115: Missing class docstring (missing-class-docstring)
+src/analysis/classic_patterns.py:52:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src/analysis/classic_patterns.py:52:12: W0612: Unused variable 'e' (unused-variable)
+src/analysis/classic_patterns.py:15:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/classic_patterns.py:2:0: C0411: standard import "typing.Dict" should be placed before third party import "pandas" (wrong-import-order)
+src/analysis/classic_patterns.py:2:0: W0611: Unused List imported from typing (unused-import)
+************* Module src.analysis.patterns.falling_wedge
+src/analysis/patterns/falling_wedge.py:29:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/falling_wedge.py:47:0: C0301: Line too long (130/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:60:0: C0301: Line too long (125/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:64:0: C0301: Line too long (102/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:66:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/falling_wedge.py:76:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/falling_wedge.py:77:0: C0301: Line too long (157/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:78:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/falling_wedge.py:79:0: C0301: Line too long (140/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:81:0: C0301: Line too long (103/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:82:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/falling_wedge.py:86:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/falling_wedge.py:91:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/falling_wedge.py:123:0: C0301: Line too long (149/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:129:0: C0301: Line too long (107/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:140:0: C0301: Line too long (132/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:141:0: C0301: Line too long (107/100) (line-too-long)
+src/analysis/patterns/falling_wedge.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/falling_wedge.py:11:4: R0913: Too many arguments (7/5) (too-many-arguments)
+src/analysis/patterns/falling_wedge.py:11:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src/analysis/patterns/falling_wedge.py:47:4: R0914: Too many local variables (30/15) (too-many-locals)
+src/analysis/patterns/falling_wedge.py:67:28: R1728: Consider using a generator instead 'min(p['index'] for p in window_highs + window_lows)' (consider-using-generator)
+src/analysis/patterns/falling_wedge.py:81:23: R1728: Consider using a generator instead 'max(p['price'] for p in window_highs)' (consider-using-generator)
+src/analysis/patterns/falling_wedge.py:81:65: R1728: Consider using a generator instead 'min(p['price'] for p in window_lows)' (consider-using-generator)
+src/analysis/patterns/falling_wedge.py:123:4: R0913: Too many arguments (8/5) (too-many-arguments)
+src/analysis/patterns/falling_wedge.py:123:4: R0917: Too many positional arguments (8/5) (too-many-positional-arguments)
+src/analysis/patterns/falling_wedge.py:140:4: R0913: Too many arguments (7/5) (too-many-arguments)
+src/analysis/patterns/falling_wedge.py:140:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src/analysis/patterns/falling_wedge.py:7:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/patterns/falling_wedge.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/patterns/falling_wedge.py:4:0: C0411: standard import "datetime.datetime" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/patterns/falling_wedge.py:2:0: W0611: Unused numpy imported as np (unused-import)
+************* Module src.analysis.patterns.pattern_helpers
+src/analysis/patterns/pattern_helpers.py:5:0: C0301: Line too long (112/100) (line-too-long)
+src/analysis/patterns/pattern_helpers.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/pattern_helpers.py:9:21: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/patterns/pattern_helpers.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "numpy", "pandas" (wrong-import-order)
+************* Module src.analysis.patterns.bull_flag
+src/analysis/patterns/bull_flag.py:45:0: C0301: Line too long (104/100) (line-too-long)
+src/analysis/patterns/bull_flag.py:46:0: C0301: Line too long (102/100) (line-too-long)
+src/analysis/patterns/bull_flag.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/bull_flag.py:6:0: C0116: Missing function or method docstring (missing-function-docstring)
+src/analysis/patterns/bull_flag.py:7:26: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/patterns/bull_flag.py:13:0: R0913: Too many arguments (6/5) (too-many-arguments)
+src/analysis/patterns/bull_flag.py:13:0: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+src/analysis/patterns/bull_flag.py:13:0: R0914: Too many local variables (18/15) (too-many-locals)
+src/analysis/patterns/bull_flag.py:26:37: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/patterns/bull_flag.py:31:33: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/patterns/bull_flag.py:37:54: C0321: More than one statement on a single line (multiple-statements)
+src/analysis/patterns/bull_flag.py:59:34: R1728: Consider using a generator instead 'min(l['price'] for l in flag_lows)' (consider-using-generator)
+src/analysis/patterns/bull_flag.py:61:25: R1728: Consider using a generator instead 'min(l['price'] for l in flag_lows)' (consider-using-generator)
+src/analysis/patterns/bull_flag.py:13:38: W0613: Unused argument 'config' (unused-argument)
+src/analysis/patterns/bull_flag.py:14:41: W0613: Unused argument 'price_tolerance' (unused-argument)
+src/analysis/patterns/bull_flag.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "numpy", "pandas" (wrong-import-order)
+************* Module src.analysis.patterns.pattern_utils
+src/analysis/patterns/pattern_utils.py:36:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/pattern_utils.py:39:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/pattern_utils.py:42:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/pattern_utils.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/pattern_utils.py:10:4: C0415: Import outside toplevel (scipy.signal.find_peaks) (import-outside-toplevel)
+src/analysis/patterns/pattern_utils.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "numpy", "pandas" (wrong-import-order)
+************* Module src.analysis.patterns.double_bottom
+src/analysis/patterns/double_bottom.py:26:0: C0301: Line too long (102/100) (line-too-long)
+src/analysis/patterns/double_bottom.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/double_bottom.py:7:0: R0913: Too many arguments (6/5) (too-many-arguments)
+src/analysis/patterns/double_bottom.py:7:0: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+src/analysis/patterns/double_bottom.py:7:0: R0914: Too many local variables (17/15) (too-many-locals)
+src/analysis/patterns/double_bottom.py:7:24: W0613: Unused argument 'df' (unused-argument)
+src/analysis/patterns/double_bottom.py:7:42: W0613: Unused argument 'config' (unused-argument)
+src/analysis/patterns/double_bottom.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "numpy", "pandas" (wrong-import-order)
+src/analysis/patterns/double_bottom.py:5:0: W0611: Unused calculate_dynamic_confidence imported from pattern_utils (unused-import)
+************* Module src.analysis.patterns.ascending_triangle
+src/analysis/patterns/ascending_triangle.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/ascending_triangle.py:8:0: R0913: Too many arguments (6/5) (too-many-arguments)
+src/analysis/patterns/ascending_triangle.py:8:0: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+src/analysis/patterns/ascending_triangle.py:8:0: R0914: Too many local variables (25/15) (too-many-locals)
+src/analysis/patterns/ascending_triangle.py:8:0: R0911: Too many return statements (7/6) (too-many-return-statements)
+src/analysis/patterns/ascending_triangle.py:8:47: W0613: Unused argument 'config' (unused-argument)
+src/analysis/patterns/ascending_triangle.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "numpy", "pandas" (wrong-import-order)
+src/analysis/patterns/ascending_triangle.py:6:0: W0611: Unused calculate_dynamic_confidence imported from pattern_utils (unused-import)
+************* Module src.analysis.patterns.base_pattern
+src/analysis/patterns/base_pattern.py:39:0: C0301: Line too long (104/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:43:0: C0301: Line too long (109/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:44:0: C0301: Line too long (107/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:56:0: C0301: Line too long (107/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:62:0: C0301: Line too long (110/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:63:0: C0301: Line too long (130/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:66:0: C0301: Line too long (111/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:67:0: C0301: Line too long (127/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:74:0: C0301: Line too long (118/100) (line-too-long)
+src/analysis/patterns/base_pattern.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/base_pattern.py:11:4: R0913: Too many arguments (7/5) (too-many-arguments)
+src/analysis/patterns/base_pattern.py:11:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src/analysis/patterns/base_pattern.py:27:8: W0107: Unnecessary pass statement (unnecessary-pass)
+src/analysis/patterns/base_pattern.py:7:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/patterns/base_pattern.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/patterns/base_pattern.py:4:0: C0411: standard import "abc.ABC" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/patterns/base_pattern.py:3:0: W0611: Unused Any imported from typing (unused-import)
+************* Module src.analysis.patterns.rising_wedge
+src/analysis/patterns/rising_wedge.py:29:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:50:0: C0301: Line too long (130/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:63:0: C0301: Line too long (125/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:69:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:80:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:81:0: C0301: Line too long (176/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:82:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:83:0: C0301: Line too long (159/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:85:0: C0301: Line too long (103/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:86:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:90:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:95:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:98:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:138:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:145:0: C0301: Line too long (108/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:147:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:156:0: C0301: Line too long (168/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:162:0: C0301: Line too long (107/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:174:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/rising_wedge.py:175:0: C0301: Line too long (151/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:176:0: C0301: Line too long (107/100) (line-too-long)
+src/analysis/patterns/rising_wedge.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/rising_wedge.py:11:4: R0913: Too many arguments (7/5) (too-many-arguments)
+src/analysis/patterns/rising_wedge.py:11:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src/analysis/patterns/rising_wedge.py:50:4: R0914: Too many local variables (33/15) (too-many-locals)
+src/analysis/patterns/rising_wedge.py:70:28: R1728: Consider using a generator instead 'min(p['index'] for p in window_highs + window_lows)' (consider-using-generator)
+src/analysis/patterns/rising_wedge.py:85:23: R1728: Consider using a generator instead 'max(p['price'] for p in window_highs)' (consider-using-generator)
+src/analysis/patterns/rising_wedge.py:85:65: R1728: Consider using a generator instead 'min(p['price'] for p in window_lows)' (consider-using-generator)
+src/analysis/patterns/rising_wedge.py:156:4: R0913: Too many arguments (9/5) (too-many-arguments)
+src/analysis/patterns/rising_wedge.py:156:4: R0917: Too many positional arguments (9/5) (too-many-positional-arguments)
+src/analysis/patterns/rising_wedge.py:175:4: R0913: Too many arguments (8/5) (too-many-arguments)
+src/analysis/patterns/rising_wedge.py:175:4: R0917: Too many positional arguments (8/5) (too-many-positional-arguments)
+src/analysis/patterns/rising_wedge.py:7:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/patterns/rising_wedge.py:3:0: C0411: standard import "typing.Dict" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/patterns/rising_wedge.py:4:0: C0411: standard import "datetime.datetime" should be placed before third party imports "pandas", "numpy" (wrong-import-order)
+src/analysis/patterns/rising_wedge.py:2:0: W0611: Unused numpy imported as np (unused-import)
+************* Module src.analysis.patterns.bear_flag
+src/analysis/patterns/bear_flag.py:21:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:25:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:29:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:33:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:36:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:39:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:42:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:45:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:47:0: C0301: Line too long (108/100) (line-too-long)
+src/analysis/patterns/bear_flag.py:48:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:51:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:53:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:54:0: C0301: Line too long (108/100) (line-too-long)
+src/analysis/patterns/bear_flag.py:56:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:59:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:62:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:63:0: C0301: Line too long (186/100) (line-too-long)
+src/analysis/patterns/bear_flag.py:65:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:68:0: C0301: Line too long (184/100) (line-too-long)
+src/analysis/patterns/bear_flag.py:70:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:73:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:76:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:78:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:80:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:81:0: C0301: Line too long (246/100) (line-too-long)
+src/analysis/patterns/bear_flag.py:86:0: C0303: Trailing whitespace (trailing-whitespace)
+src/analysis/patterns/bear_flag.py:92:0: C0301: Line too long (153/100) (line-too-long)
+src/analysis/patterns/bear_flag.py:118:0: C0301: Line too long (181/100) (line-too-long)
+src/analysis/patterns/bear_flag.py:134:0: C0301: Line too long (145/100) (line-too-long)
+src/analysis/patterns/bear_flag.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+src/analysis/patterns/bear_flag.py:10:4: R0913: Too many arguments (7/5) (too-many-arguments)
+src/analysis/patterns/bear_flag.py:10:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src/analysis/patterns/bear_flag.py:15:4: R0914: Too many local variables (18/15) (too-many-locals)
+src/analysis/patterns/bear_flag.py:68:4: R0913: Too many arguments (10/5) (too-many-arguments)
+src/analysis/patterns/bear_flag.py:68:4: R0917: Too many positional arguments (10/5) (too-many-positional-arguments)
+src/analysis/patterns/bear_flag.py:68:4: R0914: Too many local variables (26/15) (too-many-locals)
+src/analysis/patterns/bear_flag.py:118:4: R0913: Too many arguments (10/5) (too-many-arguments)
+src/analysis/patterns/bear_flag.py:118:4: R0917: Too many positional arguments (10/5) (too-many-positional-arguments)
+src/analysis/patterns/bear_flag.py:134:4: R0913: Too many arguments (8/5) (too-many-arguments)
+src/analysis/patterns/bear_flag.py:134:4: R0917: Too many positional arguments (8/5) (too-many-positional-arguments)
+src/analysis/patterns/bear_flag.py:6:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/analysis/patterns/bear_flag.py:2:0: C0411: standard import "typing.Dict" should be placed before third party import "pandas" (wrong-import-order)
+src/analysis/patterns/bear_flag.py:3:0: C0411: standard import "datetime.datetime" should be placed before third party import "pandas" (wrong-import-order)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.falling_wedge:[95:117]
+==src.analysis.patterns.rising_wedge:[107:129]
+            "status": status,
+            "confidence": round(final_confidence, 1),
+            "pattern_strength": round(pattern_strength, 1),
+            "resistance_line": round(resistance_current, 6),
+            "support_line": round(support_current, 6),
+            "upper_slope": round(upper_trend['slope'], 8),
+            "lower_slope": round(lower_trend['slope'], 8),
+            "conservative_target": round(conservative_target, 6),
+            "aggressive_target": round(aggressive_target, 6),
+            "fibonacci_target": round(fibonacci_target, 6),
+            "calculated_target": round(conservative_target, 6),
+            "stop_loss": round(stop_loss, 6),
+            "risk_reward_ratio": round(risk_reward_ratio, 2),
+            "wedge_height": round(wedge_height, 6),
+            "initial_width": round(initial_width, 6),
+            "current_width": round(current_width, 6),
+            "compression_ratio": round(compression_ratio * 100, 1),
+            "convergence_distance": round(convergence_x - current_index, 1),
+            "pattern_duration": pattern_duration,
+            "upper_trendline_quality": round(upper_trend['r_squared'], 3),
+            "lower_trendline_quality": round(lower_trend['r_squared'], 3),
+            "volume_analysis": volume_analysis, (duplicate-code)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.falling_wedge:[19:35]
+==src.analysis.patterns.rising_wedge:[19:36]
+        window_highs, window_lows = self._filter_pivots(search_window_bars=80)
+
+        if len(window_highs) < 3 or len(window_lows) < 3:
+            return []
+
+        upper_trend, lower_trend = self._calculate_trend_lines(window_highs, window_lows)
+
+        if self._is_valid_wedge(upper_trend, lower_trend):
+            self._calculate_pattern_details(upper_trend, lower_trend, window_highs, window_lows)
+
+        return self.found_patterns
+
+    def _is_valid_wedge(self, upper_trend: Dict, lower_trend: Dict) -> bool:
+        """
+        Checks if the trend lines form a valid rising wedge.
+        """
+        # Both lines must be upward sloping (duplicate-code)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.bear_flag:[102:108]
+==src.analysis.patterns.falling_wedge:[102:108]
+            "conservative_target": round(conservative_target, 6),
+            "aggressive_target": round(aggressive_target, 6),
+            "fibonacci_target": round(fibonacci_target, 6),
+            "calculated_target": round(conservative_target, 6),
+            "stop_loss": round(stop_loss, 6),
+            "risk_reward_ratio": round(risk_reward_ratio, 2), (duplicate-code)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.falling_wedge:[132:140]
+==src.analysis.patterns.rising_wedge:[167:175]
+        distance_to_convergence = convergence_x - len(self.df) + 1
+        if 5 <= distance_to_convergence <= 30:
+            confidence_bonuses += 10
+        elif distance_to_convergence > 50:
+            confidence_bonuses -= 5
+        return min(95, base_confidence + confidence_bonuses)
+
+    def _calculate_strength(self, upper_trend, lower_trend, window_highs, window_lows, compression_ratio, volume_analysis) -> float: (duplicate-code)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.falling_wedge:[66:74]
+==src.analysis.patterns.rising_wedge:[69:77]
+        wedge_start_index = min([p['index'] for p in window_highs + window_lows])
+        resistance_start = upper_trend['slope'] * wedge_start_index + upper_trend['intercept']
+        support_start = lower_trend['slope'] * wedge_start_index + lower_trend['intercept']
+
+        initial_width = resistance_start - support_start
+        current_width = resistance_current - support_current
+        compression_ratio = 1 - (current_width / initial_width) if initial_width > 0 else 0
+ (duplicate-code)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.falling_wedge:[39:53]
+==src.analysis.patterns.rising_wedge:[41:56]
+            return False
+
+        # Trend lines must have a good fit
+        if upper_trend['r_squared'] < 0.6 or lower_trend['r_squared'] < 0.6:
+            return False
+
+        return True
+
+    def _calculate_pattern_details(self, upper_trend: Dict, lower_trend: Dict, window_highs: List[Dict], window_lows: List[Dict]):
+        """
+        Calculates the details of the pattern and adds it to the list of found patterns.
+        """
+        resistance_current, support_current = self._get_current_levels(upper_trend, lower_trend)
+        current_index = len(self.df) - 1
+ (duplicate-code)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.bear_flag:[95:100]
+==src.analysis.patterns.falling_wedge:[95:100]
+            "status": status,
+            "confidence": round(final_confidence, 1),
+            "pattern_strength": round(pattern_strength, 1),
+            "resistance_line": round(resistance_current, 6),
+            "support_line": round(support_current, 6), (duplicate-code)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.falling_wedge:[141:146]
+==src.analysis.patterns.rising_wedge:[176:181]
+        pattern_strength = min(100, (
+            (upper_trend['r_squared'] + lower_trend['r_squared']) * 25 +
+            compression_ratio * 30 +
+            len(window_highs + window_lows) * 2 +
+            convergence_strength * 15 + (duplicate-code)
+src/analysis/patterns/bear_flag.py:1:0: R0801: Similar lines in 2 files
+==src.analysis.patterns.falling_wedge:[123:128]
+==src.analysis.patterns.rising_wedge:[156:161]
+        base_confidence = 65
+        confidence_bonuses = 0
+        confidence_bonuses += min(20, (upper_trend['r_squared'] + lower_trend['r_squared']) * 10)
+        confidence_bonuses += min(15, compression_ratio * 30)
+        confidence_bonuses += min(15, (len(window_highs) + len(window_lows)) * 1.5) (duplicate-code)
+
+------------------------------------------------------------------
+Your code has been rated at 7.42/10 (previous run: 7.03/10, +0.39)

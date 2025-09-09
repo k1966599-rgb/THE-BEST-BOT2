@@ -4,13 +4,12 @@ from .base_analysis import BaseAnalysis
 from .patterns.pattern_utils import get_pivots, calculate_dynamic_confidence
 
 # Import all the individual pattern checker functions
-from .patterns.ascending_triangle import check_ascending_triangle
+from .patterns.ascending_triangle import AscendingTriangle
 from .patterns.bull_flag import check_bull_flag
 from .patterns.double_bottom import check_double_bottom
-# Import other checkers here...
-# from .patterns.bear_flag import check_bear_flag
-# from .patterns.falling_wedge import check_falling_wedge
-# from .patterns.rising_wedge import check_rising_wedge
+from .patterns.bear_flag import BearFlag
+from .patterns.falling_wedge import FallingWedge
+from .patterns.rising_wedge import RisingWedge
 
 class ClassicPatterns(BaseAnalysis):
     def __init__(self, config: dict = None, timeframe: str = '1h'):
@@ -18,10 +17,12 @@ class ClassicPatterns(BaseAnalysis):
         self.lookback_period = self.config.get('PATTERN_LOOKBACK', 90)
         self.price_tolerance = self.config.get('PATTERN_PRICE_TOLERANCE', 0.03)
         self.pattern_checkers = [
-            check_ascending_triangle,
+            AscendingTriangle,
             check_bull_flag,
             check_double_bottom,
-            # Add other checkers here
+            BearFlag,
+            FallingWedge,
+            RisingWedge,
         ]
 
     def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
@@ -38,7 +39,13 @@ class ClassicPatterns(BaseAnalysis):
         all_found_patterns = []
         for checker in self.pattern_checkers:
             try:
-                found = checker(data_slice, self.config, highs, lows, current_price, self.price_tolerance)
+                # if the checker is a class, instantiate it
+                if isinstance(checker, type):
+                    instance = checker(data_slice, self.config, highs, lows, current_price, self.price_tolerance)
+                    found = instance.check()
+                else: # it's a function
+                    found = checker(data_slice, self.config, highs, lows, current_price, self.price_tolerance)
+
                 if found:
                     all_found_patterns.extend(found)
             except Exception as e:

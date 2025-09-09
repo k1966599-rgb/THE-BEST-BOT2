@@ -9,7 +9,6 @@ import logging
 from pathlib import Path
 import time
 import threading
-from concurrent.futures import ThreadPoolExecutor
 
 from .base_fetcher import BaseDataFetcher
 from .okx_websocket_client import OKXWebSocketClient

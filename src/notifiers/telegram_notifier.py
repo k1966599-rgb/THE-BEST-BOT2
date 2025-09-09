@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+import anyio
 import asyncio
 from typing import Dict, Any
 import pandas as pd
@@ -66,9 +67,11 @@ class InteractiveTelegramBot(BaseNotifier):
             try:
                 okx_symbol = symbol.replace('/', '-')
                 api_timeframe = tf.replace('d', 'D').replace('h', 'H')
-                historical_data_wrapper = await asyncio.to_thread(
+                historical_data_wrapper = await anyio.to_thread.run_sync(
                     self.fetcher.fetch_historical_data,
-                    symbol=okx_symbol, timeframe=api_timeframe, days_to_fetch=365
+                    okx_symbol,
+                    api_timeframe,
+                    365
                 )
                 if not historical_data_wrapper or not historical_data_wrapper.get('data'):
                     raise ConnectionError(f"Failed to fetch data for {symbol} on {tf}")
@@ -93,7 +96,7 @@ class InteractiveTelegramBot(BaseNotifier):
             return {'error': f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."}
 
         ranked_recs = self.decision_engine.rank_recommendations(successful_recs)
-        last_price_data = await asyncio.to_thread(self.fetcher.get_cached_price, symbol.replace('/', '-')) or {}
+        last_price_data = await anyio.to_thread.run_sync(self.fetcher.get_cached_price, symbol.replace('/', '-')) or {}
 
         general_info = {
             'symbol': symbol,
