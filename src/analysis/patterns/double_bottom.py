@@ -2,53 +2,56 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List
 
-from .pattern_utils import calculate_dynamic_confidence
+from .base_pattern import BasePattern
 
-def check_double_bottom(df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
-                       current_price: float, price_tolerance: float) -> List[Dict]:
+class DoubleBottom(BasePattern):
     """
-    Detects Double Bottom patterns.
+    A class for detecting the Double Bottom pattern.
     """
-    patterns = []
-    if len(lows) < 2 or len(highs) < 1:
-        return patterns
+    def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
+                 current_price: float, price_tolerance: float):
+        super().__init__(df, config, highs, lows, current_price, price_tolerance)
+        self.name = "Double Bottom"
 
-    for i in range(len(lows) - 1):
-        for j in range(i + 1, len(lows)):
-            bottom1 = lows[i]
-            bottom2 = lows[j]
+    def check(self) -> List[Dict]:
+        """
+        Checks for the Double Bottom pattern.
+        """
+        if len(self.lows) < 2 or len(self.highs) < 1:
+            return []
 
-            # Check for price similarity
-            if abs(bottom1['price'] - bottom2['price']) / bottom1['price'] > price_tolerance:
-                continue
+        for i in range(len(self.lows) - 1):
+            for j in range(i + 1, len(self.lows)):
+                bottom1 = self.lows[i]
+                bottom2 = self.lows[j]
 
-            # Find intervening high (neckline)
-            intervening_highs = [h for h in highs if bottom1['index'] < h['index'] < bottom2['index']]
-            if not intervening_highs:
-                continue
+                if abs(bottom1['price'] - bottom2['price']) / bottom1['price'] > self.price_tolerance:
+                    continue
 
-            neckline = max(intervening_highs, key=lambda x: x['price'])
-            neckline_price = neckline['price']
+                intervening_highs = [h for h in self.highs if bottom1['index'] < h['index'] < bottom2['index']]
+                if not intervening_highs:
+                    continue
 
-            # Bottoms must be below neckline
-            if bottom1['price'] >= neckline_price or bottom2['price'] >= neckline_price:
-                continue
+                neckline = max(intervening_highs, key=lambda x: x['price'])
+                neckline_price = neckline['price']
 
-            # Calculate target and stop loss
-            height = neckline_price - np.mean([bottom1['price'], bottom2['price']])
-            target = neckline_price + height
-            stop_loss = min(bottom1['price'], bottom2['price']) * 0.99
+                if bottom1['price'] >= neckline_price or bottom2['price'] >= neckline_price:
+                    continue
 
-            patterns.append({
-                'name': 'قاع مزدوج (Double Bottom)',
-                'status': 'قيد التكوين 🟡' if current_price < neckline_price else 'مكتمل ✅',
-                'confidence': 70.0,
-                'activation_level': neckline_price,
-                'invalidation_level': min(bottom1['price'], bottom2['price']),
-                'price_target': target,
-                'stop_loss': stop_loss
-            })
-            if patterns: # Found the most recent one
-                return patterns
+                height = neckline_price - np.mean([bottom1['price'], bottom2['price']])
+                target = neckline_price + height
+                stop_loss = min(bottom1['price'], bottom2['price']) * 0.99
 
-    return patterns
+                self.found_patterns.append({
+                    'name': 'قاع مزدوج (Double Bottom)',
+                    'status': 'قيد التكوين 🟡' if self.current_price < neckline_price else 'مكتمل ✅',
+                    'confidence': 70.0,
+                    'activation_level': neckline_price,
+                    'invalidation_level': min(bottom1['price'], bottom2['price']),
+                    'price_target': target,
+                    'stop_loss': stop_loss
+                })
+                if self.found_patterns:
+                    return self.found_patterns
+
+        return self.found_patterns
