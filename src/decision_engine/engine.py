@@ -139,8 +139,8 @@ class DecisionEngine:
                     target1=p.get('price_target', 0),
                     raw_pattern_data=p
                 )
-            except Exception as e:
-                logger.error(f"Failed to create TradeSetup: {e}")
+            except Exception:
+                logger.exception("Failed to create TradeSetup from pattern data.")
 
 
         return {
