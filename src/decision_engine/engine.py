@@ -60,7 +60,8 @@ class DecisionEngine:
             'PriceChannels': 'channels',
             'SupportResistanceAnalysis': 'support_resistance',
             'FibonacciAnalysis': 'fibonacci',
-            'ClassicPatterns': 'patterns'
+            'ClassicPatterns': 'patterns',
+            'TrendLineAnalysis': 'trend_lines'
         }
 
         total_score = 0
