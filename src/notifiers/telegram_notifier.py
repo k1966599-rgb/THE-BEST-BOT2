@@ -10,6 +10,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 from telegram.constants import ParseMode
 
 # --- New Imports ---
+from .base_notifier import BaseNotifier
 from src.analysis.models import AnalysisReport, TimeframeAnalysis, TechnicalPattern, Support, Resistance, ExecutiveSummary, ConfirmedTrade
 from src.analysis.tracker import AnalysisTracker
 from src.notifiers.analysis_formatter import format_full_analysis_messages
