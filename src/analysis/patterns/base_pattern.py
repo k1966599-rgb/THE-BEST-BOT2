@@ -9,13 +9,15 @@ class BasePattern(ABC):
     An abstract base class for all pattern detection classes.
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
-                 current_price: float, price_tolerance: float):
+                 current_price: float, price_tolerance: float, timeframe: str = None, trend_context: dict = None):
         self.df = df
         self.config = config
         self.highs = highs
         self.lows = lows
         self.current_price = current_price
         self.price_tolerance = price_tolerance
+        self.timeframe = timeframe
+        self.trend_context = trend_context or {}
         self.found_patterns = []
 
     @abstractmethod
@@ -118,6 +120,20 @@ class BasePattern(ABC):
         if 'volume_confirmation' in kwargs and kwargs['volume_confirmation']:
             weighted_score += 25
             total_weight += 25
+
+        # Trend alignment
+        if 'pattern_is_bullish' in kwargs and self.trend_context.get('trend_direction') == 'Uptrend':
+            if kwargs['pattern_is_bullish']:
+                weighted_score += 30 # Major boost for trend alignment
+            else:
+                weighted_score -= 15 # Penalty for counter-trend pattern
+            total_weight += 30
+        elif 'pattern_is_bullish' in kwargs and self.trend_context.get('trend_direction') == 'Downtrend':
+            if not kwargs['pattern_is_bullish']:
+                weighted_score += 30 # Major boost for trend alignment
+            else:
+                weighted_score -= 15 # Penalty for counter-trend pattern
+            total_weight += 30
 
         # Add other metrics here...
 

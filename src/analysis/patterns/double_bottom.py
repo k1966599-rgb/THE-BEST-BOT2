@@ -10,10 +10,9 @@ class DoubleBottom(BasePattern):
     A class for detecting the Double Bottom pattern.
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
-                 current_price: float, price_tolerance: float, timeframe: str):
-        super().__init__(df, config, highs, lows, current_price, price_tolerance)
+                 current_price: float, price_tolerance: float, timeframe: str, trend_context: dict = None):
+        super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
         self.name = "Double Bottom"
-        self.timeframe = timeframe
 
     def check(self) -> List[Pattern]:
         """
@@ -40,7 +39,12 @@ class DoubleBottom(BasePattern):
                 target2 = neckline_price + height * 1.618
                 stop_loss = min(bottom1['price'], bottom2['price'])
 
-                confidence = self._calculate_confidence(touch_count=len(intervening_highs) + 2)
+                volume_analysis = self._analyze_volume(intervening_highs, [bottom1, bottom2], bottom1['index'])
+                confidence = self._calculate_confidence(
+                    touch_count=len(intervening_highs) + 2,
+                    volume_confirmation=volume_analysis.get('volume_decline', False),
+                    pattern_is_bullish=True
+                )
 
                 pattern = Pattern(
                     name='قاع مزدوج',

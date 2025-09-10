@@ -8,10 +8,9 @@ class FallingWedge(BasePattern):
     A class for detecting the Falling Wedge pattern.
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
-                 current_price: float, price_tolerance: float, timeframe: str):
-        super().__init__(df, config, highs, lows, current_price, price_tolerance)
+                 current_price: float, price_tolerance: float, timeframe: str, trend_context: dict = None):
+        super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
         self.name = "Falling Wedge"
-        self.timeframe = timeframe
 
     def check(self) -> List[Pattern]:
         """
@@ -38,10 +37,13 @@ class FallingWedge(BasePattern):
         target1 = activation_level + wedge_height
         target2 = activation_level + wedge_height * 1.618
 
+        volume_analysis = self._analyze_volume(window_highs, window_lows, window_highs[0]['index'])
         confidence = self._calculate_confidence(
             r_squared_upper=upper_trend['r_squared'],
             r_squared_lower=lower_trend['r_squared'],
-            touch_count=len(window_highs) + len(window_lows)
+            touch_count=len(window_highs) + len(window_lows),
+            volume_confirmation=volume_analysis.get('volume_decline', False),
+            pattern_is_bullish=True
         )
 
         pattern = Pattern(

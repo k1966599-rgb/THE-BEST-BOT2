@@ -10,10 +10,9 @@ class BullFlag(BasePattern):
     A class for detecting the Bull Flag pattern.
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
-                 current_price: float, price_tolerance: float, timeframe: str):
-        super().__init__(df, config, highs, lows, current_price, price_tolerance)
+                 current_price: float, price_tolerance: float, timeframe: str, trend_context: dict = None):
+        super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
         self.name = "Bull Flag"
-        self.timeframe = timeframe
 
     def check(self) -> List[Pattern]:
         """
@@ -49,10 +48,13 @@ class BullFlag(BasePattern):
             target1 = activation_level + flagpole_height
             target2 = activation_level + flagpole_height * 1.618
 
+            volume_analysis = self._analyze_volume(flag_highs, flag_lows, flagpole_end['index'])
             confidence = self._calculate_confidence(
                 r_squared_upper=upper_line['r_squared'],
                 r_squared_lower=lower_line['r_squared'],
-                touch_count=len(flag_highs) + len(flag_lows)
+                touch_count=len(flag_highs) + len(flag_lows),
+                volume_confirmation=volume_analysis.get('volume_decline', False),
+                pattern_is_bullish=True
             )
 
             pattern = Pattern(

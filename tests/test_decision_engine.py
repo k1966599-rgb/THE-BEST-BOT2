@@ -23,7 +23,8 @@ def sample_bullish_pattern():
         activation_level=100,
         invalidation_level=90,
         target1=110,
-        target2=115
+        target2=115,
+        confidence=80.0
     )
 
 @pytest.fixture
@@ -78,3 +79,33 @@ def test_rank_recommendations(decision_engine):
     assert ranked[0]['total_score'] == 75
     assert ranked[1]['total_score'] == -50
     assert ranked[2]['total_score'] == 0
+
+def test_low_confidence_pattern_is_wait(decision_engine):
+    """Test that a pattern with low confidence results in a 'Wait' action."""
+    low_conf_pattern = Pattern(
+        name='علم صاعد', status='مفعل', timeframe='1h',
+        activation_level=100, invalidation_level=90, target1=110, confidence=40.0
+    )
+    analysis_results = {'patterns': [low_conf_pattern], 'supports': [], 'resistances': []}
+    df = pd.DataFrame({'close': [101]})
+
+    recommendation = decision_engine.make_recommendation(analysis_results, df, "BTC/USDT", "1h", chat_id=123)
+
+    assert 'انتظار' in recommendation['main_action']
+
+def test_conflict_resolution_with_trend(decision_engine, sample_bullish_pattern):
+    """Test that a bullish pattern in a downtrend results in a 'Wait' action."""
+    analysis_results = {
+        'patterns': [sample_bullish_pattern],
+        'supports': [],
+        'resistances': [],
+        'other_analysis': {
+            'TrendAnalysis': {'trend_direction': 'Downtrend'}
+        }
+    }
+    df = pd.DataFrame({'close': [101]})
+
+    recommendation = decision_engine.make_recommendation(analysis_results, df, "BTC/USDT", "1h", chat_id=123)
+
+    assert 'انتظار' in recommendation['main_action']
+    assert recommendation['conflict_note'] is not None
