@@ -42,6 +42,18 @@ class InteractiveTelegramBot(BaseNotifier):
         # Use the new AnalysisTracker
         self.tracker = AnalysisTracker()
 
+    def send(self, message: str, parse_mode: str = 'HTML') -> bool:
+        """
+        Implementation of the abstract 'send' method.
+        This bot is interactive, so this method is a placeholder.
+        The main functionality is started via the `start()` method.
+        """
+        logger.warning(
+            "The `send` method was called on the interactive bot, but it's not designed for direct sending. "
+            "Use `start()` to run the bot."
+        )
+        return False
+
     # --- Keyboard Layouts (Refactored) ---
     def _get_start_message_text(self) -> str:
         status = "🟢 متصل وجاهز للعمل" if self.bot_state["is_active"] else "🔴 متوقف"
