@@ -29,5 +29,8 @@ class Pattern:
     target2: Optional[float] = None
     target3: Optional[float] = None
 
+    # Quality Score
+    confidence: float = 50.0
+
     # Additional context
     raw_data: Dict[str, Any] = field(default_factory=dict)

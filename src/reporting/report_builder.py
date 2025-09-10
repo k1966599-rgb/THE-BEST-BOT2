@@ -124,7 +124,10 @@ class ReportBuilder:
 
         setup: TradeSetup = primary_rec.get('trade_setup')
         rec_text = "📌 صفقة مؤكدة بعد دمج الفريمات الثلاثة\n\n"
-        rec_text += f"سعر الدخول المبدئي: عند اختراق ${setup.entry_price:,.2f} (فريم {setup.timeframe.upper()}) مع ثبات السعر فوق المقاومة 3 شموع ساعة متتالية\n\n"
+
+        # Format confirmation conditions
+        conditions_str = "\n".join([f"- {cond}" for cond in setup.confirmation_conditions])
+        rec_text += f"شروط الدخول المبدئي:\n{conditions_str}\n\n"
 
         targets = [t for t in [setup.target1, setup.target2] if t]
         target_str = ' → '.join([f"${t:,.2f}" for t in targets])

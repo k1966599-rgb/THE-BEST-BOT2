@@ -21,7 +21,7 @@ class TradeSetup:
 
     # --- Confirmed Entry Details ---
     confirmation_status: str = "🟡 في انتظار الاختراق"  # '✅ مفعل', '❌ فشل'
-    confirmation_condition: str = ""
+    confirmation_conditions: List[str] = field(default_factory=list)
     invalidation_conditions: List[str] = field(default_factory=list)
 
     # --- Additional Context ---
@@ -31,9 +31,6 @@ class TradeSetup:
         """
         Set default conditions after the object is created.
         """
-        if not self.confirmation_condition:
-            self.confirmation_condition = f"بعد إغلاق 3 شمعات متتالية فوق المقاومة على فريم {self.timeframe}"
-
         if not self.invalidation_conditions:
             self.invalidation_conditions = [
                 f"كسر الدعم: إذا أغلقت شمعة تحت ${self.stop_loss:,.2f} على فريم {self.timeframe}",

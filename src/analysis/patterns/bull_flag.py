@@ -49,6 +49,12 @@ class BullFlag(BasePattern):
             target1 = activation_level + flagpole_height
             target2 = activation_level + flagpole_height * 1.618
 
+            confidence = self._calculate_confidence(
+                r_squared_upper=upper_line['r_squared'],
+                r_squared_lower=lower_line['r_squared'],
+                touch_count=len(flag_highs) + len(flag_lows)
+            )
+
             pattern = Pattern(
                 name='علم صاعد',
                 status='قيد التكوين' if self.current_price < activation_level else 'مفعل',
@@ -56,7 +62,8 @@ class BullFlag(BasePattern):
                 activation_level=round(activation_level, 4),
                 invalidation_level=round(stop_loss, 4),
                 target1=round(target1, 4),
-                target2=round(target2, 4)
+                target2=round(target2, 4),
+                confidence=confidence
             )
             return [pattern] # Return the first one found
 

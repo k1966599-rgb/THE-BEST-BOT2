@@ -40,6 +40,8 @@ class DoubleBottom(BasePattern):
                 target2 = neckline_price + height * 1.618
                 stop_loss = min(bottom1['price'], bottom2['price'])
 
+                confidence = self._calculate_confidence(touch_count=len(intervening_highs) + 2)
+
                 pattern = Pattern(
                     name='قاع مزدوج',
                     status='قيد التكوين' if self.current_price < neckline_price else 'مفعل',
@@ -47,7 +49,8 @@ class DoubleBottom(BasePattern):
                     activation_level=round(neckline_price, 4),
                     invalidation_level=round(stop_loss, 4),
                     target1=round(target1, 4),
-                    target2=round(target2, 4)
+                    target2=round(target2, 4),
+                    confidence=confidence
                 )
                 return [pattern]
 
