@@ -78,7 +78,6 @@ class TradeMonitor:
                 timeframe = trade_data['timeframe']
                 okx_symbol = symbol.replace('/', '-')
 
-                # 1. Fetch base historical data (from cache/disk)
                 historical_data_wrapper = await anyio.to_thread.run_sync(self.fetcher.fetch_historical_data, okx_symbol, timeframe, 90)
                 if not historical_data_wrapper or not historical_data_wrapper.get('data'):
                     logger.warning(f"Could not fetch historical data for {symbol} on {timeframe} for monitoring.")
@@ -87,11 +86,9 @@ class TradeMonitor:
                 df = pd.DataFrame(historical_data_wrapper['data'])
                 df = standardize_dataframe_columns(df)
 
-                # 2. Get latest price and update DataFrame
                 latest_price_data = self.fetcher.get_cached_price(okx_symbol)
                 if latest_price_data and not df.empty:
                     latest_price = latest_price_data['price']
-                    # Update the close of the last candle to the most recent price
                     df.loc[df.index[-1], 'close'] = latest_price
                     current_price = latest_price
                 elif not df.empty:
@@ -99,10 +96,8 @@ class TradeMonitor:
                 else:
                     continue
 
-                # 3. Re-run analysis
                 new_analysis_results = self.orchestrator.run(df.copy())
 
-                # 4. Compare and send alerts
                 await self._check_for_alerts(current_price, new_analysis_results, trade_data, key)
 
             except Exception as e:
@@ -118,41 +113,37 @@ class TradeMonitor:
         symbol = trade_data['symbol']
         notified_events = trade_data['notified_events']
 
-        # --- Check 1: Support Level Breaks ---
-        initial_supports = initial_analysis.get('NewSupportResistance', {}).get('supports', [])
+        initial_supports = initial_analysis.get('supports', [])
         for support in initial_supports:
-            level = support['level']
+            level = support.value
             event_key = f"support_break_{level}"
             if current_price < level and event_key not in notified_events:
-                message = f"🔔 تنبيه كسر دعم لـ {symbol}: السعر كسر مستوى الدعم ${level:,.2f}."
+                message = f"🔔 تنبيه كسر دعم لـ {symbol}: السعر كسر مستوى الدعم ${level:,.2f} ({support.name})."
                 self.notifier.send(message, chat_id)
                 notified_events.add(event_key)
 
-        # --- Check 2: Resistance Level Breaks ---
-        initial_resistances = initial_analysis.get('NewSupportResistance', {}).get('resistances', [])
+        initial_resistances = initial_analysis.get('resistances', [])
         for res in initial_resistances:
-            level = res['level']
+            level = res.value
             event_key = f"res_break_{level}"
             if current_price > level and event_key not in notified_events:
-                message = f"🔔 تنبيه اختراق مقاومة لـ {symbol}: السعر اخترق مستوى المقاومة ${level:,.2f}."
+                message = f"🔔 تنبيه اختراق مقاومة لـ {symbol}: السعر اخترق مستوى المقاومة ${level:,.2f} ({res.name})."
                 self.notifier.send(message, chat_id)
                 notified_events.add(event_key)
 
-        # --- Check 3: Pattern Status Change ---
-        initial_pattern = initial_analysis.get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
-        new_pattern = new_analysis.get('ClassicPatterns', {}).get('found_patterns', [{}])[0]
+        initial_pattern = initial_analysis.get('patterns', [])[0] if initial_analysis.get('patterns') else None
+        new_pattern = new_analysis.get('patterns', [])[0] if new_analysis.get('patterns') else None
 
-        if initial_pattern.get('name') == new_pattern.get('name'):
-            initial_status = initial_pattern.get('status', 'N/A')
-            new_status = new_pattern.get('status', 'N/A')
+        if initial_pattern and new_pattern and initial_pattern.name == new_pattern.name:
+            initial_status = initial_pattern.status
+            new_status = new_pattern.status
             event_key = f"pattern_status_{new_status}"
 
             if new_status != initial_status and event_key not in notified_events:
-                message = f"🔔 تنبيه تحديث نموذج لـ {symbol}: تغيرت حالة نموذج {initial_pattern.get('name')} إلى '{new_status}'."
+                message = f"🔔 تنبيه تحديث نموذج لـ {symbol}: تغيرت حالة نموذج {initial_pattern.name} إلى '{new_status}'."
                 self.notifier.send(message, chat_id)
                 notified_events.add(event_key)
 
-                # If pattern is activated or failed, stop monitoring
                 if new_status in ['مفعل', 'فشل', 'ملغي']:
                     logger.info(f"Pattern for {trade_key} is terminal ('{new_status}'). Removing from monitor.")
                     del self.followed_trades[trade_key]

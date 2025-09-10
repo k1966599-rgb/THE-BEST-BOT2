@@ -40,7 +40,7 @@ class InteractiveTelegramBot(BaseNotifier):
         self.decision_engine = decision_engine
         self.report_builder = ReportBuilder(config)
         self.bot_state = {"is_active": True}
-        self.last_analysis_results: Dict[int, Dict] = {} # Storing the full recommendation now
+        self.last_analysis_results: Dict[int, List[Dict]] = {}
         self.token = self.config.get('BOT_TOKEN')
         self.bot = None
 
@@ -86,15 +86,13 @@ class InteractiveTelegramBot(BaseNotifier):
     async def _run_analysis_for_request(self, chat_id: int, symbol: str, timeframes: list, analysis_type: str) -> Dict[str, Any]:
         logger.info(f"Bot request: Starting analysis for {symbol} on timeframes: {timeframes}...")
         all_results = []
+        current_price = 0
         for tf in timeframes:
             try:
                 okx_symbol = symbol.replace('/', '-')
                 api_timeframe = tf.replace('d', 'D').replace('h', 'H')
                 historical_data_wrapper = await anyio.to_thread.run_sync(
-                    self.fetcher.fetch_historical_data,
-                    okx_symbol,
-                    api_timeframe,
-                    365
+                    self.fetcher.fetch_historical_data, okx_symbol, api_timeframe, 365
                 )
                 if not historical_data_wrapper or not historical_data_wrapper.get('data'):
                     raise ConnectionError(f"Failed to fetch data for {symbol} on {tf}")
@@ -104,24 +102,27 @@ class InteractiveTelegramBot(BaseNotifier):
                 df = standardize_dataframe_columns(df)
                 df.set_index('timestamp', inplace=True)
 
+                if not df.empty:
+                    current_price = df['close'].iloc[-1]
+
                 analysis_results = self.orchestrator.run(df)
-                recommendation = self.decision_engine.make_recommendation(analysis_results, df, symbol, tf, chat_id=chat_id)
-                all_results.append({'success': True, 'recommendation': recommendation})
+                recommendation = self.decision_engine.make_recommendation(analysis_results, df, symbol, tf, chat_id)
+                # Add current price to the recommendation dictionary for the report builder
+                recommendation['current_price'] = current_price
+                all_results.append(recommendation)
             except Exception as e:
                 logger.exception(f"Analysis failed for {symbol} on {tf} in bot request.")
-                all_results.append({'success': False, 'timeframe': tf, 'error': str(e)})
+                # We don't add a failed result to the list
 
-        successful_recs = [r['recommendation'] for r in all_results if r.get('success')]
-        if not successful_recs:
+        if not all_results:
             return {'error': f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."}
 
-        ranked_recs = self.decision_engine.rank_recommendations(successful_recs)
-        last_price_data = await anyio.to_thread.run_sync(self.fetcher.get_cached_price, symbol.replace('/', '-')) or {}
+        ranked_recs = self.decision_engine.rank_recommendations(all_results)
 
         general_info = {
             'symbol': symbol,
             'analysis_type': analysis_type,
-            'current_price': last_price_data.get('price', successful_recs[0].get('current_price', 0)),
+            'current_price': current_price,
             'timeframes': timeframes
         }
         return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
@@ -132,24 +133,19 @@ class InteractiveTelegramBot(BaseNotifier):
             await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
             return
 
-        parts = []
-        while len(text) > 0:
-            if len(text) > MAX_LENGTH:
-                part = text[:MAX_LENGTH]
-                first_newline = part.rfind('\n')
-                if first_newline != -1:
-                    parts.append(part[:first_newline])
-                    text = text[first_newline:]
-                else:
-                    parts.append(part)
-                    text = text[MAX_LENGTH:]
-            else:
-                parts.append(text)
-                break
-
+        parts = text.split('\n\n')
+        current_message = ""
         for part in parts:
-            await self.bot.send_message(chat_id=chat_id, text=part, **kwargs)
-            await asyncio.sleep(0.5)
+            if len(current_message) + len(part) + 2 > MAX_LENGTH:
+                await self.bot.send_message(chat_id=chat_id, text=current_message, **kwargs)
+                current_message = part
+            else:
+                current_message += "\n\n" + part
+
+        if current_message:
+            await self.bot.send_message(chat_id=chat_id, text=current_message, **kwargs)
+
+        await asyncio.sleep(0.5)
 
     async def _main_button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -185,6 +181,7 @@ class InteractiveTelegramBot(BaseNotifier):
             if not symbol or not timeframes:
                  await query.message.reply_text("خطأ: لم يتم تحديد العملة أو نوع التحليل بشكل صحيح.")
                  return
+
             await query.edit_message_text(text=f"جاري إعداد <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
                 chat_id = query.message.chat_id
@@ -196,29 +193,23 @@ class InteractiveTelegramBot(BaseNotifier):
 
                 # --- Send Report in Pieces ---
                 if report_parts.get("header"):
-                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["header"], parse_mode='HTML')
-                    await asyncio.sleep(1)
+                    await self._send_long_message(chat_id=chat_id, text=report_parts["header"], parse_mode='HTML')
 
-                # Send each time horizon report if it exists
-                for horizon_key in ["long_report", "medium_report", "short_report"]:
-                    if report_parts.get(horizon_key):
-                        await self._send_long_message(chat_id=query.message.chat_id, text=report_parts[horizon_key], parse_mode='HTML')
-                        await asyncio.sleep(1)
+                for report_section in report_parts.get("timeframe_reports", []):
+                    await self._send_long_message(chat_id=chat_id, text=report_section, parse_mode='HTML')
 
                 if report_parts.get("summary"):
-                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["summary"], parse_mode='HTML')
-                    await asyncio.sleep(1)
+                    await self._send_long_message(chat_id=chat_id, text=report_parts["summary"], parse_mode='HTML')
 
                 if report_parts.get("final_recommendation"):
-                    await self._send_long_message(chat_id=query.message.chat_id, text=report_parts["final_recommendation"], parse_mode='HTML')
+                    await self._send_long_message(chat_id=chat_id, text=report_parts["final_recommendation"], parse_mode='HTML')
 
                 # --- Handle Follow-up Action ---
                 ranked_results = report_parts.get('ranked_results', [])
+                self.last_analysis_results[chat_id] = ranked_results # Store for the follow button
                 primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
 
-                if primary_rec and primary_rec.get('trade_setup'):
-                    # Store the entire recommendation object, which includes the setup and raw analysis
-                    self.last_analysis_results[query.message.chat_id] = primary_rec
+                if primary_rec:
                     await query.message.reply_text(text="هل تريد متابعة هذه التوصية النهائية؟", reply_markup=self._get_follow_keyboard(primary_rec['trade_setup']))
 
             except Exception as e:
@@ -228,11 +219,15 @@ class InteractiveTelegramBot(BaseNotifier):
         elif callback_data.startswith("follow_"):
             chat_id = query.message.chat_id
             if chat_id in self.last_analysis_results:
-                full_recommendation = self.last_analysis_results[chat_id]
-                self.trade_monitor.add_trade(full_recommendation)
-                symbol = full_recommendation.get('symbol')
-                timeframe = full_recommendation.get('timeframe')
-                await query.edit_message_text(text=f"✅ تمت إضافة {symbol} على فريم {timeframe} للمتابعة.")
+                ranked_results = self.last_analysis_results[chat_id]
+                primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
+                if primary_rec:
+                    self.trade_monitor.add_trade(primary_rec)
+                    symbol = primary_rec.get('symbol')
+                    timeframe = primary_rec.get('timeframe')
+                    await query.edit_message_text(text=f"✅ تمت إضافة {symbol} على فريم {timeframe} للمتابعة.")
+                else:
+                    await query.edit_message_text(text="❌ لم يتم العثور على الصفقة المحددة.")
             else:
                 await query.edit_message_text(text="❌ انتهت صلاحية التحليل. يرجى طلب تحليل جديد.")
 
@@ -245,7 +240,6 @@ class InteractiveTelegramBot(BaseNotifier):
         return False
 
     async def _post_init(self, application: Application):
-        # The new trade monitor needs a reference to the bot to send messages
         self.trade_monitor.notifier.bot = application.bot
         application.create_task(self.trade_monitor.run_monitoring_loop())
 

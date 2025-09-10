@@ -21,7 +21,7 @@ TRADING_CONFIG = {
     'TIMEFRAME_GROUPS': {
         "long": ['1d', '4h', '1h'],
         "medium": ['30m', '15m'],
-        "short": ['5m', '3m']
+        "short": ['5m', '3m', '1m']
     }
 }
 
