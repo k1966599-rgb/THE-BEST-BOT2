@@ -2,7 +2,7 @@ import logging
 import re
 import asyncio
 import uuid
-from typing import Dict, Any
+from typing import Dict, Any, List
 from pathlib import Path
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
