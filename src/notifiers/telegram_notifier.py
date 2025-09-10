@@ -70,9 +70,13 @@ class InteractiveTelegramBot(BaseNotifier):
         return InlineKeyboardMarkup(keyboard)
 
     def _get_analysis_type_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
-        # Simplified for now, as the new structure is more generic
-        keyboard = [[InlineKeyboardButton("تحليل شامل", callback_data=f"analyze_full_{symbol}")],
-                    [InlineKeyboardButton("🔙 رجوع لقائمة العملات", callback_data="analyze_menu")]]
+        """Restores the three analysis options (long, medium, short term)."""
+        keyboard = [
+            [InlineKeyboardButton("تحليل طويل المدى", callback_data=f"analyze_long_{symbol}")],
+            [InlineKeyboardButton("تحليل متوسط المدى", callback_data=f"analyze_medium_{symbol}")],
+            [InlineKeyboardButton("تحليل قصير المدى", callback_data=f"analyze_short_{symbol}")],
+            [InlineKeyboardButton("🔙 رجوع لقائمة العملات", callback_data="analyze_menu")]
+        ]
         return InlineKeyboardMarkup(keyboard)
 
     def _get_analysis_follow_keyboard(self, report_id: str) -> InlineKeyboardMarkup:
@@ -83,61 +87,58 @@ class InteractiveTelegramBot(BaseNotifier):
         ]]
         return InlineKeyboardMarkup(keyboard)
 
-    # --- Placeholder Analysis Generator ---
-    def _create_mock_analysis(self, pair: str) -> AnalysisReport:
+    # --- Placeholder Analysis Generator (Updated) ---
+    def _create_mock_analysis(self, pair: str, analysis_type: str, timeframes: List[str]) -> AnalysisReport:
         """
-        Generates a hardcoded mock analysis report based on the user's BTC/USDT example.
-        This is a placeholder for the real analysis logic.
+        Generates a mock analysis report that is now dynamic based on user selection.
         """
         report_id = str(uuid.uuid4())
-        # Data for 1H
-        h1_analysis = TimeframeAnalysis(
-            timeframe="1H", current_price=111550.0,
-            pattern=TechnicalPattern(name="مثلث صاعد", status="قيد التكوين", activation_condition="اختراق المقاومة 112,000$ مع ثبات شمعة ساعة فوقها", invalidation_condition="كسر الدعم 110,530$ مع إغلاق شمعة ساعة تحته", target=115500.0),
-            supports=[Support(type="دعم ترند قصير", level=110530.0, strength="حرج"), Support(type="دعم فيبو 0.618", level=110920.0, strength="قوي")],
-            resistances=[Resistance(type="مقاومة رئيسية", level=112000.0, strength="حرجة"), Resistance(type="مقاومة هدف النموذج", level=115500.0, strength="فني")]
-        )
-        # Data for 4H
-        h4_analysis = TimeframeAnalysis(
-            timeframe="4H", current_price=111550.0,
-            pattern=TechnicalPattern(name="علم صاعد", status="مفعل", activation_condition="اختراق المقاومة 114,000$ مع إغلاق شمعة 4 ساعات فوقها", invalidation_condition="كسر الدعم 111,000$ مع إغلاق شمعة 4 ساعات تحته", target=117000.0),
-            supports=[Support(type="دعم ترند متوسط", level=111000.0, strength="حرج"), Support(type="دعم قناة/قاع العلم", level=111500.0, strength="قوي")],
-            resistances=[Resistance(type="مقاومة العلم", level=114000.0, strength="حرجة"), Resistance(type="مقاومة هدف النموذج", level=117000.0, strength="فني")]
-        )
-        # Data for 1D
-        d1_analysis = TimeframeAnalysis(
-            timeframe="1D", current_price=111550.0,
-            pattern=TechnicalPattern(name="قاع مزدوج", status="فشل", activation_condition="اختراق خط العنق 123,226$ مع إغلاق شمعة يومية فوقه", invalidation_condition="كسر القاع الثاني 98,924$ مع إغلاق شمعة يومية تحته", target=147000.0),
-            supports=[Support(type="دعم ترند طويل", level=98924.0, strength="حرج"), Support(type="دعم فيبو 0.5", level=110800.0, strength="متوسط")],
-            resistances=[Resistance(type="خط عنق القاع المزدوج", level=123226.0, strength="حرجة"), Resistance(type="مقاومة هدف النموذج", level=147000.0, strength="فني")]
-        )
-        # Summary and Trade
+
+        # Create a dynamic list of timeframe analyses
+        timeframe_analyses = []
+        for tf in timeframes:
+            # Use generic mock data for each timeframe for demonstration
+            analysis = TimeframeAnalysis(
+                timeframe=tf, current_price=111550.0, # Price would be fetched live in a real scenario
+                pattern=TechnicalPattern(name="نموذج قيد التحليل", status="قيد التكوين", activation_condition=f"اختراق المقاومة A", invalidation_condition=f"كسر الدعم B", target=12345.0),
+                supports=[Support(type="دعم رئيسي", level=110000.0, strength="قوي")],
+                resistances=[Resistance(type="مقاومة رئيسية", level=115000.0, strength="قوية")]
+            )
+            timeframe_analyses.append(analysis)
+
+        # Create a generic summary
+        summary_text = f"ملخص لـ {len(timeframes)} إطارات زمنية."
         summary = ExecutiveSummary(
-            short_term_summary="مثلث صاعد → اختراق 112,000$ → أهداف: 115,500$ → 117,500$",
-            medium_term_summary="علم صاعد → اختراق 114,000$ → أهداف: 117,000$ → 118,300$",
-            long_term_summary="قاع مزدوج → اختراق 123,226$ → أهداف: 135,000$ → 147,000$",
+            short_term_summary=summary_text,
+            medium_term_summary=summary_text,
+            long_term_summary=summary_text,
             critical_points={
-                "resistance_breakout": "اختراق المقاومة: 1H = 112,000$, 4H = 114,000$, 1D = 123,226$",
-                "support_breakdown": "كسر الدعم: 1H = 110,530$, 4H = 111,000$, 1D = 98,924$"
+                "resistance_breakout": "مراقبة اختراق المقاومات",
+                "support_breakdown": "مراقبة كسر الدعوم"
             }
         )
         trade = ConfirmedTrade(
-            entry_price_condition="عند اختراق 112,000$ (فريم 1H) مع ثبات السعر فوق المقاومة 3 شموع ساعة متتالية",
-            targets=[115500.0, 117500.0, 120000.0],
-            stop_loss_condition="عند كسر 110,530$ (فريم 1H)",
-            strategy_details="متابعة فريم 4H لاختراق 114,000$ → أهداف 117,000$ – 118,300$"
+            entry_price_condition="عند تحقق شروط التفعيل",
+            targets=[120000.0, 125000.0],
+            stop_loss_condition="عند تحقق شروط الإلغاء",
+            strategy_details="دمج الإشارات من جميع الإطارات الزمنية."
         )
+
         # Full Report
         return AnalysisReport(
-            report_id=report_id, pair=pair, timeframe_analyses=[h1_analysis, h4_analysis, d1_analysis],
-            summary=summary, confirmed_trade=trade
+            report_id=report_id,
+            pair=pair,
+            analysis_type=analysis_type, # Use the selected analysis type
+            timeframe_analyses=timeframe_analyses,
+            summary=summary,
+            confirmed_trade=trade
         )
 
     # --- Core Logic (Refactored) ---
-    async def _generate_and_send_new_analysis(self, chat_id: int, symbol: str):
+    async def _generate_and_send_new_analysis(self, chat_id: int, symbol: str, analysis_type: str, timeframes: List[str]):
         """Generates, saves, formats, and sends the new analysis report."""
         # 1. Generate the analysis (using the mock for now)
-        report = self._create_mock_analysis(symbol)
+        report = self._create_mock_analysis(symbol, analysis_type, timeframes)
 
         # 2. Save the report to the tracker with is_followed=False
         # This ensures we have a record and an ID to reference in the buttons
@@ -202,15 +203,39 @@ class InteractiveTelegramBot(BaseNotifier):
             symbol = callback_data.split("_", 1)[1]
             await query.edit_message_text(text=f"اختر نوع التحليل لـ `{symbol}`:", reply_markup=self._get_analysis_type_keyboard(symbol), parse_mode=ParseMode.MARKDOWN_V2)
 
-        # --- Analysis Trigger (Refactored) ---
-        elif callback_data.startswith("analyze_full_"):
+        # --- Analysis Trigger (Refactored for different scopes) ---
+        elif callback_data.startswith("analyze_"):
             if not self.bot_state["is_active"]:
                 await query.message.reply_text("البوت متوقف حاليًا. يرجى الضغط على 'تشغيل' أولاً.")
                 return
-            symbol = callback_data.replace("analyze_full_", "")
-            await query.edit_message_text(text=f"جاري إعداد تحليل شامل لـ `{symbol}`...", parse_mode=ParseMode.MARKDOWN_V2)
+
+            parts = callback_data.split("_")
+            analysis_scope = parts[1]
+            symbol = "_".join(parts[2:])
+
+            # Get timeframe groups from config
+            config = get_config()
+            analysis_map = {
+                "long": ("استثمار طويل المدى", config['trading']['TIMEFRAME_GROUPS']['long']),
+                "medium": ("تداول متوسط المدى", config['trading']['TIMEFRAME_GROUPS']['medium']),
+                "short": ("مضاربة سريعة", config['trading']['TIMEFRAME_GROUPS']['short'])
+            }
+
+            analysis_type, timeframes = analysis_map.get(analysis_scope, ("غير محدد", []))
+
+            if not symbol or not timeframes:
+                 await query.message.reply_text("خطأ: لم يتم تحديد العملة أو نوع التحليل بشكل صحيح.")
+                 return
+
+            await query.edit_message_text(text=f"جاري إعداد *{analysis_type}* لـ `{symbol}`...", parse_mode=ParseMode.MARKDOWN_V2)
             try:
-                await self._generate_and_send_new_analysis(query.message.chat_id, symbol)
+                # Pass the correct parameters to the analysis function
+                await self._generate_and_send_new_analysis(
+                    chat_id=query.message.chat_id,
+                    symbol=symbol,
+                    analysis_type=analysis_type,
+                    timeframes=timeframes
+                )
             except Exception as e:
                 logger.exception(f"Error generating new analysis for {symbol}.")
                 await query.message.reply_text(f"حدث خطأ فادح: {e}")
