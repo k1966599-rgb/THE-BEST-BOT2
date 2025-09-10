@@ -37,6 +37,12 @@ class RisingWedge(BasePattern):
         target1 = activation_level - wedge_height
         target2 = activation_level - wedge_height * 1.618
 
+        confidence = self._calculate_confidence(
+            r_squared_upper=upper_trend['r_squared'],
+            r_squared_lower=lower_trend['r_squared'],
+            touch_count=len(window_highs) + len(window_lows)
+        )
+
         pattern = Pattern(
             name='وتد صاعد',
             status='قيد التكوين' if self.current_price > activation_level else 'مفعل',
@@ -44,6 +50,7 @@ class RisingWedge(BasePattern):
             activation_level=round(activation_level, 4),
             invalidation_level=round(stop_loss, 4),
             target1=round(target1, 4),
-            target2=round(target2, 4)
+            target2=round(target2, 4),
+            confidence=confidence
         )
         return [pattern]

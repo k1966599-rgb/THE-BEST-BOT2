@@ -23,7 +23,7 @@ class AscendingTriangle(BasePattern):
         if len(self.highs) < 2 or len(self.lows) < 2:
             return []
 
-        # Find horizontal resistance line
+        # Find horizontal resistance line candidates
         resistance_candidates = []
         for i in range(len(self.highs) - 1):
             for j in range(i + 1, len(self.highs)):
@@ -38,21 +38,26 @@ class AscendingTriangle(BasePattern):
         support_lows = [l for l in self.lows if l['price'] < best_res_price]
         if len(support_lows) < 2: return []
 
-        x = np.array([l['index'] for l in support_lows]).reshape(-1, 1)
-        y = np.array([l['price'] for l in support_lows])
-        lr = LinearRegression().fit(x, y)
+        support_trend = self.find_trend_line([p['index'] for p in support_lows], [p['price'] for p in support_lows])
 
-        if lr.coef_[0] <= 0: return []  # Slope must be positive
+        if support_trend['slope'] <= 0: return []
 
         # Calculate targets and levels
-        height = best_res_price - lr.predict(np.array([[support_lows[0]['index']]]))[0]
+        height = best_res_price - (support_trend['slope'] * support_lows[0]['index'] + support_trend['intercept'])
         if height <= 0: return []
 
         target1 = best_res_price + height
         target2 = best_res_price + height * 1.618
-        target3 = best_res_price + height * 2.618
         stop_loss = support_lows[-1]['price'] * 0.99
         status = 'قيد التكوين' if self.current_price < best_res_price else 'مفعل'
+
+        # Calculate confidence
+        touch_count = len([h for h in self.highs if abs(h['price'] - best_res_price) / best_res_price <= self.price_tolerance]) + len(support_lows)
+        confidence = self._calculate_confidence(
+            r_squared_upper=1.0, # Horizontal line has perfect R-squared
+            r_squared_lower=support_trend['r_squared'],
+            touch_count=touch_count
+        )
 
         pattern = Pattern(
             name='مثلث صاعد',
@@ -62,6 +67,6 @@ class AscendingTriangle(BasePattern):
             invalidation_level=round(stop_loss, 4),
             target1=round(target1, 4),
             target2=round(target2, 4),
-            target3=round(target3, 4)
+            confidence=confidence
         )
         return [pattern]

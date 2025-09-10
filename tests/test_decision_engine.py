@@ -48,6 +48,8 @@ def test_make_bullish_recommendation(decision_engine, sample_bullish_pattern):
     assert 'شراء' in recommendation['main_action']
     assert recommendation['trade_setup'] is not None
     assert recommendation['trade_setup'].target1 == 110
+    assert len(recommendation['trade_setup'].confirmation_conditions) > 0
+    assert "إغلاق شمعة 1h فوق مستوى 100.00" in recommendation['trade_setup'].confirmation_conditions[0]
 
 def test_make_pending_recommendation(decision_engine, sample_pending_pattern):
     """Test that a pending pattern results in a 'Wait' action."""

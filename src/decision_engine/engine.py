@@ -2,7 +2,7 @@ import pandas as pd
 from typing import Dict, Any, List, Optional
 import logging
 from .trade_setup import TradeSetup
-from ..analysis.data_models import Pattern
+from ..analysis.data_models import Pattern, Level
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ class DecisionEngine:
             # --- 2. Create TradeSetup from Pattern ---
             if chat_id:
                 try:
+                    confirmation_conditions = self._generate_confirmation_conditions(analysis_results, primary_pattern)
                     trade_setup = TradeSetup(
                         chat_id=chat_id,
                         symbol=symbol,
@@ -50,6 +51,7 @@ class DecisionEngine:
                         stop_loss=primary_pattern.invalidation_level,
                         target1=primary_pattern.target1,
                         target2=primary_pattern.target2,
+                        confirmation_conditions=confirmation_conditions,
                         raw_pattern_data=primary_pattern.__dict__
                     )
                 except Exception as e:
@@ -70,6 +72,30 @@ class DecisionEngine:
             'raw_analysis': analysis_results, # Pass the full analysis for reporting
             'trade_setup': trade_setup
         }
+
+    def _generate_confirmation_conditions(self, analysis: Dict[str, Any], pattern: Pattern) -> List[str]:
+        """
+        Generates a list of dynamic confirmation conditions for a trade setup.
+        """
+        conditions = [f"إغلاق شمعة {pattern.timeframe} فوق مستوى {pattern.activation_level:,.2f}"]
+
+        # Add volume confirmation
+        conditions.append("تزايد حجم التداول عند الاختراق")
+
+        # Add indicator confirmation
+        # This part can be expanded greatly. For now, a simple placeholder.
+        other_analysis = analysis.get('other_analysis', {})
+        if 'TechnicalIndicators' in other_analysis:
+             conditions.append("مؤشرات فنية إيجابية (RSI > 50)")
+
+        # Add support confirmation
+        supports: List[Level] = analysis.get('supports', [])
+        for s in supports:
+            if "فيبو 0.618" in s.name:
+                conditions.append(f"الارتداد من دعم فيبوناتشي القوي عند ${s.value:,.2f}")
+                break # Add only one fib support condition
+
+        return conditions
 
     def rank_recommendations(self, recommendations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

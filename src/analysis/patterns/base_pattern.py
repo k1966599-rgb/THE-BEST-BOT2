@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Any
 from abc import ABC, abstractmethod
-from .pattern_utils import find_trend_line
+from sklearn.linear_model import LinearRegression
 
 class BasePattern(ABC):
     """
@@ -25,6 +25,23 @@ class BasePattern(ABC):
         It should return a list of found patterns.
         """
         pass
+
+    def find_trend_line(self, x_values: List[int], y_values: List[float]) -> Dict:
+        """Finds a trend line using linear regression."""
+        if len(x_values) < 2 or len(y_values) < 2:
+            return {'slope': 0, 'intercept': 0, 'r_squared': 0}
+
+        x_array = np.array(x_values).reshape(-1, 1)
+        y_array = np.array(y_values)
+
+        reg = LinearRegression().fit(x_array, y_array)
+        r_squared = reg.score(x_array, y_array)
+
+        return {
+            'slope': reg.coef_[0],
+            'intercept': reg.intercept_,
+            'r_squared': r_squared
+        }
 
     def _filter_pivots(self, search_window_bars: int) -> (List[Dict], List[Dict]):
         """
@@ -75,3 +92,42 @@ class BasePattern(ABC):
                 'breakout_volume': self.df.iloc[-1]['volume'] / avg_volume if avg_volume > 0 else 1
             }
         return volume_analysis
+
+    def _calculate_confidence(self, **kwargs) -> float:
+        """
+        Calculates a confidence score based on various weighted metrics.
+        """
+        base_confidence = 50.0
+        total_weight = 0
+        weighted_score = 0
+
+        # R-squared of trendlines
+        if 'r_squared_upper' in kwargs and 'r_squared_lower' in kwargs:
+            r_squared_avg = (kwargs['r_squared_upper'] + kwargs['r_squared_lower']) / 2
+            weighted_score += r_squared_avg * 15 # Weight of 15
+            total_weight += 15
+
+        # Number of pivot touches
+        if 'touch_count' in kwargs:
+            # Score based on number of touches above the minimum (e.g., 4)
+            touch_score = max(0, (kwargs['touch_count'] - 4) * 5)
+            weighted_score += min(touch_score, 20) # Max score of 20
+            total_weight += 20
+
+        # Volume confirmation
+        if 'volume_confirmation' in kwargs and kwargs['volume_confirmation']:
+            weighted_score += 25
+            total_weight += 25
+
+        # Add other metrics here...
+
+        if total_weight == 0:
+            return base_confidence
+
+        # Normalize the weighted score to be out of 100
+        normalized_score = (weighted_score / total_weight) * 100
+
+        # Blend with base confidence
+        final_confidence = (base_confidence * 0.4) + (normalized_score * 0.6)
+
+        return min(95.0, max(30.0, final_confidence))
