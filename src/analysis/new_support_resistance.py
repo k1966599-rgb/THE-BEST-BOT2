@@ -1,12 +1,12 @@
 import pandas as pd
 import numpy as np
 from scipy.signal import find_peaks
-from typing import Dict, List
+from typing import Dict, List, Any
 
-def find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, width: int = 10) -> Dict[str, List[float]]:
+def find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, width: int = 10) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Identifies support and resistance levels from historical price data using peak/trough analysis.
-    This is the new, real implementation.
+    Identifies support and resistance levels with qualitative descriptions.
+    Uses peak/trough analysis and clustering to determine level strength.
 
     Args:
         df: A pandas DataFrame with 'high', 'low', and 'close' columns.
@@ -14,7 +14,8 @@ def find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, widt
         width: The required width of peaks in number of samples.
 
     Returns:
-        A dictionary containing two keys, 'supports' and 'resistances', with lists of price levels.
+        A dictionary containing 'supports' and 'resistances', with lists of dictionaries.
+        Each dictionary has 'level' (float) and 'description' (str).
     """
     if df.empty or not all(col in df.columns for col in ['high', 'low', 'close']):
         return {'supports': [], 'resistances': []}
@@ -33,38 +34,71 @@ def find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, widt
     support_indices, _ = find_peaks(-df['low'], prominence=prominence_value, width=width)
     supports = df['low'].iloc[support_indices].to_list()
 
-    # --- Level Clustering to reduce noise ---
+    # --- Level Clustering to determine strength ---
     all_levels = sorted(list(set(supports + resistances)))
     clustered_levels = []
     if all_levels:
         current_cluster = [all_levels[0]]
-        # Cluster levels that are within 1% of each other
         for level in all_levels[1:]:
+            # Cluster levels within 1% of each other
             if level <= np.mean(current_cluster) * 1.01:
                 current_cluster.append(level)
             else:
-                clustered_levels.append(np.mean(current_cluster))
+                # Store the mean of the cluster and its size (strength)
+                clustered_levels.append({'level': np.mean(current_cluster), 'strength': len(current_cluster)})
                 current_cluster = [level]
-        clustered_levels.append(np.mean(current_cluster))
+        clustered_levels.append({'level': np.mean(current_cluster), 'strength': len(current_cluster)})
 
-    # --- Separate clustered levels back into support and resistance ---
+    # --- Separate clustered levels and assign descriptions ---
     final_supports = []
     final_resistances = []
     last_close = df['close'].iloc[-1]
 
-    for level in clustered_levels:
+    for data in clustered_levels:
+        level = round(data['level'], 4)
+        strength = data['strength']
         if level < last_close:
-            final_supports.append(round(level, 4))
+            final_supports.append({'level': level, 'strength': strength})
         else:
-            final_resistances.append(round(level, 4))
+            final_resistances.append({'level': level, 'strength': strength})
 
-    # Fallback if clustering removes all levels of one type
-    if not final_supports and supports:
-        final_supports = [round(s, 4) for s in sorted(list(set(supports))) if s < last_close]
-    if not final_resistances and resistances:
-        final_resistances = [round(r, 4) for r in sorted(list(set(resistances))) if r > last_close]
+    # Sort supports descending (closest first) and resistances ascending (closest first)
+    final_supports = sorted(final_supports, key=lambda x: x['level'], reverse=True)
+    final_resistances = sorted(final_resistances, key=lambda x: x['level'])
+
+    # Assign qualitative descriptions
+    for i, sup in enumerate(final_supports):
+        if i == 0:
+            sup['description'] = "دعم حرج"
+        elif sup['strength'] >= 3:
+            sup['description'] = "دعم قوي"
+        else:
+            sup['description'] = "دعم ثانوي"
+
+    for i, res in enumerate(final_resistances):
+        if i == 0:
+            res['description'] = "مقاومة حرجة"
+        elif res['strength'] >= 3:
+            res['description'] = "مقاومة قوية"
+        else:
+            res['description'] = "مقاومة ثانوية"
+
+    # Add historical levels
+    historical_low = df['low'].min()
+    historical_high = df['high'].max()
+    final_supports.append({'level': historical_low, 'description': 'دعم تاريخي', 'strength': 99})
+    final_resistances.append({'level': historical_high, 'description': 'مقاومة تاريخية', 'strength': 99})
+
+    # Remove duplicates that might have been added
+    final_supports = [dict(t) for t in {tuple(d.items()) for d in final_supports}]
+    final_resistances = [dict(t) for t in {tuple(d.items()) for d in final_resistances}]
+
+    # Sort again and take the top 5 closest
+    final_supports = sorted(final_supports, key=lambda x: x['level'], reverse=True)[:5]
+    final_resistances = sorted(final_resistances, key=lambda x: x['level'])[:5]
+
 
     return {
-        'supports': sorted(list(set(final_supports)), reverse=True)[:5],  # Top 5 closest
-        'resistances': sorted(list(set(final_resistances)))[:5] # Top 5 closest
+        'supports': final_supports,
+        'resistances': final_resistances
     }

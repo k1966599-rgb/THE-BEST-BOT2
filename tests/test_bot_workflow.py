@@ -75,7 +75,7 @@ async def test_bot_full_analysis_workflow(core_components):
 
     # --- Execute ---
     # Call the core function that the bot uses to generate a report
-    report = await bot._run_analysis_for_request(symbol, timeframes, analysis_type)
+    report = await bot._run_analysis_for_request(12345, symbol, timeframes, analysis_type)
 
     # --- Verify ---
     # 1. Check that the analysis didn't fail
@@ -85,14 +85,11 @@ async def test_bot_full_analysis_workflow(core_components):
 
     # 2. Check for the completeness of the report structure
     assert "header" in report, "Report must contain a 'header'."
-    assert "timeframe_sections" in report, "Report must contain 'timeframe_sections'."
-    assert "summary_and_recommendation" in report, "Report must contain a 'summary_and_recommendation'."
+    assert "medium_report" in report, "Report for the requested horizon must be present."
+    assert "summary" in report, "Report must contain a 'summary'."
+    assert "final_recommendation" in report, "Report must contain a 'final_recommendation'."
 
     # 3. Check that the content is non-empty
     assert report["header"].strip() != "", "Report header should not be empty."
-    assert len(report["timeframe_sections"]) > 0, "There should be at least one timeframe section."
-    assert report["summary_and_recommendation"].strip() != "", "Report summary should not be empty."
-
-    # 4. Check that we have a report for each requested timeframe
-    assert len(report["timeframe_sections"]) == len(timeframes), \
-        f"Expected {len(timeframes)} timeframe reports, but got {len(report['timeframe_sections'])}."
+    assert report["medium_report"].strip() != "", "Medium term report section should not be empty."
+    assert report["summary"].strip() != "", "Report summary should not be empty."

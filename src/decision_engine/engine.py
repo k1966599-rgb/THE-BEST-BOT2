@@ -37,7 +37,7 @@ class DecisionEngine:
         logger.warning(f"Could not find a score key in result for '{result_key}'. Defaulting to 0.")
         return 0.0
 
-    def make_recommendation(self, analysis_results: Dict[str, Any], df: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
+    def make_recommendation(self, analysis_results: Dict[str, Any], df: pd.DataFrame, symbol: str, timeframe: str, chat_id: Optional[int] = None) -> Dict[str, Any]:
         """
         Calculates a final recommendation based on the collected analysis results.
         This encapsulates the logic from the old `calculate_final_recommendation`.
@@ -124,12 +124,13 @@ class DecisionEngine:
 
         logger.info(f"Recommendation: {main_action} with score {total_score:.2f} and confidence {confidence}%.")
 
-        # --- 4. Create TradeSetup if a pattern exists ---
+        # --- 4. Create TradeSetup if a pattern exists and we have a chat_id ---
         trade_setup: Optional[TradeSetup] = None
-        if found_patterns:
+        if found_patterns and chat_id:
             p = found_patterns[0]
             try:
                 trade_setup = TradeSetup(
+                    chat_id=chat_id,
                     symbol=symbol,
                     timeframe=timeframe,
                     pattern_name=p.get('name', 'N/A'),
@@ -144,6 +145,8 @@ class DecisionEngine:
 
 
         return {
+            'symbol': symbol,
+            'timeframe': timeframe,
             'main_action': main_action,
             'confidence': confidence,
             'total_score': total_score,
