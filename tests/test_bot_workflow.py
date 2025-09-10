@@ -3,12 +3,7 @@ import os
 import pytest
 import anyio
 
-# HACK: This is a workaround for a project-wide architectural issue.
-# The application uses absolute imports from the `src` directory (e.g., `from src.config...`),
-# but it is also configured as an installable package where imports should not include `src`.
-# This prevents pytest from finding the modules correctly. Adding the project root
-# to the path is a temporary solution that allows tests to run.
-# The long-term fix would be to remove the `src.` prefix from all imports project-wide.
+# HACK: Add project root to path to allow absolute imports from src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.config import get_config
@@ -39,13 +34,8 @@ def core_components():
     orchestrator = AnalysisOrchestrator(analysis_modules)
     decision_engine = DecisionEngine(config)
 
-    # Start data services needed for the test
     fetcher.start_data_services(['BTC-USDT'])
-
     yield config, fetcher, orchestrator, decision_engine
-
-    # Teardown: stop data services
-    print("\nStopping data services...")
     fetcher.stop()
 
 
@@ -53,14 +43,10 @@ def core_components():
 async def test_bot_full_analysis_workflow(core_components):
     """
     Tests the entire analysis and reporting workflow as triggered by the bot.
-    This simulates a user pressing a button to get a medium-term analysis for BTC.
     """
     config, fetcher, orchestrator, decision_engine = core_components
+    await anyio.sleep(10) # Wait for data services
 
-    # Give some time for the data services to fetch initial data
-    await anyio.sleep(10)
-
-    # Initialize the bot
     bot = InteractiveTelegramBot(
         config=config,
         fetcher=fetcher,
@@ -68,28 +54,26 @@ async def test_bot_full_analysis_workflow(core_components):
         decision_engine=decision_engine
     )
 
-    # These are the parameters for a typical "medium-term" analysis request
     symbol = 'BTC/USDT'
     timeframes = get_config()['trading']['TIMEFRAME_GROUPS']['medium']
     analysis_type = "تحليل متوسط المدى"
+    chat_id = 12345
 
     # --- Execute ---
-    # Call the core function that the bot uses to generate a report
-    report = await bot._run_analysis_for_request(12345, symbol, timeframes, analysis_type)
+    report = await bot._run_analysis_for_request(chat_id, symbol, timeframes, analysis_type)
 
     # --- Verify ---
-    # 1. Check that the analysis didn't fail
     assert 'error' not in report, f"The analysis workflow returned an error: {report.get('error')}"
-    assert report is not None, "The analysis report should not be None."
     assert isinstance(report, dict), "Report should be a dictionary."
 
-    # 2. Check for the completeness of the report structure
-    assert "header" in report, "Report must contain a 'header'."
-    assert "medium_report" in report, "Report for the requested horizon must be present."
-    assert "summary" in report, "Report must contain a 'summary'."
-    assert "final_recommendation" in report, "Report must contain a 'final_recommendation'."
+    # Check for the completeness of the new report structure
+    expected_keys = ['header', 'timeframe_reports', 'summary', 'final_recommendation', 'ranked_results']
+    for key in expected_keys:
+        assert key in report, f"Report must contain key: '{key}'"
 
-    # 3. Check that the content is non-empty
-    assert report["header"].strip() != "", "Report header should not be empty."
-    assert report["medium_report"].strip() != "", "Medium term report section should not be empty."
-    assert report["summary"].strip() != "", "Report summary should not be empty."
+    # Check that the content is non-empty
+    assert report["header"].strip() != ""
+    assert isinstance(report["timeframe_reports"], list)
+    assert len(report["timeframe_reports"]) == len(timeframes)
+    assert report["summary"].strip() != ""
+    assert report["final_recommendation"].strip() != ""

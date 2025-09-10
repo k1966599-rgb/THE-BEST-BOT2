@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from src.config import get_config
 from src.analysis.orchestrator import AnalysisOrchestrator
-from src.analysis.new_support_resistance import find_new_support_resistance
+from src.analysis.data_models import Level, Pattern
 from src.analysis import (
     TechnicalIndicators, TrendAnalysis, PriceChannels,
     SupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
@@ -30,6 +30,7 @@ def sample_data():
 def orchestrator():
     """Provides a fully configured AnalysisOrchestrator instance."""
     config = get_config()
+    # Note: We are not including NewSupportResistance here as it's not a class-based module
     analysis_modules = [
         TechnicalIndicators(config=config.get('analysis')),
         TrendAnalysis(config=config.get('analysis')),
@@ -41,70 +42,35 @@ def orchestrator():
     ]
     return AnalysisOrchestrator(analysis_modules)
 
-
-def test_new_support_resistance_data_structure(sample_data):
+def test_orchestrator_output_structure(orchestrator, sample_data):
     """
-    Tests the output data structure of the modified find_new_support_resistance function.
-    """
-    # Arrange
-    df = sample_data
-
-    # Act
-    results = find_new_support_resistance(df)
-
-    # Assert
-    assert isinstance(results, dict)
-    assert "supports" in results
-    assert "resistances" in results
-
-    # Check supports
-    assert isinstance(results['supports'], list)
-    if results['supports']:
-        support_item = results['supports'][0]
-        assert isinstance(support_item, dict)
-        assert "level" in support_item
-        assert "description" in support_item
-        assert isinstance(support_item['level'], (float, int))
-        assert isinstance(support_item['description'], str)
-        assert support_item['description'] != ""
-
-    # Check resistances
-    assert isinstance(results['resistances'], list)
-    if results['resistances']:
-        resistance_item = results['resistances'][0]
-        assert isinstance(resistance_item, dict)
-        assert "level" in resistance_item
-        assert "description" in resistance_item
-        assert isinstance(resistance_item['level'], (float, int))
-        assert isinstance(resistance_item['description'], str)
-        assert resistance_item['description'] != ""
-
-def test_orchestrator_produces_all_keys(orchestrator, sample_data):
-    """
-    Tests that the AnalysisOrchestrator runs and produces a result dictionary
-    containing all expected keys from its modules.
+    Tests that the refactored AnalysisOrchestrator produces the new, standardized data structure.
     """
     # Act
     results = orchestrator.run(sample_data)
 
     # Assert
     assert isinstance(results, dict)
-    expected_keys = [
-        'TechnicalIndicators',
-        'TrendAnalysis',
-        'PriceChannels',
-        'SupportResistanceAnalysis',
-        'FibonacciAnalysis',
-        'ClassicPatterns',
-        'TrendLineAnalysis',
-        'NewSupportResistance' # This is added separately by the orchestrator
-    ]
+    expected_keys = ['supports', 'resistances', 'patterns', 'other_analysis']
     for key in expected_keys:
         assert key in results, f"Orchestrator result missing expected key: {key}"
 
-    # Also check the format of the NewSupportResistance part specifically
-    new_sr_results = results['NewSupportResistance']
-    assert "supports" in new_sr_results
-    assert isinstance(new_sr_results['supports'], list)
-    if new_sr_results['supports']:
-        assert "description" in new_sr_results['supports'][0]
+    # Check supports list
+    assert isinstance(results['supports'], list)
+    if results['supports']:
+        assert all(isinstance(item, Level) for item in results['supports'])
+        assert all(item.level_type == 'support' for item in results['supports'])
+
+    # Check resistances list
+    assert isinstance(results['resistances'], list)
+    if results['resistances']:
+        assert all(isinstance(item, Level) for item in results['resistances'])
+        assert all(item.level_type == 'resistance' for item in results['resistances'])
+
+    # Check patterns list
+    assert isinstance(results['patterns'], list)
+    if results['patterns']:
+        assert all(isinstance(item, Pattern) for item in results['patterns'])
+
+    # Check that other analysis results are still present
+    assert 'TrendAnalysis' in results['other_analysis']
