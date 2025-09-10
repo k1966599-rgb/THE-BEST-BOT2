@@ -11,10 +11,9 @@ class AscendingTriangle(BasePattern):
     A class for detecting the Ascending Triangle pattern.
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
-                 current_price: float, price_tolerance: float, timeframe: str):
-        super().__init__(df, config, highs, lows, current_price, price_tolerance)
+                 current_price: float, price_tolerance: float, timeframe: str, trend_context: dict = None):
+        super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
         self.name = "Ascending Triangle"
-        self.timeframe = timeframe
 
     def check(self) -> List[Pattern]:
         """
@@ -53,10 +52,14 @@ class AscendingTriangle(BasePattern):
 
         # Calculate confidence
         touch_count = len([h for h in self.highs if abs(h['price'] - best_res_price) / best_res_price <= self.price_tolerance]) + len(support_lows)
+        volume_analysis = self._analyze_volume(self.highs, support_lows, support_lows[0]['index'])
+
         confidence = self._calculate_confidence(
             r_squared_upper=1.0, # Horizontal line has perfect R-squared
             r_squared_lower=support_trend['r_squared'],
-            touch_count=touch_count
+            touch_count=touch_count,
+            volume_confirmation=volume_analysis.get('volume_decline', False),
+            pattern_is_bullish=True
         )
 
         pattern = Pattern(

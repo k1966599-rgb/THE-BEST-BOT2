@@ -25,7 +25,7 @@ class ClassicPatterns(BaseAnalysis):
             BearFlag, FallingWedge, RisingWedge,
         ]
 
-    def analyze(self, df: pd.DataFrame) -> List[Pattern]:
+    def analyze(self, df: pd.DataFrame, trend_context: dict = None) -> List[Pattern]:
         """
         Orchestrates the detection of all classic patterns.
         Returns a list of standardized Pattern objects.
@@ -44,7 +44,8 @@ class ClassicPatterns(BaseAnalysis):
             try:
                 instance = checker_class(
                     data_slice, self.config, highs, lows,
-                    current_price, self.price_tolerance, self.timeframe
+                    current_price, self.price_tolerance, self.timeframe,
+                    trend_context=trend_context
                 )
                 found = instance.check()
                 if found:
