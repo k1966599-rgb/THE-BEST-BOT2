@@ -35,9 +35,6 @@ class SimpleTelegramNotifier(BaseNotifier):
 
         max_length = 4096
         try:
-            # URL-encode the message text
-            encoded_message = requests.utils.quote(message)
-
             # Construct the base URL
             url = f"https://api.telegram.org/bot{self.token}/sendMessage"
 
