@@ -9,7 +9,7 @@ EXPECTED_FILES = [
     "ETH-USDT_historical.json",
     "SOL-USDT_historical.json",
     "LINK-USDT_historical.json",
-    "PEPE-USDT_historical.json"
+    "DOGE-USDT_historical.json"
 ]
 
 @pytest.mark.parametrize("filename", EXPECTED_FILES)

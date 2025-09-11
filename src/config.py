@@ -16,7 +16,7 @@ TRADING_CONFIG = {
 
     # قائمة العملات التي يتم مراقبتها وتحليلها
     'WATCHLIST': [
-        'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'LINK/USDT', 'PEPE/USDT'
+        'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'LINK/USDT', 'DOGE/USDT'
     ],
 
     # قائمة العملات الافتراضية في حالة عدم تحديد قائمة مخصصة
