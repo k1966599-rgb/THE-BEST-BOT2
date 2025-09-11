@@ -73,6 +73,11 @@ class DecisionEngine:
                 conflict_note = "النمط الهابط يتعارض مع الاتجاه العام الصاعد. يوصى بانتظار تأكيد قوي."
                 main_action = "انتظار ⏳"
 
+        # --- 4. Final Sanity Check ---
+        # If, after all logic, the recommendation is to wait, there should be no active trade setup.
+        if main_action == "انتظار ⏳":
+            trade_setup = None
+
         # Simplified score for ranking
         total_score = confidence if 'شراء' in main_action else -confidence if 'بيع' in main_action else 0
 
