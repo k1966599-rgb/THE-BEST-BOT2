@@ -215,6 +215,9 @@ class InteractiveTelegramBot(BaseNotifier):
 
                 if primary_rec:
                     await query.message.reply_text(text="هل تريد متابعة هذه التوصية النهائية؟", reply_markup=self._get_follow_keyboard(primary_rec['trade_setup']))
+                else:
+                    # If no trade setup was generated, return to the main menu
+                    await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
             except Exception as e:
                 logger.exception(f"Unhandled error in bot callback for {symbol}.")
@@ -230,10 +233,13 @@ class InteractiveTelegramBot(BaseNotifier):
                     symbol = primary_rec.get('symbol')
                     timeframe = primary_rec.get('timeframe')
                     await query.edit_message_text(text=f"✅ تمت إضافة {symbol} على فريم {timeframe} للمتابعة.")
+                    await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
                 else:
                     await query.edit_message_text(text="❌ لم يتم العثور على الصفقة المحددة.")
+                    await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
             else:
                 await query.edit_message_text(text="❌ انتهت صلاحية التحليل. يرجى طلب تحليل جديد.")
+                await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
         elif callback_data == "ignore":
             await query.edit_message_text(text="تم تجاهل التحليل.")
