@@ -40,6 +40,14 @@ def trade_monitor(mock_fetcher, mock_orchestrator, mock_notifier):
 @pytest.fixture
 def sample_recommendation():
     """A sample recommendation object to add to the monitor."""
+    pattern = Pattern(
+        name='علم صاعد',
+        status='قيد التكوين',
+        timeframe='1h',
+        activation_level=60000,
+        invalidation_level=58000,
+        target1=62000
+    )
     return {
         'symbol': 'BTC/USDT',
         'timeframe': '1h',
@@ -51,19 +59,13 @@ def sample_recommendation():
             pattern_status='قيد التكوين',
             entry_price=60000,
             stop_loss=58000,
-            target1=62000
+            target1=62000,
+            raw_pattern_data=pattern.__dict__ # Fix: Pass raw pattern data to the setup
         ),
         'raw_analysis': {
             'supports': [Level(name='دعم', value=58000, level_type='support')],
             'resistances': [Level(name='مقاومة', value=60000, level_type='resistance')],
-            'patterns': [Pattern(
-                name='علم صاعد',
-                status='قيد التكوين',
-                timeframe='1h',
-                activation_level=60000,
-                invalidation_level=58000,
-                target1=62000
-            )]
+            'patterns': [pattern]
         }
     }
 
@@ -129,8 +131,8 @@ async def test_pattern_status_change_alert(trade_monitor, mock_fetcher, mock_orc
     call_args_list = mock_notifier.send.call_args_list
     messages = [call[0][0] for call in call_args_list]
     assert any("تنبيه اختراق مقاومة" in msg for msg in messages)
-    assert any("تنبيه تحديث نموذج" in msg for msg in messages)
-    assert any("مفعل" in msg for msg in messages)
+    # Check for the more specific "activation" message
+    assert any("تفعيل الصفقة" in msg for msg in messages)
 
     # The trade should be removed after a terminal status update
     assert key not in trade_monitor.followed_trades
