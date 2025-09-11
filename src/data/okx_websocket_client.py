@@ -9,18 +9,18 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class OKXWebSocketClient:
-    def __init__(self, price_cache: Dict, stop_event: threading.Event):
+    """
+    Manages the WebSocket connection to OKX for receiving real-time ticker data.
+    """
+    def __init__(self, config: Dict, price_cache: Dict, stop_event: threading.Event):
+        self.config = config
         self.ws_url = 'wss://ws.okx.com:8443/ws/v5/public'
         self.price_cache = price_cache
         self._stop_event = stop_event
         self.is_connected = False
         self.reconnect_interval = 5
         self.ws_connection = None
-        self.default_symbols = [
-            'BTC-USDT', 'ETH-USDT', 'BNB-USDT', 'XRP-USDT',
-            'ADA-USDT', 'SOL-USDT', 'DOT-USDT', 'DOGE-USDT',
-            'MATIC-USDT', 'LTC-USDT', 'LINK-USDT', 'UNI-USDT'
-        ]
+        self.default_symbols = self.config.get('trading', {}).get('DEFAULT_SYMBOLS', [])
 
     async def _start_websocket(self, symbols: List[str] = None):
         """Starts the WebSocket connection for live data."""
