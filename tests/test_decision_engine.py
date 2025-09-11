@@ -109,3 +109,40 @@ def test_conflict_resolution_with_trend(decision_engine, sample_bullish_pattern)
 
     assert 'انتظار' in recommendation['main_action']
     assert recommendation['conflict_note'] is not None
+
+def test_generate_intelligent_confirmations(decision_engine, sample_bullish_pattern):
+    """Test the generation of new, intelligent confirmation conditions."""
+    # 1. Setup mock data
+    # 1. Setup mock data with enough data for rolling calculations
+    data = {
+        'close': [98] * 20 + [101],
+        'volume': [100] * 20 + [200],
+        'sma_20': [97] * 20 + [99],
+        'sma_50': [96] * 20 + [98]
+    }
+    mock_df = pd.DataFrame(data)
+    mock_df.index = pd.to_datetime(pd.to_datetime(range(len(mock_df)), unit='D'))
+
+
+    mock_analysis_results = {
+        'patterns': [sample_bullish_pattern],
+        'supports': [],
+        'resistances': [],
+        'other_analysis': {
+            'TrendAnalysis': {'trend_direction': 'Uptrend', 'confidence': 80}
+        }
+    }
+
+    # 2. Execute
+    recommendation = decision_engine.make_recommendation(mock_analysis_results, mock_df, "BTC/USDT", "1h", chat_id=123)
+
+    # 3. Verify
+    assert recommendation['trade_setup'] is not None
+    conditions = recommendation['trade_setup'].confirmation_conditions
+
+    assert len(conditions) > 1 # Should have more than just the base condition
+
+    # Check for specific confirmation messages
+    assert any("حجم تداول مرتفع" in c for c in conditions)
+    assert any("فوق المتوسطات المتحركة" in c for c in conditions)
+    assert any("تتوافق مع الاتجاه العام الصاعد" in c for c in conditions)
