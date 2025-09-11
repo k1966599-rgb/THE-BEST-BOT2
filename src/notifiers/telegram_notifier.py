@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 class InteractiveTelegramBot(BaseNotifier):
     def __init__(self, config: Dict, fetcher: BaseDataFetcher, orchestrator: AnalysisOrchestrator, decision_engine: DecisionEngine):
+        self.full_config = config
         super().__init__(config.get('telegram', {}))
         self.fetcher = fetcher
         self.orchestrator = orchestrator
@@ -61,7 +62,7 @@ class InteractiveTelegramBot(BaseNotifier):
                     [InlineKeyboardButton("🔍 تحليل", callback_data="analyze_menu")]]
         return InlineKeyboardMarkup(keyboard)
     def _get_coin_list_keyboard(self) -> InlineKeyboardMarkup:
-        watchlist = self.config.get('trading', {}).get('WATCHLIST', [])
+        watchlist = self.full_config.get('trading', {}).get('WATCHLIST', [])
         keyboard = [[InlineKeyboardButton(coin, callback_data=f"coin_{coin}") for coin in watchlist[i:i+2]] for i in range(0, len(watchlist), 2)]
         keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="start_menu")])
         return InlineKeyboardMarkup(keyboard)
@@ -177,9 +178,9 @@ class InteractiveTelegramBot(BaseNotifier):
             analysis_scope = parts[1]
             symbol = "_".join(parts[2:])
             analysis_map = {
-                "long": ("استثمار طويل المدى", get_config()['trading']['TIMEFRAME_GROUPS']['long']),
-                "medium": ("تداول متوسط المدى", get_config()['trading']['TIMEFRAME_GROUPS']['medium']),
-                "short": ("مضاربة سريعة", get_config()['trading']['TIMEFRAME_GROUPS']['short'])
+                "long": ("استثمار طويل المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['long']),
+                "medium": ("تداول متوسط المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['medium']),
+                "short": ("مضاربة سريعة", self.full_config['trading']['TIMEFRAME_GROUPS']['short'])
             }
             analysis_name, timeframes = analysis_map.get(analysis_scope, ("غير محدد", []))
             if not symbol or not timeframes:
