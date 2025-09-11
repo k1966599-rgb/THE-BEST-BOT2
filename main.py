@@ -36,7 +36,7 @@ def main():
     )
 
     config = get_config()
-    fetcher = OKXDataFetcher()
+    fetcher = OKXDataFetcher(config)
 
     analysis_modules = [
         TechnicalIndicators(config=config.get('analysis')),
@@ -70,11 +70,14 @@ def main():
             decision_engine=decision_engine
         )
 
+        from src.service_manager import ServiceManager
+        service_manager = ServiceManager(fetcher)
+
         # Start background data services before running the bot
         logger.info("🚀 Starting background data services for interactive bot...")
-        from src.config import WATCHLIST
-        okx_symbols = [s.replace('/', '-') for s in WATCHLIST]
-        fetcher.start_data_services(okx_symbols)
+        watchlist = config.get('trading', {}).get('WATCHLIST', [])
+        okx_symbols = [s.replace('/', '-') for s in watchlist]
+        service_manager.start_services(okx_symbols)
         logger.info("⏳ Waiting 10 seconds for initial data...")
         import time
         time.sleep(10)
@@ -83,7 +86,7 @@ def main():
             interactive_bot.start()
         finally:
             logger.info("⏹️ Stopping data services for interactive bot...")
-            fetcher.stop()
+            service_manager.stop_services()
 
 if __name__ == "__main__":
     main()

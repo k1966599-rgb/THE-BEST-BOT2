@@ -14,6 +14,18 @@ TRADING_CONFIG = {
     'ACCOUNT_BALANCE': 10000,
     'MAX_RISK_PER_TRADE': 0.02,
 
+    # قائمة العملات التي يتم مراقبتها وتحليلها
+    'WATCHLIST': [
+        'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'LINK/USDT', 'PEPE/USDT'
+    ],
+
+    # قائمة العملات الافتراضية في حالة عدم تحديد قائمة مخصصة
+    'DEFAULT_SYMBOLS': [
+        'BTC-USDT', 'ETH-USDT', 'BNB-USDT', 'XRP-USDT',
+        'ADA-USDT', 'SOL-USDT', 'DOT-USDT', 'DOGE-USDT',
+        'MATIC-USDT', 'LTC-USDT', 'LINK-USDT', 'UNI-USDT'
+    ],
+
     # الفريمات الزمنية التي سيتم تحليلها بالترتيب
     'TIMEFRAMES_TO_ANALYZE': ['1d', '4h', '1h', '30m', '15m', '5m', '3m'],
 
@@ -77,10 +89,6 @@ ANALYSIS_CONFIG = {
     }
 }
 
-WATCHLIST = [
-    'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'LINK/USDT', 'PEPE/USDT'
-]
-
 OUTPUT_CONFIG = {
     'OUTPUT_FOLDER': 'analysis_reports',
     'FILENAME_FORMAT': '{symbol}_analysis_{timestamp}',
@@ -129,7 +137,6 @@ def get_config():
         'exchange': EXCHANGE_CONFIG,
         'telegram': TELEGRAM_CONFIG,
         'analysis': ANALYSIS_CONFIG,
-        'watchlist': WATCHLIST,
         'output': OUTPUT_CONFIG,
         'recommendation': RECOMMENDATION_CONFIG
     }

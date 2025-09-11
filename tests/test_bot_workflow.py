@@ -20,7 +20,7 @@ from src.analysis import (
 def core_components():
     """Initializes and provides all core components needed for the test."""
     config = get_config()
-    fetcher = OKXDataFetcher()
+    fetcher = OKXDataFetcher(config)
 
     analysis_modules = [
         TechnicalIndicators(config=config.get('analysis')),

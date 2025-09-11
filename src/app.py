@@ -57,6 +57,9 @@ def run_full_analysis_for_symbol(
     except ConnectionError as e:
         logger.error("Connection error during analysis of %s on %s: %s", symbol, timeframe, e)
         return {'success': False, 'timeframe': timeframe, 'error': str(e)}
+    except (ValueError, KeyError) as e:
+        logger.error("Data processing error during analysis of %s on %s: %s", symbol, timeframe, e)
+        return {'success': False, 'timeframe': timeframe, 'error': f"Data processing error: {e}"}
     except Exception as e:
         logger.exception(
             "❌ Unhandled exception during analysis of %s on %s.",
@@ -88,52 +91,58 @@ def main(config, fetcher, orchestrator, decision_engine):
         'report_builder': ReportBuilder(config)
     }
 
+    from .service_manager import ServiceManager
+    service_manager = ServiceManager(fetcher)
+
     logger.info("🚀 Starting background data services for CLI mode...")
     okx_symbols = [s.replace('/', '-') for s in symbols_to_analyze]
-    fetcher.start_data_services(okx_symbols)
+    service_manager.start_services(okx_symbols)
     logger.info("⏳ Waiting 10 seconds for initial data...")
     time.sleep(10)
     try:
         for symbol in symbols_to_analyze:
-            timeframes = config['trading'].get('TIMEFRAMES_TO_ANALYZE', ['1d', '4h', '1h'])
-            logger.info(
-                "📊 Starting analysis for %s on timeframes: %s...",
-                symbol,
-                timeframes
-            )
-            all_results = [
-                run_full_analysis_for_symbol(
-                    symbol, tf, fetcher, orchestrator, decision_engine
+            try:
+                timeframes = config['trading'].get('TIMEFRAMES_TO_ANALYZE', ['1d', '4h', '1h'])
+                logger.info(
+                    "📊 Starting analysis for %s on timeframes: %s...",
+                    symbol,
+                    timeframes
                 )
-                for tf in timeframes
-            ]
-            successful_recommendations = [
-                r['recommendation'] for r in all_results if r.get('success')
-            ]
-            if not successful_recommendations:
-                logger.error(
-                    "❌ All analyses failed for %s. No report to generate.",
-                    symbol
+                all_results = [
+                    run_full_analysis_for_symbol(
+                        symbol, tf, fetcher, orchestrator, decision_engine
+                    )
+                    for tf in timeframes
+                ]
+                successful_recommendations = [
+                    r['recommendation'] for r in all_results if r.get('success')
+                ]
+                if not successful_recommendations:
+                    logger.error(
+                        "❌ All analyses failed for %s. No report to generate.",
+                        symbol
+                    )
+                    continue
+                ranked_recs = decision_engine.rank_recommendations(
+                    successful_recommendations
                 )
-                continue
-            ranked_recs = decision_engine.rank_recommendations(
-                successful_recommendations
-            )
 
-            last_price = fetcher.get_cached_price(symbol.replace('/', '-')) or {}
-            general_info = {
-                'symbol': symbol,
-                'analysis_type': "تحليل شامل",
-                'current_price': last_price.get('price', 0)
-            }
-            final_report = components['report_builder'].build_report(
-                ranked_results=ranked_recs,
-                general_info=general_info
-            )
-            logger.info("Generated report for %s:\n%s", symbol, final_report)
-            components['notifier'].send(final_report, parse_mode='HTML')
-            if len(symbols_to_analyze) > 1:
-                time.sleep(5)
+                last_price = fetcher.get_cached_price(symbol.replace('/', '-')) or {}
+                general_info = {
+                    'symbol': symbol,
+                    'analysis_type': "تحليل شامل",
+                    'current_price': last_price.get('price', 0)
+                }
+                final_report = components['report_builder'].build_report(
+                    ranked_results=ranked_recs,
+                    general_info=general_info
+                )
+                logger.info("Generated report for %s:\n%s", symbol, final_report)
+                components['notifier'].send(final_report, parse_mode='HTML')
+                if len(symbols_to_analyze) > 1:
+                    time.sleep(5)
+            except Exception as e:
+                logger.exception("❌ An error occurred during the analysis of %s. Skipping.", symbol)
     finally:
         logger.info("⏹️ Stopping data services for CLI mode...")
-        fetcher.stop()
+        service_manager.stop_services()

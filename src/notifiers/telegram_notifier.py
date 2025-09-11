@@ -14,7 +14,7 @@ from ..data.base_fetcher import BaseDataFetcher
 from ..analysis.orchestrator import AnalysisOrchestrator
 from ..decision_engine.engine import DecisionEngine
 from ..reporting.report_builder import ReportBuilder
-from ..config import WATCHLIST, get_config
+from ..config import get_config
 from ..utils.data_preprocessor import standardize_dataframe_columns
 from ..decision_engine.trade_setup import TradeSetup
 from ..monitoring.trade_monitor import TradeMonitor
@@ -61,7 +61,8 @@ class InteractiveTelegramBot(BaseNotifier):
                     [InlineKeyboardButton("🔍 تحليل", callback_data="analyze_menu")]]
         return InlineKeyboardMarkup(keyboard)
     def _get_coin_list_keyboard(self) -> InlineKeyboardMarkup:
-        keyboard = [[InlineKeyboardButton(coin, callback_data=f"coin_{coin}") for coin in WATCHLIST[i:i+2]] for i in range(0, len(WATCHLIST), 2)]
+        watchlist = self.config.get('trading', {}).get('WATCHLIST', [])
+        keyboard = [[InlineKeyboardButton(coin, callback_data=f"coin_{coin}") for coin in watchlist[i:i+2]] for i in range(0, len(watchlist), 2)]
         keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="start_menu")])
         return InlineKeyboardMarkup(keyboard)
     def _get_analysis_timeframe_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
@@ -110,9 +111,12 @@ class InteractiveTelegramBot(BaseNotifier):
                 # Add current price to the recommendation dictionary for the report builder
                 recommendation['current_price'] = current_price
                 all_results.append(recommendation)
+            except ConnectionError as e:
+                logger.error(f"Connection error during analysis for {symbol} on {tf}: {e}")
+            except (ValueError, KeyError) as e:
+                logger.error(f"Data processing error for {symbol} on {tf}: {e}")
             except Exception as e:
-                logger.exception(f"Analysis failed for {symbol} on {tf} in bot request.")
-                # We don't add a failed result to the list
+                logger.exception(f"Unhandled error during analysis for {symbol} on {tf} in bot request.")
 
         if not all_results:
             return {'error': f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."}
