@@ -1,4 +1,0 @@
-The following fields from the requested template are not currently supported by the bot's analysis engine because they represent price ZONES rather than specific price LEVELS:
-
-1.  منطقة طلب عالية (High Demand Zone) - Represents a price range, not a single level.
-2.  منطقة عرض عالية (High Supply Zone) - Represents a price range, not a single level.
