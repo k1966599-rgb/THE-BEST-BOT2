@@ -257,32 +257,38 @@ class InteractiveTelegramBot(BaseNotifier):
             await query.edit_message_text(text=f"جاري تحضير <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
                 chat_id = query.message.chat_id
-                report_parts = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_name)
+                # The method now returns a list of message dicts or an error dict
+                report_messages = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_name)
 
-                if 'error' in report_parts:
-                    await query.message.reply_text(report_parts['error'])
+                if isinstance(report_messages, dict) and 'error' in report_messages:
+                    await query.message.reply_text(report_messages['error'])
                     return
 
-                if report_parts.get("header"):
-                    await self._send_long_message(chat_id=chat_id, text=report_parts["header"], parse_mode='HTML')
+                # Save the analysis results for the follow/ignore feature
+                if report_messages:
+                    self.last_analysis_results[chat_id] = report_messages[0].get('ranked_results', [])
 
-                for report_section in report_parts.get("timeframe_reports", []):
-                    await self._send_long_message(chat_id=chat_id, text=report_section, parse_mode='HTML')
+                # Sequentially send each message
+                for message_info in report_messages:
+                    content = message_info.get("content")
+                    keyboard = message_info.get("keyboard")
+                    trade_setup = message_info.get("trade_setup")
 
-                if report_parts.get("summary"):
-                    await self._send_long_message(chat_id=chat_id, text=report_parts["summary"], parse_mode='HTML')
+                    reply_markup = None
+                    if keyboard == "follow_ignore" and trade_setup:
+                        reply_markup = self._get_follow_keyboard(trade_setup)
 
-                if report_parts.get("final_recommendation"):
-                    await self._send_long_message(chat_id=chat_id, text=report_parts["final_recommendation"], parse_mode='HTML')
+                    if content:
+                        await self._send_long_message(
+                            chat_id=chat_id,
+                            text=content,
+                            parse_mode='HTML',
+                            reply_markup=reply_markup
+                        )
 
-                ranked_results = report_parts.get('ranked_results', [])
-                self.last_analysis_results[chat_id] = ranked_results
-                primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
-
-                if primary_rec:
-                    await query.message.reply_text(text="هل تريد متابعة هذه التوصية النهائية؟", reply_markup=self._get_follow_keyboard(primary_rec['trade_setup']))
-                else:
-                    await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
+                # If the last message didn't have a keyboard, show the main menu again.
+                if not report_messages or not report_messages[-1].get("keyboard"):
+                     await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
             except Exception as e:
                 logger.exception(f"خطأ غير معالج في رد البوت لـ {symbol}.")
