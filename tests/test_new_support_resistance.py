@@ -53,8 +53,8 @@ class TestNewSupportResistance(unittest.TestCase):
         # Should still have historical high/low
         self.assertEqual(len(result['supports']), 1)
         self.assertEqual(len(result['resistances']), 1)
-        self.assertEqual(result['supports'][0].name, 'Historical Low')
-        self.assertEqual(result['resistances'][0].name, 'Historical High')
+        self.assertEqual(result['supports'][0].name, 'قاع تاريخي')
+        self.assertEqual(result['resistances'][0].name, 'قمة تاريخية')
 
 if __name__ == '__main__':
     unittest.main()

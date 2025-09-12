@@ -28,7 +28,7 @@ class DoubleBottom(BasePattern):
                 Defaults to None.
         """
         super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
-        self.name = "Double Bottom"
+        self.name = "قاع مزدوج"
 
     def check(self) -> List[Pattern]:
         """Checks for the Double Bottom pattern.
@@ -70,8 +70,8 @@ class DoubleBottom(BasePattern):
                 )
 
                 pattern = Pattern(
-                    name='Double Bottom',
-                    status='Forming' if self.current_price < neckline_price else 'Active',
+                    name=self.name,
+                    status='قيد التكون' if self.current_price < neckline_price else 'نشط',
                     timeframe=self.timeframe,
                     activation_level=round(neckline_price, 4),
                     invalidation_level=round(stop_loss, 4),
