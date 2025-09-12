@@ -31,9 +31,9 @@ TRADING_CONFIG = {
 
     # مجموعات الفريمات الزمنية لأنواع التحليل المختلفة
     'TIMEFRAME_GROUPS': {
-        "long_term": ['1D', '4H', '1H'],
-        "medium_term": ['30m', '15m'],
-        "short_term": ['5m', '3m']
+        "long": ['1D', '4H', '1H'],
+        "medium": ['30m', '15m'],
+        "short": ['5m', '3m']
     }
 }
 
