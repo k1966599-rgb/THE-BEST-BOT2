@@ -33501,3 +33501,31 @@
 2025-09-12 02:56:38,249 - __main__ - INFO - 🔍 Found 1 symbols and 1 timeframes to process.
 2025-09-12 02:56:38,249 - __main__ - INFO - --- (1/1) Fetching data for BTC/USDT on 1D timeframe ---
 2025-09-12 02:56:38,250 - src.data.okx_fetcher - INFO - 📊 Fetching historical data for BTC-USDT (1D) for 730 days from network...
+2025-09-12 10:16:44,932 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: data
+2025-09-12 10:16:44,935 - src.data.okx_fetcher - INFO - 📊 Fetching historical data for BTC-USDT (5m) for 1 days from network...
+2025-09-12 10:16:44,936 - src.data.okx_fetcher - INFO - ⏹️ No more historical data from API for BTC-USDT.
+2025-09-12 10:17:36,032 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: data
+2025-09-12 10:17:36,034 - src.data.okx_fetcher - INFO - 📊 Fetching historical data for BTC-USDT (5m) for 1 days from network...
+2025-09-12 10:17:36,544 - src.data.okx_fetcher - INFO - 💾 Saved historical data for BTC-USDT (5m) to data/BTC-USDT/short_term/5m.json
+2025-09-12 10:17:36,544 - src.data.okx_fetcher - INFO - ✅ Fetched and cached 300 unique candles for BTC-USDT
+2025-09-12 10:18:01,656 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: data
+2025-09-12 10:18:01,658 - src.data.okx_fetcher - INFO - 💾 Loading historical data for BTC-USDT (5m) from data/BTC-USDT/short_term/5m.json...
+2025-09-12 10:18:38,784 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: data
+2025-09-12 10:18:38,787 - src.data.okx_fetcher - INFO - 📊 Fetching historical data for BTC-USDT (5m) for 1 days from network...
+2025-09-12 10:18:39,296 - src.data.okx_fetcher - INFO - 💾 Saved historical data for BTC-USDT (5m) to data/BTC-USDT/short_term/5m.json
+2025-09-12 10:18:39,296 - src.data.okx_fetcher - INFO - ✅ Fetched and cached 300 unique candles for BTC-USDT
+2025-09-12 10:19:09,392 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: test_data
+2025-09-12 10:19:09,394 - src.data.okx_fetcher - INFO - 📊 Fetching historical data for BTC-USDT (5m) for 2 days from network...
+2025-09-12 10:19:10,397 - src.data.okx_fetcher - INFO - ⏹️ No more historical data from API for BTC-USDT.
+2025-09-12 10:19:10,410 - src.data.okx_fetcher - INFO - 💾 Saved historical data for BTC-USDT (5m) to test_data/BTC-USDT/short_term/5m.json
+2025-09-12 10:19:10,410 - src.data.okx_fetcher - INFO - ✅ Fetched and cached 500 unique candles for BTC-USDT
+2025-09-12 10:19:28,551 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: test_data
+2025-09-12 10:19:28,553 - src.data.okx_fetcher - INFO - 📊 Fetching historical data for BTC-USDT (5m) for 2 days from network...
+2025-09-12 10:19:29,556 - src.data.okx_fetcher - INFO - ⏹️ No more historical data from API for BTC-USDT.
+2025-09-12 10:19:29,569 - src.data.okx_fetcher - INFO - 💾 Saved historical data for BTC-USDT (5m) to test_data/BTC-USDT/short_term/5m.json
+2025-09-12 10:19:29,570 - src.data.okx_fetcher - INFO - ✅ Fetched and cached 500 unique candles for BTC-USDT
+2025-09-12 10:19:43,000 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: test_data
+2025-09-12 10:19:43,003 - src.data.okx_fetcher - INFO - 📊 Fetching historical data for BTC-USDT (5m) for 2 days from network...
+2025-09-12 10:19:44,006 - src.data.okx_fetcher - INFO - ⏹️ No more historical data from API for BTC-USDT.
+2025-09-12 10:19:44,019 - src.data.okx_fetcher - INFO - 💾 Saved historical data for BTC-USDT (5m) to test_data/BTC-USDT/short_term/5m.json
+2025-09-12 10:19:44,019 - src.data.okx_fetcher - INFO - ✅ Fetched and cached 500 unique candles for BTC-USDT
