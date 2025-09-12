@@ -123,7 +123,10 @@ class OKXDataFetcher(BaseDataFetcher):
         total_candles_needed = (days_to_fetch * 24 * 60) / tf_minutes
 
         while len(all_candles) < total_candles_needed:
-            params = {'instId': symbol, 'bar': timeframe, 'limit': str(limit_per_request)}
+            remaining_candles = int(total_candles_needed - len(all_candles))
+            limit = min(limit_per_request, remaining_candles)
+            params = {'instId': symbol, 'bar': timeframe, 'limit': str(limit)}
+
             if current_before_ts:
                 params['before'] = current_before_ts
 
