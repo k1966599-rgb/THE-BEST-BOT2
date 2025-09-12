@@ -107,3 +107,32 @@ def test_fetch_historical_data_orchestration(mock_save, mock_process, mock_fetch
     mock_fetch.assert_called_once()
     mock_process.assert_called_once()
     mock_save.assert_called_once()
+
+@patch('requests.get')
+def test_fetch_from_network_uses_correct_limit(mock_requests_get, fetcher):
+    """Test that _fetch_from_network uses the calculated candle count as limit when it's less than 300."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    # Return some data to avoid breaking the loop prematurely
+    mock_response.json.return_value = {
+        "code": "0",
+        "data": [["1622505600000", "36000", "37000", "35000", "36500", "1000"]]
+    }
+
+    # The second response should be empty to terminate the `while` loop
+    mock_response_empty = MagicMock()
+    mock_response_empty.status_code = 200
+    mock_response_empty.json.return_value = {"code": "0", "data": []}
+
+    mock_requests_get.side_effect = [mock_response, mock_response_empty]
+
+    # We need 50 candles, which is less than the default limit of 300
+    fetcher._fetch_from_network('BTC-USDT', '1D', days_to_fetch=50)
+
+    # Check the call arguments for requests.get
+    mock_requests_get.assert_called()
+    call_args, call_kwargs = mock_requests_get.call_args_list[0]
+
+    # The current buggy implementation will have '300'
+    assert 'params' in call_kwargs
+    assert call_kwargs['params']['limit'] == '50'
