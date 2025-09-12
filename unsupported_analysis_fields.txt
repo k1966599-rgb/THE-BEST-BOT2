@@ -1,6 +1,4 @@
-The following fields from the requested template are not currently supported by the bot's analysis engine because they represent price ZONES rather than specific price LEVELS, or require specific historical analysis that is not yet implemented:
+The following fields from the requested template are not currently supported by the bot's analysis engine because they represent price ZONES rather than specific price LEVELS:
 
 1.  منطقة طلب عالية (High Demand Zone) - Represents a price range, not a single level.
 2.  منطقة عرض عالية (High Supply Zone) - Represents a price range, not a single level.
-3.  دعم عام سابق (Previous General Support) - Requires specific logic to identify historical swing points and label them as such.
-4.  مقاومة عامة سابقة (Previous General Resistance) - Same as above.
