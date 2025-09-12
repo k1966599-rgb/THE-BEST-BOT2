@@ -95,7 +95,7 @@ async def test_resistance_break_alert(trade_monitor, mock_fetcher, mock_orchestr
     # Assert
     mock_notifier.send.assert_called_once()
     message_sent = mock_notifier.send.call_args[0][0]
-    assert "Resistance Break Alert" in message_sent
+    assert "تنبيه كسر المقاومة" in message_sent
     assert "60,000.00" in message_sent
 
 @pytest.mark.anyio
@@ -130,9 +130,9 @@ async def test_pattern_status_change_alert(trade_monitor, mock_fetcher, mock_orc
     # Check that both expected alerts were sent
     call_args_list = mock_notifier.send.call_args_list
     messages = [call[0][0] for call in call_args_list]
-    assert any("Resistance Break Alert" in msg for msg in messages)
+    assert any("تنبيه كسر المقاومة" in msg for msg in messages)
     # Check for the more specific "activation" message
-    assert any("Trade Activated" in msg for msg in messages)
+    assert any("تم تفعيل الصفقة" in msg for msg in messages)
 
     # The trade should be removed after a terminal status update
     assert key not in trade_monitor.followed_trades
