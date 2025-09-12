@@ -86,6 +86,18 @@ ANALYSIS_CONFIG = {
             'PATTERN_LOOKBACK': 1080,
             'CHANNEL_LOOKBACK': 360, # 60 days
         },
+        '1h': {
+            'SR_LOOKBACK': 720, # 30 days
+            'FIB_LOOKBACK': 720,
+            'PATTERN_LOOKBACK': 720,
+            'CHANNEL_LOOKBACK': 240, # 10 days
+        },
+        '15m': {
+            'SR_LOOKBACK': 960, # 10 days
+            'FIB_LOOKBACK': 960,
+            'PATTERN_LOOKBACK': 960,
+            'CHANNEL_LOOKBACK': 288, # 3 days
+        }
     }
 }
 
