@@ -29,8 +29,24 @@ def run_full_analysis_for_symbol(
     orchestrator: AnalysisOrchestrator,
     decision_engine: DecisionEngine
 ) -> Dict[str, Any]:
-    """
-    Runs a full analysis for a given symbol and timeframe.
+    """Runs a full analysis pipeline for a single symbol and timeframe.
+
+    This function fetches data, runs the analysis orchestrator, and then the
+    decision engine to produce a recommendation. It includes error handling
+    for each step of the process.
+
+    Args:
+        symbol (str): The trading symbol to analyze (e.g., 'BTC/USDT').
+        timeframe (str): The timeframe for the analysis (e.g., '1h').
+        fetcher (OKXDataFetcher): An instance of the data fetcher.
+        orchestrator (AnalysisOrchestrator): An instance of the analysis
+            orchestrator.
+        decision_engine (DecisionEngine): An instance of the decision engine.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing the analysis result. On
+        success, it includes {'success': True, 'recommendation': ...}. On
+        failure, it includes {'success': False, 'error': ...}.
     """
     try:
         validate_symbol_timeframe(symbol, timeframe)
@@ -73,8 +89,17 @@ def run_full_analysis_for_symbol(
         }
 
 def main(config, fetcher, orchestrator, decision_engine):
-    """
-    The main function for the CLI mode.
+    """The main entry point for the command-line interface (CLI) mode.
+
+    This function parses command-line arguments, initializes the necessary
+    components, and runs the analysis loop for the specified symbols.
+
+    Args:
+        config (Dict): The application configuration.
+        fetcher (OKXDataFetcher): An instance of the data fetcher.
+        orchestrator (AnalysisOrchestrator): An instance of the analysis
+            orchestrator.
+        decision_engine (DecisionEngine): An instance of the decision engine.
     """
     parser = argparse.ArgumentParser(
         description='🤖 Comprehensive Technical Analysis Bot (CLI)'

@@ -70,8 +70,8 @@ class DoubleBottom(BasePattern):
                 )
 
                 pattern = Pattern(
-                    name='قاع مزدوج',
-                    status='قيد التكوين' if self.current_price < neckline_price else 'مفعل',
+                    name='Double Bottom',
+                    status='Forming' if self.current_price < neckline_price else 'Active',
                     timeframe=self.timeframe,
                     activation_level=round(neckline_price, 4),
                     invalidation_level=round(stop_loss, 4),

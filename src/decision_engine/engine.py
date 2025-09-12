@@ -50,19 +50,19 @@ class DecisionEngine:
         logger.info(f"Decision Engine: Making recommendation for {symbol} on {timeframe}.")
 
         patterns: List[Pattern] = analysis_results.get('patterns', [])
-        main_action = "انتظار ⏳"
+        main_action = "Wait ⏳"
         confidence = 50
         trade_setup = None
 
         if patterns:
             primary_pattern = patterns[0]
-            if 'صاعد' in primary_pattern.name or 'قاع' in primary_pattern.name:
-                main_action = "شراء 📈"
-            elif 'هابط' in primary_pattern.name or 'قمة' in primary_pattern.name:
-                main_action = "بيع 📉"
+            if 'Bullish' in primary_pattern.name or 'Bottom' in primary_pattern.name:
+                main_action = "Buy 📈"
+            elif 'Bearish' in primary_pattern.name or 'Top' in primary_pattern.name:
+                main_action = "Sell 📉"
 
-            if primary_pattern.status == 'قيد التكوين' or primary_pattern.confidence < 65:
-                main_action = "انتظار ⏳"
+            if primary_pattern.status == 'Forming' or primary_pattern.confidence < 65:
+                main_action = "Wait ⏳"
 
             confidence = primary_pattern.confidence
 
@@ -89,19 +89,19 @@ class DecisionEngine:
         trend_direction = analysis_results.get('other_analysis', {}).get('TrendAnalysis', {}).get('trend_direction')
 
         if trend_direction:
-            is_bullish_action = 'شراء' in main_action
-            is_bearish_action = 'بيع' in main_action
+            is_bullish_action = 'Buy' in main_action
+            is_bearish_action = 'Sell' in main_action
             if is_bullish_action and trend_direction == 'Downtrend':
-                conflict_note = "النمط الصاعد يتعارض مع الاتجاه العام الهابط. يوصى بانتظار تأكيد قوي."
-                main_action = "انتظار ⏳"
+                conflict_note = "Bullish pattern conflicts with the bearish overall trend. Strong confirmation is recommended."
+                main_action = "Wait ⏳"
             if is_bearish_action and trend_direction == 'Uptrend':
-                conflict_note = "النمط الهابط يتعارض مع الاتجاه العام الصاعد. يوصى بانتظار تأكيد قوي."
-                main_action = "انتظار ⏳"
+                conflict_note = "Bearish pattern conflicts with the bullish overall trend. Strong confirmation is recommended."
+                main_action = "Wait ⏳"
 
-        if main_action == "انتظار ⏳":
+        if main_action == "Wait ⏳":
             trade_setup = None
 
-        total_score = confidence if 'شراء' in main_action else -confidence if 'بيع' in main_action else 0
+        total_score = confidence if 'Buy' in main_action else -confidence if 'Sell' in main_action else 0
 
         return {
             'symbol': symbol,
@@ -129,7 +129,7 @@ class DecisionEngine:
         avg_volume = df['volume'].rolling(window=20).mean().iloc[-2]
         last_volume = df['volume'].iloc[-1]
         if last_volume > avg_volume * 1.5:
-            return "✅ حجم تداول مرتفع عند الاختراق يؤكد الزخم."
+            return "✅ High breakout volume confirms momentum."
         return None
 
     def _confirm_ma_support_resistance(self, df: pd.DataFrame, is_bullish: bool) -> Optional[str]:
@@ -147,9 +147,9 @@ class DecisionEngine:
             return None
         last_close = df['close'].iloc[-1]
         if is_bullish and last_close > df['sma_20'].iloc[-1] and last_close > df['sma_50'].iloc[-1]:
-            return "✅ السعر يتداول فوق المتوسطات المتحركة الرئيسية (20, 50)."
+            return "✅ Price is trading above key moving averages (20, 50)."
         if not is_bullish and last_close < df['sma_20'].iloc[-1] and last_close < df['sma_50'].iloc[-1]:
-            return "✅ السعر يتداول تحت المتوسطات المتحركة الرئيسية (20, 50)."
+            return "✅ Price is trading below key moving averages (20, 50)."
         return None
 
     def _confirm_trend_alignment(self, analysis: Dict[str, Any], is_bullish: bool) -> Optional[str]:
@@ -166,9 +166,9 @@ class DecisionEngine:
         trend = analysis.get('other_analysis', {}).get('TrendAnalysis', {})
         trend_direction = trend.get('trend_direction')
         if is_bullish and trend_direction == 'Uptrend':
-            return f"✅ الصفقة تتوافق مع الاتجاه العام الصاعد (ثقة {trend.get('confidence', 0):.0f}%)."
+            return f"✅ Trade aligns with the bullish overall trend (Confidence: {trend.get('confidence', 0):.0f}%)."
         if not is_bullish and trend_direction == 'Downtrend':
-            return f"✅ الصفقة تتوافق مع الاتجاه العام الهابط (ثقة {trend.get('confidence', 0):.0f}%)."
+            return f"✅ Trade aligns with the bearish overall trend (Confidence: {trend.get('confidence', 0):.0f}%)."
         return None
 
     def _generate_confirmation_conditions(self, df: pd.DataFrame, analysis: Dict[str, Any], pattern: Pattern) -> List[str]:
@@ -186,11 +186,11 @@ class DecisionEngine:
         Returns:
             List[str]: A list of string messages for the user.
         """
-        is_bullish = 'صاعد' in pattern.name or 'قاع' in pattern.name
+        is_bullish = 'Bullish' in pattern.name or 'Bottom' in pattern.name
         conditions = []
 
-        breakout_direction = "فوق" if is_bullish else "تحت"
-        conditions.append(f"⏳ إغلاق شمعة {pattern.timeframe} {breakout_direction} مستوى {pattern.activation_level:,.2f}")
+        breakout_direction = "above" if is_bullish else "below"
+        conditions.append(f"⏳ Close a {pattern.timeframe} candle {breakout_direction} the {pattern.activation_level:,.2f} level")
 
         confirmation_checks = [
             self._confirm_breakout_volume(df),
@@ -203,7 +203,7 @@ class DecisionEngine:
                 conditions.append(confirmation)
 
         if len(conditions) == 1:
-            conditions.append("⚠️ لا توجد تأكيدات قوية، يرجى توخي الحذر.")
+            conditions.append("⚠️ No strong confirmations, please be cautious.")
 
         return conditions
 
@@ -225,7 +225,7 @@ class DecisionEngine:
 
         for rec in recommendations:
             if not rec.get('error'):
-                signal_multiplier = 0.1 if 'انتظار' in rec.get('main_action', '') else 1.0
+                signal_multiplier = 0.1 if 'Wait' in rec.get('main_action', '') else 1.0
                 rank_score = abs(rec.get('total_score', 0)) * signal_multiplier
                 rec['rank_score'] = rank_score
             else:

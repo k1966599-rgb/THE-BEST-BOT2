@@ -28,7 +28,7 @@ class TestTradeManagement(unittest.TestCase):
     def test_calculate_position_size_zero_distance(self):
         position_info = self.trade_manager.calculate_position_size(entry_price=116, stop_loss=116)
         self.assertIn('error', position_info)
-        self.assertEqual(position_info['error'], 'وقف الخسارة لا يمكن أن يكون نفس سعر الدخول')
+        self.assertEqual(position_info['error'], 'Stop-loss cannot be the same as the entry price.')
 
     def test_calculate_position_size_exceeds_balance(self):
         # High risk to force total_value > account_balance
@@ -63,35 +63,35 @@ class TestTradeManagement(unittest.TestCase):
         self.assertEqual(levels['short_profit_target'], 89.0)
 
     def test_get_comprehensive_trade_plan_buy_signal(self):
-        final_recommendation = {'main_action': 'شراء قوي'}
+        final_recommendation = {'main_action': 'Strong Buy'}
         analysis_results = {}
         trade_plan = self.trade_manager.get_comprehensive_trade_plan(final_recommendation, analysis_results)
-        self.assertEqual(trade_plan['signal'], 'شراء قوي')
+        self.assertEqual(trade_plan['signal'], 'Strong Buy')
         self.assertEqual(trade_plan['direction'], 'Long')
         self.assertEqual(trade_plan['entry_price'], 116)
 
     def test_get_comprehensive_trade_plan_sell_signal(self):
-        final_recommendation = {'main_action': 'بيع قوي'}
+        final_recommendation = {'main_action': 'Strong Sell'}
         analysis_results = {}
         trade_plan = self.trade_manager.get_comprehensive_trade_plan(final_recommendation, analysis_results)
-        self.assertEqual(trade_plan['signal'], 'بيع قوي')
+        self.assertEqual(trade_plan['signal'], 'Strong Sell')
         self.assertEqual(trade_plan['direction'], 'Short')
         self.assertEqual(trade_plan['entry_price'], 116)
 
     def test_get_comprehensive_trade_plan_wait_signal(self):
-        final_recommendation = {'main_action': 'انتظار'}
+        final_recommendation = {'main_action': 'Wait'}
         analysis_results = {}
         trade_plan = self.trade_manager.get_comprehensive_trade_plan(final_recommendation, analysis_results)
-        self.assertEqual(trade_plan['signal'], 'انتظار')
-        self.assertEqual(trade_plan['recommendation'], "لا توجد صفقة حالياً. مراقبة السوق.")
+        self.assertEqual(trade_plan['signal'], 'Wait')
+        self.assertEqual(trade_plan['recommendation'], "No trade setup at the moment. Monitor the market.")
 
     def test_get_comprehensive_trade_plan_wait_signal_bullish_pattern(self):
-        final_recommendation = {'main_action': 'انتظار'}
+        final_recommendation = {'main_action': 'Wait'}
         analysis_results = {
             'patterns': {
                 'found_patterns': [{
                     'name': 'Bullish Pattern',
-                    'status': 'قيد التكوين',
+                    'status': 'Forming',
                     'is_bullish': True,
                     'resistance_line': 120,
                     'support_line': 110,
@@ -100,16 +100,16 @@ class TestTradeManagement(unittest.TestCase):
             }
         }
         trade_plan = self.trade_manager.get_comprehensive_trade_plan(final_recommendation, analysis_results)
-        self.assertEqual(trade_plan['trade_idea_name'], 'مراقبة اختراق نمط Bullish Pattern')
+        self.assertEqual(trade_plan['trade_idea_name'], 'Monitor for breakout of Bullish Pattern pattern')
         self.assertEqual(trade_plan['conditional_entry'], 120)
 
     def test_get_comprehensive_trade_plan_wait_signal_bearish_pattern(self):
-        final_recommendation = {'main_action': 'انتظار'}
+        final_recommendation = {'main_action': 'Wait'}
         analysis_results = {
             'patterns': {
                 'found_patterns': [{
                     'name': 'Bearish Pattern',
-                    'status': 'قيد التكوين',
+                    'status': 'Forming',
                     'is_bullish': False,
                     'resistance_line': 120,
                     'support_line': 110,
@@ -118,7 +118,7 @@ class TestTradeManagement(unittest.TestCase):
             }
         }
         trade_plan = self.trade_manager.get_comprehensive_trade_plan(final_recommendation, analysis_results)
-        self.assertEqual(trade_plan['trade_idea_name'], 'مراقبة كسر نمط Bearish Pattern')
+        self.assertEqual(trade_plan['trade_idea_name'], 'Monitor for breakdown of Bearish Pattern pattern')
         self.assertEqual(trade_plan['conditional_entry'], 110)
 
     def test_correct_atr_calculation(self):

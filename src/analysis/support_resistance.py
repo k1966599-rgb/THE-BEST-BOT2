@@ -79,8 +79,8 @@ class SupportResistanceAnalysis(BaseAnalysis):
             support_levels_raw = self._cluster_levels([l['price'] for l in lows if l['price'] < current_price])
             resistance_levels_raw = self._cluster_levels([h['price'] for h in highs if h['price'] > current_price])
 
-            supports = [Level(name="دعم سابق", value=round(s, 4), level_type='support', quality='ثانوي') for s in support_levels_raw]
-            resistances = [Level(name="مقاومة سابقة", value=round(r, 4), level_type='resistance', quality='ثانوي') for r in resistance_levels_raw]
+            supports = [Level(name="Previous Support", value=round(s, 4), level_type='support', quality='Secondary') for s in support_levels_raw]
+            resistances = [Level(name="Previous Resistance", value=round(r, 4), level_type='resistance', quality='Secondary') for r in resistance_levels_raw]
 
             return {'supports': supports, 'resistances': resistances}
 

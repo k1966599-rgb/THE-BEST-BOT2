@@ -105,11 +105,11 @@ class TrendLineAnalysis(BaseAnalysis):
         if support_trend:
             support_price = support_trend['slope'] * current_time_index + support_trend['intercept']
             if support_price < current_price:
-                supports.append(Level(name="دعم ترند قصير", value=round(support_price, 4), level_type='support', quality='حرج'))
+                supports.append(Level(name="Short-term Trend Support", value=round(support_price, 4), level_type='support', quality='Critical'))
 
         if resistance_trend:
             resistance_price = resistance_trend['slope'] * current_time_index + resistance_trend['intercept']
             if resistance_price > current_price:
-                resistances.append(Level(name="مقاومة ترند قصير", value=round(resistance_price, 4), level_type='resistance', quality='حرج'))
+                resistances.append(Level(name="Short-term Trend Resistance", value=round(resistance_price, 4), level_type='resistance', quality='Critical'))
 
         return {'supports': supports, 'resistances': resistances}

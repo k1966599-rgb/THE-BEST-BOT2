@@ -72,20 +72,20 @@ class InteractiveTelegramBot(BaseNotifier):
 
     def _get_start_message_text(self) -> str:
         """Generates the text for the main start message."""
-        status = "🟢 متصل وجاهز للعمل" if self.bot_state["is_active"] else "🔴 متوقف"
-        return f"💎 <b>THE BEST BOT</b> 💎\n<b>حالة النظام:</b> {status}"
+        status = "🟢 Connected and ready" if self.bot_state["is_active"] else "🔴 Stopped"
+        return f"💎 <b>THE BEST BOT</b> 💎\n<b>System Status:</b> {status}"
 
     def _get_main_keyboard(self) -> InlineKeyboardMarkup:
         """Generates the main menu inline keyboard."""
-        keyboard = [[InlineKeyboardButton("▶️ تشغيل", callback_data="start_bot"), InlineKeyboardButton("⏹️ إيقاف", callback_data="stop_bot")],
-                    [InlineKeyboardButton("🔍 تحليل", callback_data="analyze_menu")]]
+        keyboard = [[InlineKeyboardButton("▶️ Start", callback_data="start_bot"), InlineKeyboardButton("⏹️ Stop", callback_data="stop_bot")],
+                    [InlineKeyboardButton("🔍 Analyze", callback_data="analyze_menu")]]
         return InlineKeyboardMarkup(keyboard)
 
     def _get_coin_list_keyboard(self) -> InlineKeyboardMarkup:
         """Generates the keyboard for selecting a coin from the watchlist."""
         watchlist = self.full_config.get('trading', {}).get('WATCHLIST', [])
         keyboard = [[InlineKeyboardButton(coin, callback_data=f"coin_{coin}") for coin in watchlist[i:i+2]] for i in range(0, len(watchlist), 2)]
-        keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="start_menu")])
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="start_menu")])
         return InlineKeyboardMarkup(keyboard)
 
     def _get_analysis_timeframe_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
@@ -97,10 +97,10 @@ class InteractiveTelegramBot(BaseNotifier):
         Returns:
             InlineKeyboardMarkup: The generated keyboard.
         """
-        keyboard = [[InlineKeyboardButton("تحليل طويل المدى", callback_data=f"analyze_long_{symbol}")],
-                    [InlineKeyboardButton("تحليل متوسط المدى", callback_data=f"analyze_medium_{symbol}")],
-                    [InlineKeyboardButton("تحليل قصير المدى", callback_data=f"analyze_short_{symbol}")],
-                    [InlineKeyboardButton("🔙 رجوع لقائمة العملات", callback_data="analyze_menu")]]
+        keyboard = [[InlineKeyboardButton("Long-term Analysis", callback_data=f"analyze_long_{symbol}")],
+                    [InlineKeyboardButton("Medium-term Analysis", callback_data=f"analyze_medium_{symbol}")],
+                    [InlineKeyboardButton("Short-term Analysis", callback_data=f"analyze_short_{symbol}")],
+                    [InlineKeyboardButton("🔙 Back to Coin List", callback_data="analyze_menu")]]
         return InlineKeyboardMarkup(keyboard)
 
     def _get_follow_keyboard(self, trade_setup: TradeSetup) -> InlineKeyboardMarkup:
@@ -115,8 +115,8 @@ class InteractiveTelegramBot(BaseNotifier):
         symbol = trade_setup.symbol
         timeframe = trade_setup.timeframe
         keyboard = [[
-            InlineKeyboardButton(f"📈 متابعة توصية {symbol}/{timeframe}", callback_data=f"follow_{symbol}_{timeframe}"),
-            InlineKeyboardButton("🗑️ تجاهل", callback_data="ignore")
+            InlineKeyboardButton(f"📈 Follow {symbol}/{timeframe} Recommendation", callback_data=f"follow_{symbol}_{timeframe}"),
+            InlineKeyboardButton("🗑️ Ignore", callback_data="ignore")
         ]]
         return InlineKeyboardMarkup(keyboard)
 
@@ -173,7 +173,7 @@ class InteractiveTelegramBot(BaseNotifier):
                 logger.exception(f"Unhandled error during analysis for {symbol} on {tf} in bot request.")
 
         if not all_results:
-            return {'error': f"❌ تعذر تحليل {symbol} لجميع الأطر الزمنية المطلوبة."}
+            return {'error': f"❌ Could not analyze {symbol} for all requested timeframes."}
 
         ranked_recs = self.decision_engine.rank_recommendations(all_results)
 
@@ -234,27 +234,27 @@ class InteractiveTelegramBot(BaseNotifier):
             await query.edit_message_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
         elif callback_data == "analyze_menu":
             if not self.bot_state["is_active"]:
-                await query.message.reply_text("البوت متوقف حاليًا. يرجى الضغط على 'تشغيل' أولاً.")
+                await query.message.reply_text("The bot is currently stopped. Please press 'Start' first.")
                 return
-            await query.edit_message_text(text="الرجاء اختيار عملة للتحليل:", reply_markup=self._get_coin_list_keyboard())
+            await query.edit_message_text(text="Please choose a coin to analyze:", reply_markup=self._get_coin_list_keyboard())
         elif callback_data.startswith("coin_"):
             symbol = callback_data.split("_", 1)[1]
-            await query.edit_message_text(text=f"اختر نوع التحليل لـ <code>{symbol}</code>:", reply_markup=self._get_analysis_timeframe_keyboard(symbol), parse_mode='HTML')
+            await query.edit_message_text(text=f"Choose the analysis type for <code>{symbol}</code>:", reply_markup=self._get_analysis_timeframe_keyboard(symbol), parse_mode='HTML')
         elif callback_data.startswith("analyze_"):
             parts = callback_data.split("_")
             analysis_scope = parts[1]
             symbol = "_".join(parts[2:])
             analysis_map = {
-                "long": ("استثمار طويل المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['long_term']),
-                "medium": ("تداول متوسط المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['medium_term']),
-                "short": ("مضاربة سريعة", self.full_config['trading']['TIMEFRAME_GROUPS']['short_term'])
+                "long": ("Long-term Investment", self.full_config['trading']['TIMEFRAME_GROUPS']['long_term']),
+                "medium": ("Medium-term Trading", self.full_config['trading']['TIMEFRAME_GROUPS']['medium_term']),
+                "short": ("Quick Scalping", self.full_config['trading']['TIMEFRAME_GROUPS']['short_term'])
             }
-            analysis_name, timeframes = analysis_map.get(analysis_scope, ("غير محدد", []))
+            analysis_name, timeframes = analysis_map.get(analysis_scope, ("Undefined", []))
             if not symbol or not timeframes:
-                 await query.message.reply_text("خطأ: لم يتم تحديد العملة أو نوع التحليل بشكل صحيح.")
+                 await query.message.reply_text("Error: The coin or analysis type was not correctly identified.")
                  return
 
-            await query.edit_message_text(text=f"جاري إعداد <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
+            await query.edit_message_text(text=f"Preparing <b>{analysis_name}</b> for <code>{symbol}</code>...", parse_mode='HTML')
             try:
                 chat_id = query.message.chat_id
                 report_parts = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_name)
@@ -280,13 +280,13 @@ class InteractiveTelegramBot(BaseNotifier):
                 primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
 
                 if primary_rec:
-                    await query.message.reply_text(text="هل تريد متابعة هذه التوصية النهائية؟", reply_markup=self._get_follow_keyboard(primary_rec['trade_setup']))
+                    await query.message.reply_text(text="Do you want to follow this final recommendation?", reply_markup=self._get_follow_keyboard(primary_rec['trade_setup']))
                 else:
                     await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
             except Exception as e:
                 logger.exception(f"Unhandled error in bot callback for {symbol}.")
-                await query.message.reply_text(f"حدث خطأ فادح: {e}", parse_mode='HTML')
+                await query.message.reply_text(f"A critical error occurred: {e}", parse_mode='HTML')
 
         elif callback_data.startswith("follow_"):
             chat_id = query.message.chat_id
@@ -297,17 +297,17 @@ class InteractiveTelegramBot(BaseNotifier):
                     self.trade_monitor.add_trade(primary_rec)
                     symbol = primary_rec.get('symbol')
                     timeframe = primary_rec.get('timeframe')
-                    await query.edit_message_text(text=f"✅ تمت إضافة {symbol} على فريم {timeframe} للمتابعة.")
+                    await query.edit_message_text(text=f"✅ {symbol} on the {timeframe} timeframe has been added for monitoring.")
                     await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
                 else:
-                    await query.edit_message_text(text="❌ لم يتم العثور على الصفقة المحددة.")
+                    await query.edit_message_text(text="❌ The specified trade could not be found.")
                     await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
             else:
-                await query.edit_message_text(text="❌ انتهت صلاحية التحليل. يرجى طلب تحليل جديد.")
+                await query.edit_message_text(text="❌ The analysis has expired. Please request a new one.")
                 await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
         elif callback_data == "ignore":
-            await query.edit_message_text(text="تم تجاهل التحليل.")
+            await query.edit_message_text(text="Analysis ignored.")
             await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
     def send(self, message: str, parse_mode: str = 'HTML') -> bool:

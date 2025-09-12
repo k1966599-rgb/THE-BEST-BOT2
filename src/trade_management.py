@@ -11,10 +11,24 @@ import pandas_ta as ta
 warnings.filterwarnings('ignore')
 
 class TradeManagement:
-    """وحدة إدارة الصفقات الشاملة"""
+    """A comprehensive trade management module.
+
+    This class provides methods for calculating position size, determining
+    trade levels (entry, stop-loss, take-profit), and generating a full
+    trade plan based on analysis results.
+    """
 
     def __init__(self, df: pd.DataFrame, account_balance: float = 10000,
                  max_risk_per_trade: float = 0.02):
+        """Initializes the TradeManagement class.
+
+        Args:
+            df (pd.DataFrame): The DataFrame with market data.
+            account_balance (float, optional): The total account balance.
+                Defaults to 10000.
+            max_risk_per_trade (float, optional): The maximum percentage of
+                the account to risk per trade. Defaults to 0.02 (2%).
+        """
         self.df = df.copy()
         self.account_balance = account_balance
         self.max_risk_per_trade = max_risk_per_trade
@@ -24,12 +38,22 @@ class TradeManagement:
     def calculate_position_size(
         self, entry_price: float, stop_loss: float
     ) -> Dict[str, Any]:
-        """حساب حجم المركز بناءً على إدارة المخاطر"""
+        """Calculates the position size based on risk management rules.
+
+        Args:
+            entry_price (float): The intended entry price for the trade.
+            stop_loss (float): The intended stop-loss price for the trade.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the calculated 'position_size',
+            'total_value', 'risk_per_share', and 'risk_percentage'. Returns
+            an error dictionary if the stop-loss is the same as the entry price.
+        """
         risk_amount = self.account_balance * self.max_risk_per_trade
         distance_to_stop = abs(entry_price - stop_loss)
 
         if distance_to_stop == 0:
-            return {'error': 'وقف الخسارة لا يمكن أن يكون نفس سعر الدخول'}
+            return {'error': 'Stop-loss cannot be the same as the entry price.'}
 
         position_size = risk_amount / distance_to_stop
         total_value = position_size * entry_price
@@ -46,7 +70,19 @@ class TradeManagement:
         }
 
     def get_trade_levels(self, analysis_results: Dict) -> Dict[str, Any]:
-        """تحديد مستويات الدخول، وقف الخsارة، وجني الأرباح"""
+        """Determines entry, stop-loss, and take-profit levels.
+
+        This method uses ATR for stop-loss and take-profit placement, and
+        also considers the nearest support and resistance levels from the
+        analysis results to refine these levels.
+
+        Args:
+            analysis_results (Dict): The dictionary of analysis results.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing calculated levels for both
+            long and short trades.
+        """
         sr_analysis = analysis_results.get('support_resistance', {})
         nearest_support = sr_analysis.get('nearest_support', {}).get('price')
         nearest_resistance = sr_analysis.get('nearest_resistance', {}).get('price')
@@ -88,13 +124,26 @@ class TradeManagement:
     def get_comprehensive_trade_plan(
         self, final_recommendation: Dict, analysis_results: Dict
     ) -> Dict[str, Any]:
-        """خطة التداول الشاملة"""
-        signal = final_recommendation.get('main_action', 'انتظار')
+        """Generates a comprehensive trade plan.
+
+        This method acts as a dispatcher, calling the appropriate helper
+        method to build a trade plan based on the final recommendation
+        (Buy, Sell, or Wait).
+
+        Args:
+            final_recommendation (Dict): The final recommendation dictionary
+                from the decision engine.
+            analysis_results (Dict): The dictionary of analysis results.
+
+        Returns:
+            Dict[str, Any]: A dictionary representing the complete trade plan.
+        """
+        signal = final_recommendation.get('main_action', 'Wait')
         trade_plan = {'signal': signal}
 
-        if 'شراء' in signal:
+        if 'Buy' in signal:
             self._update_trade_plan_for_buy_signal(trade_plan, analysis_results)
-        elif 'بيع' in signal:
+        elif 'Sell' in signal:
             self._update_trade_plan_for_sell_signal(trade_plan, analysis_results)
         else:
             self._handle_wait_signal(trade_plan, analysis_results)
@@ -102,6 +151,12 @@ class TradeManagement:
         return trade_plan
 
     def _update_trade_plan_for_buy_signal(self, trade_plan, analysis_results):
+        """Updates the trade plan for a buy signal.
+
+        Args:
+            trade_plan (Dict): The trade plan dictionary to update.
+            analysis_results (Dict): The analysis results.
+        """
         levels = self.get_trade_levels(analysis_results)
         position_info = self.calculate_position_size(
             levels['long_entry'], levels['long_stop_loss']
@@ -117,6 +172,12 @@ class TradeManagement:
         })
 
     def _update_trade_plan_for_sell_signal(self, trade_plan, analysis_results):
+        """Updates the trade plan for a sell signal.
+
+        Args:
+            trade_plan (Dict): The trade plan dictionary to update.
+            analysis_results (Dict): The analysis results.
+        """
         levels = self.get_trade_levels(analysis_results)
         position_info = self.calculate_position_size(
             levels['short_entry'], levels['short_stop_loss']
@@ -132,9 +193,18 @@ class TradeManagement:
         })
 
     def _handle_wait_signal(self, trade_plan: Dict, analysis_results: Dict):
+        """Updates the trade plan for a 'Wait' signal.
+
+        If a pattern is forming, this method creates a conditional trade plan.
+        Otherwise, it sets a simple 'monitor the market' recommendation.
+
+        Args:
+            trade_plan (Dict): The trade plan dictionary to update.
+            analysis_results (Dict): The analysis results.
+        """
         patterns = analysis_results.get('patterns', {}).get('found_patterns', [])
-        if not patterns or 'قيد التكوين' not in patterns[0].get('status', ''):
-            trade_plan['recommendation'] = "لا توجد صفقة حالياً. مراقبة السوق."
+        if not patterns or 'Forming' not in patterns[0].get('status', ''):
+            trade_plan['recommendation'] = "No trade setup at the moment. Monitor the market."
             return
 
         pattern = patterns[0]
@@ -144,6 +214,12 @@ class TradeManagement:
             self._update_trade_plan_for_bearish_pattern(trade_plan, pattern)
 
     def _update_trade_plan_for_bullish_pattern(self, trade_plan, pattern):
+        """Updates the trade plan for a forming bullish pattern.
+
+        Args:
+            trade_plan (Dict): The trade plan dictionary to update.
+            pattern (Dict): The pattern data.
+        """
         p_name = pattern.get('name', '')
         entry = pattern.get('resistance_line', pattern.get('neckline', 0))
         sl = pattern.get('support_line', pattern.get('support_line_start', 0))
@@ -154,7 +230,7 @@ class TradeManagement:
         reward = abs(target - entry)
         rr_ratio = reward / risk if risk > 0 else 0
         trade_plan.update({
-            'trade_idea_name': f"مراقبة اختراق نمط {p_name}",
+            'trade_idea_name': f"Monitor for breakout of {p_name} pattern",
             'conditional_entry': entry,
             'conditional_stop_loss': stop_price,
             'conditional_profit_target': target,
@@ -162,6 +238,12 @@ class TradeManagement:
         })
 
     def _update_trade_plan_for_bearish_pattern(self, trade_plan, pattern):
+        """Updates the trade plan for a forming bearish pattern.
+
+        Args:
+            trade_plan (Dict): The trade plan dictionary to update.
+            pattern (Dict): The pattern data.
+        """
         p_name = pattern.get('name', '')
         entry = pattern.get('resistance_line', pattern.get('neckline', 0))
         sl = pattern.get('support_line', pattern.get('support_line_start', 0))
@@ -173,7 +255,7 @@ class TradeManagement:
         reward = abs(entry_price - target)
         rr_ratio = reward / risk if risk > 0 else 0
         trade_plan.update({
-            'trade_idea_name': f"مراقبة كسر نمط {p_name}",
+            'trade_idea_name': f"Monitor for breakdown of {p_name} pattern",
             'conditional_entry': entry_price,
             'conditional_stop_loss': stop_price,
             'conditional_profit_target': target,

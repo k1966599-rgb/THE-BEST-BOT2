@@ -70,8 +70,8 @@ class FallingWedge(BasePattern):
         )
 
         pattern = Pattern(
-            name='وتد هابط',
-            status='قيد التكوين' if self.current_price < activation_level else 'مفعل',
+            name='Falling Wedge',
+            status='Forming' if self.current_price < activation_level else 'Active',
             timeframe=self.timeframe,
             activation_level=round(activation_level, 4),
             invalidation_level=round(stop_loss, 4),

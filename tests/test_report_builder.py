@@ -20,15 +20,15 @@ def sample_trade_setup():
         chat_id=123,
         symbol="BTC/USDT",
         timeframe="1h",
-        pattern_name="نموذج علم صاعد",
-        pattern_status="مفعل",
+        pattern_name="Bull Flag",
+        pattern_status="Active",
         entry_price=50000.0,
         stop_loss=48000.0,
         target1=55000.0,
         target2=58000.0,
         confirmation_conditions=[
-            "✅ حجم تداول مرتفع عند الاختراق يؤكد الزخم.",
-            "✅ السعر يتداول فوق المتوسطات المتحركة الرئيسية (20, 50)."
+            "✅ High breakout volume confirms momentum.",
+            "✅ Price is trading above key moving averages (20, 50)."
         ]
     )
 
@@ -36,14 +36,14 @@ def test_format_trade_setup(report_builder, sample_trade_setup):
     """Tests the _format_trade_setup method."""
     report_text = report_builder._format_trade_setup(sample_trade_setup)
 
-    assert "تفاصيل الصفقة المقترحة" in report_text
-    assert "النموذج:** نموذج علم صاعد (مفعل)" in report_text
-    assert "سعر الدخول:** $50,000.00" in report_text
-    assert "وقف الخسارة:** $48,000.00" in report_text
-    assert "الأهداف:** $55,000.00 | $58,000.00" in report_text
-    assert "شروط تأكيد الدخول" in report_text
-    assert "حجم تداول مرتفع" in report_text
-    assert "فوق المتوسطات المتحركة" in report_text
+    assert "Proposed Trade Details" in report_text
+    assert "Pattern:** Bull Flag (Active)" in report_text
+    assert "Entry Price:** $50,000.00" in report_text
+    assert "Stop Loss:** $48,000.00" in report_text
+    assert "Targets:** $55,000.00 | $58,000.00" in report_text
+    assert "Entry Confirmation Conditions" in report_text
+    assert "High breakout volume" in report_text
+    assert "above key moving averages" in report_text
 
 def test_build_report_with_trade_setup(report_builder, sample_trade_setup):
     """
@@ -66,7 +66,7 @@ def test_build_report_with_trade_setup(report_builder, sample_trade_setup):
     mock_general_info = {
         "symbol": "BTC/USDT",
         "current_price": 50100.0,
-        "analysis_type": "تحليل شامل",
+        "analysis_type": "Comprehensive Analysis",
         "timeframes": ["1h"]
     }
 
@@ -74,5 +74,5 @@ def test_build_report_with_trade_setup(report_builder, sample_trade_setup):
 
     timeframe_report = full_report["timeframe_reports"][0]
 
-    assert "تفاصيل الصفقة المقترحة" in timeframe_report
-    assert "سعر الدخول:** $50,000.00" in timeframe_report
+    assert "Proposed Trade Details" in timeframe_report
+    assert "Entry Price:** $50,000.00" in timeframe_report

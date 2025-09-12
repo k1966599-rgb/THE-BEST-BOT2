@@ -41,7 +41,7 @@ class TradeSetup:
     target2: Optional[float] = None
 
     # --- Confirmed Entry Details ---
-    confirmation_status: str = "🟡 في انتظار الاختراق"
+    confirmation_status: str = "🟡 Waiting for breakout"
     confirmation_conditions: List[str] = field(default_factory=list)
     invalidation_conditions: List[str] = field(default_factory=list)
 
@@ -56,10 +56,10 @@ class TradeSetup:
         """
         if not self.invalidation_conditions:
             self.invalidation_conditions = [
-                f"كسر الدعم: إذا أغلقت شمعة تحت ${self.stop_loss:,.2f} على فريم {self.timeframe}",
-                "ضعف المؤشرات: إذا انخفضت المؤشرات تحت (2/5)",
-                "انتهاء المهلة: إذا لم يحدث الاختراق خلال 7 أيام",
-                f"تغيير الترند: إذا تحول الترند من عرضي إلى هابط على فريم {self.timeframe}"
+                f"Support Break: If a candle closes below ${self.stop_loss:,.2f} on the {self.timeframe} timeframe.",
+                "Indicator Weakness: If indicators drop below (2/5).",
+                "Timeout: If the breakout does not occur within 7 days.",
+                f"Trend Change: If the trend shifts from sideways to bearish on the {self.timeframe} timeframe."
             ]
 
         if not self.target2:

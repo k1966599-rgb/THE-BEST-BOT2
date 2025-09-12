@@ -27,7 +27,7 @@ def test_data_directory_structure(config):
     for symbol in watchlist:
         symbol_dir_name = symbol.replace('/', '-')
         for group in timeframe_groups.keys():
-            assert group in ['long', 'medium', 'short']
+            assert group in ['long_term', 'medium_term', 'short_term']
             for timeframe in timeframe_groups[group]:
                 expected_path = os.path.join(base_data_dir, symbol_dir_name, group, f"{timeframe}.json")
                 assert "data" in expected_path

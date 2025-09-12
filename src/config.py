@@ -1,6 +1,9 @@
 """
-ملف التكوين السريع للبوت
-قم بتعديل القيم أدناه حسب احتياجاتك
+This module defines the configuration for the trading bot.
+
+It consolidates settings for trading parameters, exchange connections,
+notifications, and analysis modules. It also loads sensitive information
+from a .env file.
 """
 import os
 from dotenv import load_dotenv
@@ -10,30 +13,30 @@ load_dotenv()
 TRADING_CONFIG = {
     'EXCHANGE_ID': 'okx',
     'DEFAULT_SYMBOL': 'BTC/USDT',
-    'PERIOD': '3mo', # الفترة الافتراضية للبيانات لكل فريم
+    'PERIOD': '3mo', # Default data period for each timeframe
     'ACCOUNT_BALANCE': 10000,
     'MAX_RISK_PER_TRADE': 0.02,
 
-    # قائمة العملات التي يتم مراقبتها وتحليلها
+    # List of currencies to be monitored and analyzed
     'WATCHLIST': [
         'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'LINK/USDT', 'DOGE/USDT'
     ],
 
-    # قائمة العملات الافتراضية في حالة عدم تحديد قائمة مخصصة
+    # Default list of currencies if a custom list is not specified
     'DEFAULT_SYMBOLS': [
         'BTC-USDT', 'ETH-USDT', 'BNB-USDT', 'XRP-USDT',
         'ADA-USDT', 'SOL-USDT', 'DOT-USDT', 'DOGE-USDT',
         'MATIC-USDT', 'LTC-USDT', 'LINK-USDT', 'UNI-USDT'
     ],
 
-    # الفريمات الزمنية التي سيتم تحليلها بالترتيب
+    # Timeframes to be analyzed in order
     'TIMEFRAMES_TO_ANALYZE': ['1D', '4H', '1H', '30m', '15m', '5m', '3m'],
 
-    # مجموعات الفريمات الزمنية لأنواع التحليل المختلفة
+    # Timeframe groups for different types of analysis
     'TIMEFRAME_GROUPS': {
-        "long": ['1D', '4H', '1H'],
-        "medium": ['30m', '15m'],
-        "short": ['5m', '3m']
+        "long_term": ['1D', '4H', '1H'],
+        "medium_term": ['30m', '15m'],
+        "short_term": ['5m', '3m']
     }
 }
 
@@ -126,11 +129,11 @@ RECOMMENDATION_CONFIG = {
         'sell': -15
     },
     'ACTIONS': {
-        'strong_buy': "شراء قوي 🚀",
-        'buy': "شراء 📈",
-        'hold': "انتظار ⏳",
-        'sell': 'بيع 📉',
-        'strong_sell': "بيع قوي 🔻"
+        'strong_buy': "Strong Buy 🚀",
+        'buy': "Buy 📈",
+        'hold': "Wait ⏳",
+        'sell': 'Sell 📉',
+        'strong_sell': "Strong Sell 🔻"
     },
     'CONFIDENCE_LEVELS': {
         'strong_buy': 95,
@@ -139,11 +142,15 @@ RECOMMENDATION_CONFIG = {
         'sell': 85,
         'strong_sell': 95
     },
-    'CONFLICT_NOTE_TEMPLATE': "تم تعديل الإشارة من '{original_action}' إلى '{new_action}' لوجود نمط {pattern_type} قوي ({pattern_name}) قيد التكوين."
+    'CONFLICT_NOTE_TEMPLATE': "Signal adjusted from '{original_action}' to '{new_action}' due to a strong forming {pattern_type} pattern ({pattern_name})."
 }
 
 def get_config():
-    """استرجاع جميع الإعدادات"""
+    """Retrieves all configuration settings.
+
+    Returns:
+        Dict: A dictionary containing all configuration settings.
+    """
     return {
         'trading': TRADING_CONFIG,
         'exchange': EXCHANGE_CONFIG,
@@ -154,6 +161,10 @@ def get_config():
     }
 
 def print_current_config():
+    """Prints the current configuration to the console.
+
+    This function is intended for debugging purposes.
+    """
     pass
 
 if __name__ == "__main__":

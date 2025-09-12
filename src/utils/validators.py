@@ -16,10 +16,17 @@ SUPPORTED_COMBINATIONS = {
 }
 
 def validate_symbol_timeframe(symbol: str, timeframe: str):
-    """
-    Checks if a given symbol/timeframe combination is likely supported for OKX.
-    Raises ValueError if not found in the supported list.
-    The symbol format is 'BTC/USDT'.
+    """Checks if a given symbol/timeframe combination is supported by OKX.
+
+    This function raises a ValueError if the symbol or timeframe is not in the
+    list of supported combinations.
+
+    Args:
+        symbol (str): The trading symbol (e.g., 'BTC/USDT').
+        timeframe (str): The timeframe (e.g., '15m').
+
+    Raises:
+        ValueError: If the symbol or timeframe is not supported.
     """
     okx_symbol = symbol.replace('/', '-')
     if okx_symbol not in SUPPORTED_COMBINATIONS:

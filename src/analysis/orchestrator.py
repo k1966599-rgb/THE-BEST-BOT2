@@ -129,9 +129,9 @@ class AnalysisOrchestrator:
                 if len(cluster) > 1:
                     # Create a new confluent level
                     new_value = np.mean([l.value for l in cluster])
-                    new_name = "منطقة تقاطع دعم" if cluster[0].level_type == 'support' else "منطقة تقاطع مقاومة"
+                    new_name = "Confluent Support Zone" if cluster[0].level_type == 'support' else "Confluent Resistance Zone"
                     # You can get more creative with naming by combining names
-                    merged.append(Level(name=new_name, value=new_value, level_type=cluster[0].level_type, quality="قوي جدا"))
+                    merged.append(Level(name=new_name, value=new_value, level_type=cluster[0].level_type, quality="Very Strong"))
                 else:
                     merged.append(cluster[0])
                 cluster = [level]
@@ -139,8 +139,8 @@ class AnalysisOrchestrator:
         # Handle the last cluster
         if len(cluster) > 1:
             new_value = np.mean([l.value for l in cluster])
-            new_name = "منطقة تقاطع دعم" if cluster[0].level_type == 'support' else "منطقة تقاطع مقاومة"
-            merged.append(Level(name=new_name, value=new_value, level_type=cluster[0].level_type, quality="قوي جدا"))
+            new_name = "Confluent Support Zone" if cluster[0].level_type == 'support' else "Confluent Resistance Zone"
+            merged.append(Level(name=new_name, value=new_value, level_type=cluster[0].level_type, quality="Very Strong"))
         else:
             merged.append(cluster[0])
 
