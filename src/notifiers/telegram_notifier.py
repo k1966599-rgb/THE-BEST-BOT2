@@ -22,7 +22,9 @@ from .telegram_sender import SimpleTelegramNotifier
 
 
 class TokenFilter(logging.Filter):
+    """A logging filter to redact the Telegram bot token from log messages."""
     def filter(self, record):
+        """Filters the log record, redacting the bot token."""
         if hasattr(record, 'msg'):
             record.msg = re.sub(r'bot(\d+):[A-Za-z0-9_-]+', r'bot\1:***TOKEN_REDACTED***', str(record.msg))
         return True
@@ -33,7 +35,22 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 class InteractiveTelegramBot(BaseNotifier):
+    """The main interactive Telegram bot class.
+
+    This class orchestrates the bot's functionality, including handling user
+    commands, presenting menus, running analysis on demand, and interacting
+    with the TradeMonitor to follow promising trade setups.
+    """
     def __init__(self, config: Dict, fetcher: BaseDataFetcher, orchestrator: AnalysisOrchestrator, decision_engine: DecisionEngine):
+        """Initializes the InteractiveTelegramBot.
+
+        Args:
+            config (Dict): The full application configuration.
+            fetcher (BaseDataFetcher): An instance of the data fetcher.
+            orchestrator (AnalysisOrchestrator): An instance of the analysis
+                orchestrator.
+            decision_engine (DecisionEngine): An instance of the decision engine.
+        """
         self.full_config = config
         super().__init__(config.get('telegram', {}))
         self.fetcher = fetcher
@@ -54,21 +71,32 @@ class InteractiveTelegramBot(BaseNotifier):
         )
 
     def _get_start_message_text(self) -> str:
+        """Generates the text for the main start message."""
         status = "🟢 متصل وجاهز للعمل" if self.bot_state["is_active"] else "🔴 متوقف"
         return f"💎 <b>THE BEST BOT</b> 💎\n<b>حالة النظام:</b> {status}"
 
     def _get_main_keyboard(self) -> InlineKeyboardMarkup:
+        """Generates the main menu inline keyboard."""
         keyboard = [[InlineKeyboardButton("▶️ تشغيل", callback_data="start_bot"), InlineKeyboardButton("⏹️ إيقاف", callback_data="stop_bot")],
                     [InlineKeyboardButton("🔍 تحليل", callback_data="analyze_menu")]]
         return InlineKeyboardMarkup(keyboard)
 
     def _get_coin_list_keyboard(self) -> InlineKeyboardMarkup:
+        """Generates the keyboard for selecting a coin from the watchlist."""
         watchlist = self.full_config.get('trading', {}).get('WATCHLIST', [])
         keyboard = [[InlineKeyboardButton(coin, callback_data=f"coin_{coin}") for coin in watchlist[i:i+2]] for i in range(0, len(watchlist), 2)]
         keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="start_menu")])
         return InlineKeyboardMarkup(keyboard)
 
     def _get_analysis_timeframe_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
+        """Generates the keyboard for selecting an analysis type for a symbol.
+
+        Args:
+            symbol (str): The symbol for which to generate the keyboard.
+
+        Returns:
+            InlineKeyboardMarkup: The generated keyboard.
+        """
         keyboard = [[InlineKeyboardButton("تحليل طويل المدى", callback_data=f"analyze_long_{symbol}")],
                     [InlineKeyboardButton("تحليل متوسط المدى", callback_data=f"analyze_medium_{symbol}")],
                     [InlineKeyboardButton("تحليل قصير المدى", callback_data=f"analyze_short_{symbol}")],
@@ -76,6 +104,14 @@ class InteractiveTelegramBot(BaseNotifier):
         return InlineKeyboardMarkup(keyboard)
 
     def _get_follow_keyboard(self, trade_setup: TradeSetup) -> InlineKeyboardMarkup:
+        """Generates the keyboard to ask the user if they want to follow a trade.
+
+        Args:
+            trade_setup (TradeSetup): The trade setup object.
+
+        Returns:
+            InlineKeyboardMarkup: The generated keyboard.
+        """
         symbol = trade_setup.symbol
         timeframe = trade_setup.timeframe
         keyboard = [[
@@ -85,9 +121,25 @@ class InteractiveTelegramBot(BaseNotifier):
         return InlineKeyboardMarkup(keyboard)
 
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handles the /start command, sending the main menu."""
         await update.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
     async def _run_analysis_for_request(self, chat_id: int, symbol: str, timeframes: list, analysis_type: str) -> Dict[str, Any]:
+        """Runs the full analysis pipeline for a user request.
+
+        This method fetches data, runs the orchestrator and decision engine
+        for multiple timeframes, then builds a comprehensive report.
+
+        Args:
+            chat_id (int): The user's chat ID.
+            symbol (str): The symbol to analyze.
+            timeframes (list): A list of timeframes to analyze.
+            analysis_type (str): The user-facing name for the analysis type.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the report parts, or an
+            error message.
+        """
         logger.info(f"Bot request: Starting analysis for {symbol} on timeframes: {timeframes}...")
         all_results = []
         current_price = 0
@@ -134,6 +186,13 @@ class InteractiveTelegramBot(BaseNotifier):
         return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
 
     async def _send_long_message(self, chat_id, text: str, **kwargs):
+        """Sends a message, splitting it into multiple parts if it's too long.
+
+        Args:
+            chat_id: The ID of the chat to send the message to.
+            text (str): The message text.
+            **kwargs: Additional keyword arguments for `send_message`.
+        """
         MAX_LENGTH = 4096
         if len(text) <= MAX_LENGTH:
             await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
@@ -154,6 +213,13 @@ class InteractiveTelegramBot(BaseNotifier):
         await asyncio.sleep(0.5)
 
     async def _main_button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """The central callback handler for all inline keyboard buttons.
+
+        This method acts as a router, dispatching actions based on the
+        `callback_data` received from the user's button press. It handles
+        everything from navigating menus to triggering analysis and following
+        trades.
+        """
         query = update.callback_query
         await query.answer()
         callback_data = query.data
@@ -245,14 +311,28 @@ class InteractiveTelegramBot(BaseNotifier):
             await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
     def send(self, message: str, parse_mode: str = 'HTML') -> bool:
+        """Not implemented for the interactive bot. Use `start()`."""
         logger.info("The `send` method is not implemented for the interactive bot. Use `start()` instead.")
         return False
 
     async def _post_init(self, application: Application):
+        """A coroutine to be run after the application is built.
+
+        This method links the application's bot instance to the trade
+        monitor's notifier and starts the monitoring loop as a background task.
+
+        Args:
+            application (Application): The `python-telegram-bot` Application.
+        """
         self.trade_monitor.notifier.bot = application.bot
         application.create_task(self.trade_monitor.run_monitoring_loop())
 
     def start(self):
+        """Starts the interactive Telegram bot.
+
+        This method sets up the `python-telegram-bot` application, adds the
+        necessary handlers, and starts the polling loop to receive updates.
+        """
         if not self.token:
             logger.error("CRITICAL: Telegram bot token not found.")
             return

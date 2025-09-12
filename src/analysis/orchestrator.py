@@ -6,12 +6,40 @@ from .indicators import apply_all_indicators
 from .data_models import Level, Pattern
 
 class AnalysisOrchestrator:
+    """Coordinates and runs all analysis modules.
+
+    This class takes a list of analysis modules, runs them sequentially,
+    and aggregates their results. It handles applying indicators, providing
+    context between modules (like trend context for pattern detection), and
+    merging confluent support and resistance levels.
+    """
     def __init__(self, analysis_modules: List[BaseAnalysis]):
+        """Initializes the AnalysisOrchestrator.
+
+        Args:
+            analysis_modules (List[BaseAnalysis]): A list of instantiated
+                analysis module objects to be run.
+        """
         self.analysis_modules = analysis_modules
 
     def run(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """
-        Runs all analysis modules and aggregates their results into a standardized format.
+        """Runs all analysis modules and aggregates their results.
+
+        The process involves:
+        1. Applying a standard set of technical indicators to the data.
+        2. Running trend analysis first to establish market context.
+        3. Running all other analysis modules.
+        4. Aggregating results into master lists of supports, resistances,
+           and patterns.
+        5. Merging confluent support and resistance levels.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing market data.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the aggregated and
+            processed analysis results, including 'supports', 'resistances',
+            'patterns', and 'other_analysis'.
         """
         df_with_indicators = apply_all_indicators(df.copy())
 
@@ -69,8 +97,20 @@ class AnalysisOrchestrator:
         }
 
     def _merge_confluent_levels(self, levels: List[Level], tolerance: float = 0.005) -> List[Level]:
-        """
-        Merges a list of S/R levels that are very close to each other.
+        """Merges a list of S/R levels that are very close to each other.
+
+        This method iterates through a sorted list of levels and groups them
+        into clusters based on a percentage tolerance. Levels within the same
+        cluster are merged into a single, stronger level.
+
+        Args:
+            levels (List[Level]): A list of support or resistance Level objects.
+            tolerance (float, optional): The percentage difference allowed for
+                levels to be considered part of the same cluster. Defaults to
+                0.005 (0.5%).
+
+        Returns:
+            List[Level]: A new list of levels with confluent levels merged.
         """
         if not levels:
             return []

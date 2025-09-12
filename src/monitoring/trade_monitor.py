@@ -11,8 +11,12 @@ from ..utils.data_preprocessor import standardize_dataframe_columns
 logger = logging.getLogger(__name__)
 
 class TradeMonitor:
-    """
-    Monitors followed trades for specific events and sends alerts.
+    """Monitors active trade setups for key events and sends alerts.
+
+    This class runs a continuous background loop to check followed trades
+    against new market data. It can detect events like price approaching key
+    levels, stop-loss hits, target achievements, and pattern status changes,
+    sending notifications via the provided notifier.
     """
     def __init__(
         self,
@@ -21,6 +25,17 @@ class TradeMonitor:
         orchestrator: AnalysisOrchestrator,
         notifier: SimpleTelegramNotifier
     ):
+        """Initializes the TradeMonitor.
+
+        Args:
+            config (Dict[str, Any]): The main configuration dictionary.
+            fetcher (BaseDataFetcher): An instance of a data fetcher to get
+                updated market data.
+            orchestrator (AnalysisOrchestrator): An instance of the analysis
+                orchestrator to re-evaluate the market state.
+            notifier (SimpleTelegramNotifier): An instance of a notifier to
+                send alerts.
+        """
         self.config = config
         self.fetcher = fetcher
         self.orchestrator = orchestrator
@@ -30,8 +45,11 @@ class TradeMonitor:
         self.proximity_threshold = 0.0075 # 0.75% proximity to be considered "approaching"
 
     def add_trade(self, initial_recommendation: Dict[str, Any]):
-        """
-        Adds a trade to the monitoring list.
+        """Adds a trade setup to the monitoring list.
+
+        Args:
+            initial_recommendation (Dict[str, Any]): The initial recommendation
+                dictionary which must contain a 'trade_setup' object.
         """
         trade_setup = initial_recommendation.get('trade_setup')
         if not trade_setup:
@@ -53,8 +71,10 @@ class TradeMonitor:
         logger.info(f"Added trade to monitor: {key}")
 
     async def run_monitoring_loop(self):
-        """
-        The main background task that periodically checks followed trades.
+        """The main background task that periodically checks followed trades.
+
+        This method runs an infinite loop that calls `check_all_trades` at a
+        regular interval defined by `monitoring_interval_seconds`.
         """
         logger.info("🚀 Trade monitoring loop started.")
         while True:
@@ -66,8 +86,11 @@ class TradeMonitor:
             await asyncio.sleep(self.monitoring_interval_seconds)
 
     async def check_all_trades(self):
-        """
-        Iterates through all followed trades and checks for alert conditions.
+        """Iterates through all followed trades and checks for alerts.
+
+        For each monitored trade, this method fetches the latest market data,
+        runs a new analysis, and then calls `_check_for_alerts` to see if any
+        noteworthy events have occurred.
         """
         if not self.followed_trades:
             return
@@ -105,8 +128,21 @@ class TradeMonitor:
                 logger.exception(f"Error checking trade {key}: {e}")
 
     async def _check_for_alerts(self, current_price: float, new_analysis: Dict[str, Any], trade_data: Dict[str, Any], trade_key: str):
-        """
-        Compares new analysis with the initial one and generates alerts for a wide range of events.
+        """Compares new analysis with the initial setup to find alertable events.
+
+        This method checks for a wide range of events, including:
+        - Price approaching key support/resistance levels.
+        - Breaches of key support/resistance levels.
+        - Stop-loss or profit-target hits.
+        - Changes in the underlying pattern's status (e.g., activation, failure).
+
+        It uses a set of notified events to prevent sending duplicate alerts.
+
+        Args:
+            current_price (float): The current price of the asset.
+            new_analysis (Dict[str, Any]): The results from the new analysis.
+            trade_data (Dict[str, Any]): The data for the monitored trade.
+            trade_key (str): The unique key for the monitored trade.
         """
         chat_id = trade_data['chat_id']
         symbol = trade_data['symbol']

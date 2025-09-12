@@ -5,11 +5,27 @@ from abc import ABC, abstractmethod
 from sklearn.linear_model import LinearRegression
 
 class BasePattern(ABC):
-    """
-    An abstract base class for all pattern detection classes.
+    """Abstract base class for all pattern detection classes.
+
+    This class provides a common structure and shared helper methods for
+    various technical pattern detectors, including trend line calculation,
+    pivot filtering, volume analysis, and confidence scoring.
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
                  current_price: float, price_tolerance: float, timeframe: str = None, trend_context: dict = None):
+        """Initializes the BasePattern.
+
+        Args:
+            df (pd.DataFrame): The market data DataFrame.
+            config (dict): Configuration settings.
+            highs (List[Dict]): A list of pivot high points.
+            lows (List[Dict]): A list of pivot low points.
+            current_price (float): The current market price.
+            price_tolerance (float): The tolerance for price comparisons.
+            timeframe (str, optional): The timeframe of the data. Defaults to None.
+            trend_context (dict, optional): Context about the preceding trend.
+                Defaults to None.
+        """
         self.df = df
         self.config = config
         self.highs = highs
@@ -22,14 +38,30 @@ class BasePattern(ABC):
 
     @abstractmethod
     def check(self) -> List[Dict]:
-        """
-        This method should be implemented by each pattern class.
-        It should return a list of found patterns.
+        """Checks for the specific pattern.
+
+        This method must be implemented by each subclass to define the logic
+        for detecting its specific technical pattern.
+
+        Raises:
+            NotImplementedError: If the subclass does not implement this method.
+
+        Returns:
+            List[Dict]: A list of found pattern dictionaries.
         """
         pass
 
     def find_trend_line(self, x_values: List[int], y_values: List[float]) -> Dict:
-        """Finds a trend line using linear regression."""
+        """Finds a trend line using linear regression.
+
+        Args:
+            x_values (List[int]): The x-coordinates (e.g., time indices).
+            y_values (List[float]): The y-coordinates (e.g., prices).
+
+        Returns:
+            Dict: A dictionary containing the 'slope', 'intercept', and
+            'r_squared' value of the fitted line.
+        """
         if len(x_values) < 2 or len(y_values) < 2:
             return {'slope': 0, 'intercept': 0, 'r_squared': 0}
 
@@ -46,8 +78,15 @@ class BasePattern(ABC):
         }
 
     def _filter_pivots(self, search_window_bars: int) -> (List[Dict], List[Dict]):
-        """
-        Filters the pivot points to a specific search window.
+        """Filters the pivot points to a specific search window.
+
+        Args:
+            search_window_bars (int): The number of recent bars to include in
+                the search window.
+
+        Returns:
+            tuple: A tuple containing two lists: filtered pivot highs and
+            filtered pivot lows.
         """
         search_window = min(search_window_bars, len(self.df) // 2)
         search_data = self.df.tail(search_window)
@@ -56,16 +95,27 @@ class BasePattern(ABC):
         return window_highs, window_lows
 
     def _calculate_trend_lines(self, window_highs: List[Dict], window_lows: List[Dict]) -> (Dict, Dict):
+        """Calculates the trend lines for the given pivot points.
+
+        This method is not implemented in the base class and should be
+        implemented by subclasses if needed. The base implementation is a
+        placeholder.
         """
-        Calculates the trend lines for the given pivot points.
-        """
-        upper_trend = find_trend_line([p['index'] for p in window_highs], [p['price'] for p in window_highs])
-        lower_trend = find_trend_line([p['index'] for p in window_lows], [p['price'] for p in window_lows])
+        # This is a placeholder and might need to be adapted if find_trend_line is a global function
+        upper_trend = self.find_trend_line([p['index'] for p in window_highs], [p['price'] for p in window_highs])
+        lower_trend = self.find_trend_line([p['index'] for p in window_lows], [p['price'] for p in window_lows])
         return upper_trend, lower_trend
 
     def _get_current_levels(self, upper_trend: Dict, lower_trend: Dict) -> (float, float):
-        """
-        Calculates the current resistance and support levels based on the trend lines.
+        """Calculates the current resistance and support levels from trend lines.
+
+        Args:
+            upper_trend (Dict): The equation of the upper trend line.
+            lower_trend (Dict): The equation of the lower trend line.
+
+        Returns:
+            tuple: A tuple containing the projected resistance and support
+            levels at the current time index.
         """
         current_index = len(self.df) - 1
         resistance_current = upper_trend['slope'] * current_index + upper_trend['intercept']
@@ -73,8 +123,20 @@ class BasePattern(ABC):
         return resistance_current, support_current
 
     def _analyze_volume(self, window_highs: List[Dict], window_lows: List[Dict], start_index: int) -> Dict:
-        """
-        Analyzes the volume for the pattern.
+        """Analyzes volume characteristics for the pattern.
+
+        This method assesses volume trends, such as whether volume is declining
+        as the pattern forms and the strength of the volume on a potential
+        breakout.
+
+        Args:
+            window_highs (List[Dict]): Pivot highs within the pattern window.
+            window_lows (List[Dict]): Pivot lows within the pattern window.
+            start_index (int): The starting index of the pattern formation.
+
+        Returns:
+            Dict: A dictionary containing volume analysis metrics like
+            'volume_decline' and 'breakout_volume'.
         """
         volume_analysis = {}
         if 'volume' in self.df.columns:
@@ -96,8 +158,20 @@ class BasePattern(ABC):
         return volume_analysis
 
     def _calculate_confidence(self, **kwargs) -> float:
-        """
-        Calculates a confidence score based on various weighted metrics.
+        """Calculates a confidence score based on various weighted metrics.
+
+        This method computes a score from 30 to 95 based on factors like
+        the quality of trend line fits (R-squared), the number of pivot
+        touches, volume confirmation, and alignment with the broader market
+        trend.
+
+        Args:
+            **kwargs: A dictionary of metrics to be used in the calculation.
+                Expected keys include 'r_squared_upper', 'r_squared_lower',
+                'touch_count', 'volume_confirmation', and 'pattern_is_bullish'.
+
+        Returns:
+            float: The calculated confidence score.
         """
         base_confidence = 50.0
         total_weight = 0

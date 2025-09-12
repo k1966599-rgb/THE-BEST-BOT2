@@ -9,10 +9,22 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class OKXWebSocketClient:
-    """
-    Manages the WebSocket connection to OKX for receiving real-time ticker data.
+    """Manages the WebSocket connection for real-time OKX ticker data.
+
+    This class handles connecting to the OKX WebSocket, subscribing to ticker
+    channels, processing incoming data, and managing automatic reconnections
+    in case of failures.
     """
     def __init__(self, config: Dict, price_cache: Dict, stop_event: threading.Event):
+        """Initializes the OKXWebSocketClient.
+
+        Args:
+            config (Dict): The main configuration dictionary.
+            price_cache (Dict): A dictionary shared with the data fetcher to
+                store the latest price data.
+            stop_event (threading.Event): An event to signal the client to
+                stop its operations.
+        """
         self.config = config
         self.ws_url = 'wss://ws.okx.com:8443/ws/v5/public'
         self.price_cache = price_cache
@@ -23,7 +35,16 @@ class OKXWebSocketClient:
         self.default_symbols = self.config.get('trading', {}).get('DEFAULT_SYMBOLS', [])
 
     async def _start_websocket(self, symbols: List[str] = None):
-        """Starts the WebSocket connection for live data."""
+        """Starts and manages the WebSocket connection loop.
+
+        This coroutine handles the entire lifecycle of the WebSocket connection,
+        including initial connection, subscription, message handling, and
+        automatic reconnection on failure.
+
+        Args:
+            symbols (List[str], optional): A list of symbols to subscribe to.
+                If None, uses default symbols from config. Defaults to None.
+        """
         if symbols is None:
             symbols = self.default_symbols
 
@@ -64,7 +85,12 @@ class OKXWebSocketClient:
                     await asyncio.sleep(self.reconnect_interval)
 
     async def _process_websocket_data(self, data_list: List[Dict]):
-        """Processes incoming WebSocket data and updates the shared price cache."""
+        """Processes incoming WebSocket data and updates the price cache.
+
+        Args:
+            data_list (List[Dict]): A list of ticker data dictionaries received
+                from the WebSocket.
+        """
         try:
             for ticker in data_list:
                 price_data = {
@@ -83,7 +109,16 @@ class OKXWebSocketClient:
             logger.error(f"❌ Error processing WebSocket data: {e}")
 
     def start(self, symbols: List[str] = None):
-        """Starts the WebSocket client in a new thread."""
+        """Starts the WebSocket client in a separate background thread.
+
+        This method creates and starts a new daemon thread that runs the
+        asyncio event loop for the WebSocket connection, allowing it to
+        operate in the background without blocking the main application.
+
+        Args:
+            symbols (List[str], optional): A list of symbols to subscribe to.
+                If None, uses default symbols. Defaults to None.
+        """
         def run_loop():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)

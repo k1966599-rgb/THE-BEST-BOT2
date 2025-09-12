@@ -5,7 +5,21 @@ from .base_analysis import BaseAnalysis
 from .data_models import Level
 
 class FibonacciAnalysis(BaseAnalysis):
+    """Performs Fibonacci analysis to find support and resistance levels.
+
+    This class identifies the highest high and lowest low over a lookback
+    period to calculate Fibonacci retracement and extension levels. These
+    levels are potential areas of support and resistance.
+    """
     def __init__(self, config: dict = None, timeframe: str = '1h'):
+        """Initializes the FibonacciAnalysis module.
+
+        Args:
+            config (dict, optional): A dictionary containing configuration
+                settings. Defaults to None.
+            timeframe (str, optional): The timeframe for the data being
+                analyzed. Defaults to '1h'.
+        """
         super().__init__(config, timeframe)
         overrides = self.config.get('TIMEFRAME_OVERRIDES', {}).get(self.timeframe, {})
         self.lookback_period = overrides.get('FIB_LOOKBACK', self.config.get('FIB_LOOKBACK', 90))
@@ -13,6 +27,20 @@ class FibonacciAnalysis(BaseAnalysis):
         self.extension_ratios = [1.618, 2.618]
 
     def analyze(self, df: pd.DataFrame) -> Dict[str, List[Level]]:
+        """Calculates Fibonacci retracement and extension levels.
+
+        This method determines the trend within the lookback period and then
+        calculates potential support and resistance levels based on Fibonacci
+        ratios.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing market data.
+
+        Returns:
+            Dict[str, List[Level]]: A dictionary containing lists of support
+            and resistance Level objects, sorted by price. Returns empty
+            lists if the data is insufficient.
+        """
         if len(df) < self.lookback_period:
             return {'supports': [], 'resistances': []}
 

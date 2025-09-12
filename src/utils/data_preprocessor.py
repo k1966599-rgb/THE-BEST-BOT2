@@ -4,16 +4,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 def standardize_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Standardizes the column names of a trading data DataFrame.
-    - Converts all column names to lowercase.
-    - Removes leading/trailing whitespace.
-    - Maps common variations (e.g., 'datetime', 'time') to a standard name ('timestamp').
-    - Validates that all required columns are present.
+    """Standardizes the column names of a trading data DataFrame.
 
-    :param df: The input DataFrame.
-    :return: The standardized DataFrame.
-    :raises ValueError: If a required column is missing after standardization.
+    This function performs several operations:
+    - Converts all column names to lowercase.
+    - Removes leading/trailing whitespace from column names.
+    - Maps common variations (e.g., 'datetime', 'time') to a standard name.
+    - Validates that all required columns ('open', 'high', 'low', 'close',
+      'volume', 'timestamp') are present after standardization.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+
+    Returns:
+        pd.DataFrame: The DataFrame with standardized column names.
+
+    Raises:
+        ValueError: If a required column is missing after standardization.
     """
     if df.empty:
         logger.warning("Input DataFrame is empty. Skipping standardization.")

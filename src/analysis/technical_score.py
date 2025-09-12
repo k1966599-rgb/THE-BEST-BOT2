@@ -3,7 +3,21 @@ from typing import Dict, Any
 from .base_analysis import BaseAnalysis
 
 class TechnicalIndicators(BaseAnalysis):
+    """Calculates a technical score based on common indicators.
+
+    This class analyzes a set of technical indicators (MACD, RSI, SMA)
+    to generate a single numerical score representing the bullish or
+    bearish sentiment of the market.
+    """
     def __init__(self, config: dict = None, timeframe: str = None):
+        """Initializes the TechnicalIndicators analysis module.
+
+        Args:
+            config (dict, optional): A dictionary containing configuration
+                settings for the indicators. Defaults to None.
+            timeframe (str, optional): The timeframe for the data being
+                analyzed. Defaults to None.
+        """
         super().__init__(config, timeframe)
         self.rsi_period = self.config.get('RSI_PERIOD', 14)
         self.macd_fast = self.config.get('MACD_FAST', 12)
@@ -15,6 +29,22 @@ class TechnicalIndicators(BaseAnalysis):
         self.rsi_overbought = self.config.get('RSI_OVERBOUGHT', 70)
 
     def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """Calculates the total technical score from various indicators.
+
+        The score is aggregated as follows:
+        - MACD: +2 for bullish crossover, -2 for bearish.
+        - RSI: +1.5 for oversold, -1.5 for overbought.
+        - SMA Crossover: +2 for bullish (short > long), -2 for bearish.
+        - Price vs. SMA: +1 if price > short SMA, -1 if below.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing market data and
+                pre-calculated indicator values.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the 'total_score'.
+            Returns a score of 0 with an error if data is insufficient.
+        """
         if len(df) < self.sma_long:
             return {'error': f'Not enough data. Need {self.sma_long} periods.', 'total_score': 0}
 

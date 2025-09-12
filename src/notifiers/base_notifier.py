@@ -1,35 +1,43 @@
 from abc import ABC, abstractmethod
 
 class BaseNotifier(ABC):
-    """
-    Abstract base class for all notification services. It defines a standard
-    interface for sending messages or starting interactive sessions.
+    """Abstract base class for all notification services.
+
+    This class defines a standard interface for sending messages and,
+    optionally, for starting interactive sessions (like a polling bot).
     """
 
     def __init__(self, config: dict):
-        """
-        Initializes the notifier with its specific configuration.
+        """Initializes the notifier with its specific configuration.
 
-        :param config: A dictionary containing configuration for the notifier
-                       (e.g., API tokens, chat IDs).
+        Args:
+            config (dict): A dictionary containing configuration for the
+                notifier (e.g., API tokens, chat IDs).
         """
         self.config = config
 
     @abstractmethod
     def send(self, message: str, parse_mode: str = 'HTML') -> bool:
-        """
-        Sends a simple text message.
+        """Sends a simple text message.
 
-        :param message: The message content to send.
-        :param parse_mode: The parse mode for the message (e.g., 'HTML', 'Markdown').
-        :return: True if the message was sent successfully, False otherwise.
+        Args:
+            message (str): The message content to send.
+            parse_mode (str, optional): The parse mode for the message
+                (e.g., 'HTML', 'Markdown'). Defaults to 'HTML'.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
         """
         pass
 
     def start(self):
-        """
-        Starts an interactive session (e.g., a polling bot).
-        For notifiers that do not support interactive sessions, this method
-        can be left unimplemented or raise a NotImplementedError.
+        """Starts an interactive session (e.g., a polling bot).
+
+        For notifiers that are send-only and do not support interactive
+        sessions, this method is not intended to be used.
+
+        Raises:
+            NotImplementedError: If the specific notifier does not support
+                an interactive session.
         """
         raise NotImplementedError("This notifier does not support an interactive session.")

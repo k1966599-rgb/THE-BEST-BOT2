@@ -6,17 +6,40 @@ from .base_pattern import BasePattern
 from ..data_models import Pattern
 
 class DoubleBottom(BasePattern):
-    """
-    A class for detecting the Double Bottom pattern.
+    """Detects the Double Bottom chart pattern.
+
+    This bullish reversal pattern is characterized by two consecutive troughs
+    at roughly the same price level, separated by a peak (the neckline). It
+    often resembles the letter "W".
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
                  current_price: float, price_tolerance: float, timeframe: str, trend_context: dict = None):
+        """Initializes the DoubleBottom pattern detector.
+
+        Args:
+            df (pd.DataFrame): The market data.
+            config (dict): Configuration settings.
+            highs (List[Dict]): List of pivot high points.
+            lows (List[Dict]): List of pivot low points.
+            current_price (float): The current market price.
+            price_tolerance (float): The tolerance for price comparisons.
+            timeframe (str): The timeframe of the data.
+            trend_context (dict, optional): Context about the preceding trend.
+                Defaults to None.
+        """
         super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
         self.name = "Double Bottom"
 
     def check(self) -> List[Pattern]:
-        """
-        Checks for the Double Bottom pattern.
+        """Checks for the Double Bottom pattern.
+
+        This method searches for two similar lows separated by a significant
+        high (neckline). If found, it calculates targets, stop-loss, and a
+        confidence score.
+
+        Returns:
+            List[Pattern]: A list containing the detected Double Bottom
+            Pattern object, or an empty list if no pattern is found.
         """
         if len(self.lows) < 2 or len(self.highs) < 1: return []
 

@@ -3,8 +3,19 @@ import pandas as pd
 from typing import Dict, List
 
 def calculate_dynamic_confidence(df: pd.DataFrame, config: dict, base_confidence: int, is_bullish: bool) -> int:
-    """
-    Calculates a dynamic confidence score based on volume, trend strength (ADX), and momentum (RSI).
+    """Calculates a dynamic confidence score.
+
+    This function adjusts a base confidence score by adding points for
+    confirming signals from volume, ADX (trend strength), and RSI (momentum).
+
+    Args:
+        df (pd.DataFrame): The market data DataFrame, containing indicator values.
+        config (dict): A configuration dictionary.
+        base_confidence (int): The initial confidence score to be adjusted.
+        is_bullish (bool): True if the pattern is bullish, False otherwise.
+
+    Returns:
+        int: The adjusted confidence score, capped at 98.
     """
     if len(df) == 0: return base_confidence
 
@@ -45,9 +56,18 @@ def calculate_dynamic_confidence(df: pd.DataFrame, config: dict, base_confidence
     return min(confidence, 98)
 
 def find_trend_line(x_coords: List[int], y_coords: List[float]) -> Dict[str, float]:
-    """
-    Finds the line of best fit for a series of points using linear regression.
-    Returns the slope and intercept of the line.
+    """Finds the line of best fit for a series of points.
+
+    This function uses numpy's polyfit to perform a linear regression and
+    find the trend line for the given coordinates.
+
+    Args:
+        x_coords (List[int]): The x-coordinates (e.g., time indices).
+        y_coords (List[float]): The y-coordinates (e.g., prices).
+
+    Returns:
+        Dict[str, float]: A dictionary containing the 'slope' and 'intercept'
+        of the calculated trend line.
     """
     if not x_coords or not y_coords or len(x_coords) != len(y_coords):
         return {'slope': 0, 'intercept': 0}
