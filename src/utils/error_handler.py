@@ -3,18 +3,26 @@ import traceback
 from functools import wraps
 
 class AnalysisErrorHandler:
-    """
-    نظام معالجة الأخطاء للتحليل المالي
-    يوفر معالجة شاملة للأخطاء مع تسجيل مفصل
+    """A class to handle errors during financial analysis.
+
+    This class provides a decorator to wrap analysis functions, catching and
+    logging any exceptions that occur. It ensures that the application can
+    continue to run even if some analyses fail.
     """
 
     def __init__(self):
+        """Initializes the AnalysisErrorHandler."""
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO)
 
     def safe_analysis(self, func):
-        """
-        decorator لحماية دوال التحليل من الأخطاء
+        """A decorator to protect analysis functions from errors.
+
+        Args:
+            func (callable): The analysis function to wrap.
+
+        Returns:
+            callable: The wrapped function.
         """
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -50,8 +58,13 @@ class AnalysisErrorHandler:
         return wrapper
 
     def _get_default_result(self):
-        """
-        إرجاع نتيجة افتراضية عند فشل التحليل
+        """Returns a default result when an analysis fails.
+
+        This ensures that the system has a consistent output format even in
+        case of an error.
+
+        Returns:
+            dict: A dictionary with default values for an analysis result.
         """
         return {
             'analysis_status': 'failed',

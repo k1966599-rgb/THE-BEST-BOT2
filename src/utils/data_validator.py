@@ -2,26 +2,32 @@ import pandas as pd
 import logging
 
 class DataValidator:
-    """
-    نظام فحص البيانات قبل التحليل
-    يضمن صحة البيانات ووجود الأعمدة المطلوبة
+    """A class for validating trading data before analysis.
+
+    This class provides methods to ensure that the data is clean, contains the
+    necessary columns, and is logically consistent.
     """
 
     def __init__(self):
+        """Initializes the DataValidator."""
         self.logger = logging.getLogger(__name__)
         self.required_columns = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
 
     def validate_dataframe(self, df, min_rows=30, analysis_type="general"):
-        """
-        فحص شامل لصحة DataFrame
+        """Performs a comprehensive validation of a trading DataFrame.
 
         Args:
-            df: DataFrame للفحص
-            min_rows: الحد الأدنى لعدد الصفوف
-            analysis_type: نوع التحليل المطلوب
+            df (pd.DataFrame): The DataFrame to validate.
+            min_rows (int, optional): The minimum number of rows required.
+                Defaults to 30.
+            analysis_type (str, optional): The type of analysis to be performed.
+                This can affect the validation rules. Defaults to "general".
 
         Returns:
-            tuple: (is_valid, errors, warnings)
+            tuple: A tuple containing:
+                - bool: True if the DataFrame is valid, False otherwise.
+                - list: A list of error messages.
+                - list: A list of warning messages.
         """
         errors = []
         warnings = []
@@ -88,8 +94,17 @@ class DataValidator:
         return is_valid, errors, warnings
 
     def log_validation_results(self, is_valid, errors, warnings, context=""):
-        """
-        تسجيل نتائج الفحص في السجلات
+        """Logs the results of a data validation check.
+
+        Args:
+            is_valid (bool): Whether the data validation passed.
+            errors (list): A list of error messages.
+            warnings (list): A list of warning messages.
+            context (str, optional): A string to provide context to the log
+                messages. Defaults to "".
+
+        Returns:
+            bool: The value of is_valid.
         """
         prefix = f"[{context}] " if context else ""
 
@@ -106,8 +121,13 @@ class DataValidator:
         return is_valid
 
     def quick_column_check(self, df):
-        """
-        فحص سريع لأسماء الأعمدة
+        """Performs a quick check for the presence of required columns.
+
+        Args:
+            df (pd.DataFrame): The DataFrame to check.
+
+        Returns:
+            bool: True if all required columns are present, False otherwise.
         """
         if df is None:
             return False

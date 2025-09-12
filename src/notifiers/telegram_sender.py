@@ -69,7 +69,7 @@ class SimpleTelegramNotifier(BaseNotifier):
                     parts.append(current_part)
 
                 for i, part in enumerate(parts):
-                    header = f"📊 <b>تقرير التحليل (جزء {i+1}/{len(parts)})</b>\n\n"
+                    header = f"📊 <b>Analysis Report (Part {i+1}/{len(parts)})</b>\n\n"
                     params = {'chat_id': self.chat_id, 'text': header + part, 'parse_mode': parse_mode}
                     response = requests.post(url, params=params, timeout=10)
                     response.raise_for_status()

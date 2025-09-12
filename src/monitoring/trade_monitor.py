@@ -153,7 +153,7 @@ class TradeMonitor:
         # Helper function to send notification and add to notified events
         def notify(event_key: str, message: str):
             if event_key not in notified_events:
-                self.notifier.send(f"**صفقة {symbol} ({trade_setup.timeframe})**\n{message}", chat_id)
+                self.notifier.send(f"**Trade Alert: {symbol} ({trade_setup.timeframe})**\n{message}", chat_id)
                 notified_events.add(event_key)
 
         # --- 1. Check for approaching key levels from the new analysis ---
@@ -161,13 +161,13 @@ class TradeMonitor:
         for support in new_analysis.get('supports', []):
             level_val = support.value
             if current_price > level_val and abs(current_price - level_val) / level_val < self.proximity_threshold:
-                notify(f"approach_support_{level_val:.2f}", f"⚠️ **تنبيه اقتراب من دعم:** السعر يقترب من مستوى الدعم ${level_val:,.2f} ({support.name}).")
+                notify(f"approach_support_{level_val:.2f}", f"⚠️ **Approaching Support Alert:** Price is approaching support level ${level_val:,.2f} ({support.name}).")
 
         # Resistances
         for res in new_analysis.get('resistances', []):
             level_val = res.value
             if current_price < level_val and abs(current_price - level_val) / level_val < self.proximity_threshold:
-                notify(f"approach_res_{level_val:.2f}", f"⚠️ **تنبيه اقتراب من مقاومة:** السعر يقترب من مستوى المقاومة ${level_val:,.2f} ({res.name}).")
+                notify(f"approach_res_{level_val:.2f}", f"⚠️ **Approaching Resistance Alert:** Price is approaching resistance level ${level_val:,.2f} ({res.name}).")
 
         # Dynamic levels from other analysis (e.g., trendlines, channels, MAs)
         other_analysis = new_analysis.get('other_analysis', {})
@@ -179,36 +179,36 @@ class TradeMonitor:
                         level_val = level.value
                         is_support = s_or_r_list == 'supports'
                         if is_support and current_price > level_val and abs(current_price - level_val) / level_val < self.proximity_threshold:
-                            notify(f"approach_dyn_support_{analysis_name}_{level.name}", f"📈 **تنبيه اقتراب من دعم ديناميكي:** السعر يقترب من {level.name} عند ${level_val:,.2f}.")
+                            notify(f"approach_dyn_support_{analysis_name}_{level.name}", f"📈 **Approaching Dynamic Support:** Price is approaching {level.name} at ${level_val:,.2f}.")
                         elif not is_support and current_price < level_val and abs(current_price - level_val) / level_val < self.proximity_threshold:
-                            notify(f"approach_dyn_res_{analysis_name}_{level.name}", f"📉 **تنبيه اقتراب من مقاومة ديناميكية:** السعر يقترب من {level.name} عند ${level_val:,.2f}.")
+                            notify(f"approach_dyn_res_{analysis_name}_{level.name}", f"📉 **Approaching Dynamic Resistance:** Price is approaching {level.name} at ${level_val:,.2f}.")
 
         # --- 2. Check for breaches of key trade setup levels (including generic S/R) ---
         # Generic S/R breaks from initial analysis
         initial_analysis = initial_rec.get('raw_analysis', {})
         for support in initial_analysis.get('supports', []):
             if current_price < support.value:
-                notify(f"support_break_{support.value:.2f}", f"💥 **تنبيه كسر دعم:** السعر كسر مستوى الدعم ${support.value:,.2f} ({support.name}).")
+                notify(f"support_break_{support.value:.2f}", f"💥 **Support Break Alert:** Price broke the support level ${support.value:,.2f} ({support.name}).")
 
         for res in initial_analysis.get('resistances', []):
             if current_price > res.value:
-                notify(f"res_break_{res.value:.2f}", f"💥 **تنبيه اختراق مقاومة:** السعر اخترق مستوى المقاومة ${res.value:,.2f} ({res.name}).")
+                notify(f"res_break_{res.value:.2f}", f"💥 **Resistance Break Alert:** Price broke the resistance level ${res.value:,.2f} ({res.name}).")
 
         # Stop Loss
         if current_price < trade_setup.stop_loss:
-            notify("stop_loss_hit", f"🛑 **إيقاف الخسارة!** تم الوصول إلى سعر وقف الخسارة عند ${trade_setup.stop_loss:,.2f}.")
+            notify("stop_loss_hit", f"🛑 **Stop Loss Hit!** The stop-loss price of ${trade_setup.stop_loss:,.2f} was reached.")
             if self.followed_trades.get(trade_key):
                  del self.followed_trades[trade_key]
             return # Stop further checks
 
         # Targets
         if trade_setup.target2 and current_price >= trade_setup.target2:
-             notify("target2_hit", f"🎯 **الهدف الثاني تحقق!** تم الوصول إلى الهدف الثاني عند ${trade_setup.target2:,.2f}.")
+             notify("target2_hit", f"🎯 **Target 2 Hit!** The second target of ${trade_setup.target2:,.2f} was reached.")
              if self.followed_trades.get(trade_key):
                  del self.followed_trades[trade_key]
              return # Stop further checks
         elif current_price >= trade_setup.target1:
-             notify("target1_hit", f"🎯 **الهدف الأول تحقق!** تم الوصول إلى الهدف الأول عند ${trade_setup.target1:,.2f}.")
+             notify("target1_hit", f"🎯 **Target 1 Hit!** The first target of ${trade_setup.target1:,.2f} was reached.")
 
         # --- 3. Check for pattern status changes and activations ---
         initial_pattern = trade_setup.raw_pattern_data
@@ -221,29 +221,18 @@ class TradeMonitor:
 
             if new_status != initial_status:
                 event_key = f"pattern_status_{new_status}"
-                if new_status == 'مفعل':
-                    message = f"✅ **تفعيل الصفقة!** تم تفعيل نموذج {initial_pattern.get('name')} عند سعر ${current_price:,.2f}."
-                elif new_status == 'فشل':
-                    message = f"❌ **فشل الصفقة!** فشل نموذج {initial_pattern.get('name')} في الحفاظ على شروطه."
+                if new_status == 'Active':
+                    message = f"✅ **Trade Activated!** The {initial_pattern.get('name')} pattern was activated at ${current_price:,.2f}."
+                elif new_status == 'Failed':
+                    message = f"❌ **Trade Failed!** The {initial_pattern.get('name')} pattern failed to maintain its conditions."
                 else:
-                    message = f"🔔 **تحديث للنموذج:** تغيرت حالة نموذج {initial_pattern.get('name')} إلى '{new_status}'."
+                    message = f"🔔 **Pattern Update:** The status of the {initial_pattern.get('name')} pattern has changed to '{new_status}'."
 
                 notify(event_key, message)
 
                 # If the pattern has reached a terminal state, remove it from monitoring
-                if new_status in ['مفعل', 'فشل', 'ملغي']:
+                if new_status in ['Active', 'Failed', 'Cancelled']:
                     logger.info(f"Pattern for {trade_key} is terminal ('{new_status}'). Removing from monitor.")
                     if self.followed_trades.get(trade_key):
                         del self.followed_trades[trade_key]
                     return # Stop further checks for this trade
-            notify("stop_loss_hit", f"🛑 **إيقاف الخسارة!** تم الوصول إلى سعر وقف الخسارة عند ${trade_setup.stop_loss:,.2f}.")
-            if self.followed_trades.get(trade_key):
-                 del self.followed_trades[trade_key]
-
-        # Targets
-        if trade_setup.target2 and current_price >= trade_setup.target2:
-             notify("target2_hit", f"🎯 **الهدف الثاني تحقق!** تم الوصول إلى الهدف الثاني عند ${trade_setup.target2:,.2f}.")
-             if self.followed_trades.get(trade_key):
-                 del self.followed_trades[trade_key]
-        elif current_price >= trade_setup.target1:
-             notify("target1_hit", f"🎯 **الهدف الأول تحقق!** تم الوصول إلى الهدف الأول عند ${trade_setup.target1:,.2f}.")

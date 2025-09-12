@@ -81,9 +81,9 @@ def test_orchestrator_level_confluence(orchestrator):
     """
     # Arrange
     # Mock the analyze methods of modules to return specific, overlapping levels
-    mock_support_level_1 = Level(name="دعم فيبو", value=100.5, level_type='support', quality='قوي')
-    mock_support_level_2 = Level(name="دعم أفقي", value=100.2, level_type='support', quality='ثانوي')
-    mock_support_level_3 = Level(name="دعم قناة", value=95.0, level_type='support', quality='قاع') # This one is not close
+    mock_support_level_1 = Level(name="Fibonacci Support", value=100.5, level_type='support', quality='Strong')
+    mock_support_level_2 = Level(name="Horizontal Support", value=100.2, level_type='support', quality='Secondary')
+    mock_support_level_3 = Level(name="Channel Support", value=95.0, level_type='support', quality='Bottom') # This one is not close
 
     # This mocks the return value of the analyze() method for each class instance
     orchestrator.analysis_modules[2].analyze = lambda df: {'supports': [mock_support_level_3], 'resistances': []} # PriceChannels
@@ -102,9 +102,9 @@ def test_orchestrator_level_confluence(orchestrator):
     # Check for the merged level
     merged_level_found = False
     for s in supports:
-        if "تقاطع" in s.name:
+        if "Confluent" in s.name:
             merged_level_found = True
-            assert s.quality == "قوي جدا"
+            assert s.quality == "Very Strong"
             assert abs(s.value - 100.35) < 0.01 # Check if the value is the average
 
     assert merged_level_found, "A confluent level was not created."

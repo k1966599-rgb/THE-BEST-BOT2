@@ -79,8 +79,8 @@ class BearFlag(BasePattern):
             )
 
             pattern = Pattern(
-                name='علم هابط',
-                status='قيد التكوين' if self.current_price > activation_level else 'مفعل',
+                name='Bear Flag',
+                status='Forming' if self.current_price > activation_level else 'Active',
                 timeframe=self.timeframe,
                 activation_level=round(activation_level, 4),
                 invalidation_level=round(stop_loss, 4),

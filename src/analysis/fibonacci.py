@@ -61,12 +61,12 @@ class FibonacciAnalysis(BaseAnalysis):
         for ratio in self.retracement_ratios:
             level_val = highest_high - (price_range * ratio) if is_uptrend else lowest_low + (price_range * ratio)
             level_val = round(level_val, 4)
-            quality = "قوي" if ratio == 0.618 else "متوسط"
+            quality = "Strong" if ratio == 0.618 else "Medium"
 
             if level_val < current_price:
-                support_levels.append(Level(name=f"دعم فيبو {ratio}", value=level_val, level_type='support', quality=quality))
+                support_levels.append(Level(name=f"Fibonacci Support {ratio}", value=level_val, level_type='support', quality=quality))
             else:
-                resistance_levels.append(Level(name=f"مقاومة فيبو {ratio}", value=level_val, level_type='resistance', quality=quality))
+                resistance_levels.append(Level(name=f"Fibonacci Resistance {ratio}", value=level_val, level_type='resistance', quality=quality))
 
         # Calculate Extension Levels (as potential future targets/resistances or supports)
         for ratio in self.extension_ratios:
@@ -74,9 +74,9 @@ class FibonacciAnalysis(BaseAnalysis):
             level_val = round(level_val, 4)
 
             if level_val > current_price:
-                 resistance_levels.append(Level(name=f"مقاومة فيبو امتداد {ratio}", value=level_val, level_type='resistance', quality='قوية'))
+                 resistance_levels.append(Level(name=f"Fibonacci Extension Resistance {ratio}", value=level_val, level_type='resistance', quality='Strong'))
             else:
-                 support_levels.append(Level(name=f"دعم فيبو امتداد {ratio}", value=level_val, level_type='support', quality='قوي'))
+                 support_levels.append(Level(name=f"Fibonacci Extension Support {ratio}", value=level_val, level_type='support', quality='Strong'))
 
         return {
             'supports': sorted(support_levels, key=lambda x: x.value, reverse=True),
