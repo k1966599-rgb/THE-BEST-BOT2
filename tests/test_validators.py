@@ -47,3 +47,13 @@ def test_validate_symbol_timeframe_defaults_to_eth_for_unknown_symbol_bug():
     # After the fix, it SHOULD raise a ValueError.
     with pytest.raises(ValueError, match=f"Symbol {unknown_symbol} is not supported."):
         validate_symbol_timeframe(unknown_symbol, timeframe_supported_by_eth)
+
+def test_validate_symbol_timeframe_supported_uppercase():
+    """
+    Tests that the function passes for a supported symbol and an uppercase timeframe.
+    This test will fail before the fix is applied.
+    """
+    symbol = 'BTC/USDT'
+    timeframe = '1H'
+    # This should not raise any exception after the fix
+    validate_symbol_timeframe(symbol, timeframe)
