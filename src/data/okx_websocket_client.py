@@ -15,23 +15,22 @@ class OKXWebSocketClient:
     channels, processing incoming data, and managing automatic reconnections
     in case of failures.
     """
-    def __init__(self, config: Dict, price_cache: Dict, stop_event: threading.Event):
+    def __init__(self, config: Dict, price_cache: Dict):
         """Initializes the OKXWebSocketClient.
 
         Args:
             config (Dict): The main configuration dictionary.
             price_cache (Dict): A dictionary shared with the data fetcher to
                 store the latest price data.
-            stop_event (threading.Event): An event to signal the client to
-                stop its operations.
         """
         self.config = config
         self.ws_url = 'wss://ws.okx.com:8443/ws/v5/public'
         self.price_cache = price_cache
-        self._stop_event = stop_event
+        self._stop_event = threading.Event()
         self.is_connected = False
         self.reconnect_interval = 5
         self.ws_connection = None
+        self.ws_thread = None
         self.default_symbols = self.config.get('trading', {}).get('DEFAULT_SYMBOLS', [])
 
     async def _start_websocket(self, symbols: List[str] = None):
@@ -82,7 +81,10 @@ class OKXWebSocketClient:
                 self.is_connected = False
                 if not self._stop_event.is_set():
                     logger.info(f"⏳ Reconnecting in {self.reconnect_interval} seconds...")
-                    await asyncio.sleep(self.reconnect_interval)
+                    for _ in range(self.reconnect_interval):
+                        if self._stop_event.is_set():
+                            break
+                        await asyncio.sleep(1)
 
     async def _process_websocket_data(self, data_list: List[Dict]):
         """Processes incoming WebSocket data and updates the price cache.
@@ -124,6 +126,14 @@ class OKXWebSocketClient:
             asyncio.set_event_loop(loop)
             loop.run_until_complete(self._start_websocket(symbols))
 
-        ws_thread = threading.Thread(target=run_loop, daemon=True)
-        ws_thread.start()
+        self.ws_thread = threading.Thread(target=run_loop, daemon=True)
+        self.ws_thread.start()
         logger.info("✅ WebSocket client thread started.")
+
+    def stop(self):
+        """Stops the WebSocket client thread."""
+        logger.info("⏹️ Stopping WebSocket client...")
+        self._stop_event.set()
+        if self.ws_thread and self.ws_thread.is_alive():
+            self.ws_thread.join()
+        logger.info("✅ WebSocket client stopped.")
