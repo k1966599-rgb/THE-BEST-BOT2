@@ -14,6 +14,7 @@ from .notifiers.telegram_sender import SimpleTelegramNotifier
 from .reporting.report_builder import ReportBuilder
 from .utils.validators import validate_symbol_timeframe
 from .utils.data_preprocessor import standardize_dataframe_columns
+from .service_manager import ServiceManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,14 +39,13 @@ def run_full_analysis_for_symbol(
         api_timeframe = timeframe.replace('d', 'D').replace('h', 'H')
         historical_data = fetcher.fetch_historical_data(
             symbol=okx_symbol,
-            timeframe=api_timeframe,
-            days_to_fetch=365
+            timeframe=api_timeframe
         )
-        if not historical_data:
+        if not historical_data or not historical_data.get('data'):
             raise ConnectionError(
                 f"Failed to fetch data for {symbol} on {timeframe}"
             )
-        df = pd.DataFrame(historical_data)
+        df = pd.DataFrame(historical_data['data'])
         df = standardize_dataframe_columns(df)
         df.set_index('timestamp', inplace=True)
 
@@ -82,7 +82,7 @@ def main(config, fetcher, orchestrator, decision_engine):
     parser.add_argument(
         'symbols',
         nargs='*',
-        default=[config['trading']['DEFAULT_SYMBOL']],
+        default=config['trading']['WATCHLIST'],
         help='Currency symbols to analyze (e.g., BTC/USDT)'
     )
     symbols_to_analyze = parser.parse_args().symbols
@@ -91,7 +91,6 @@ def main(config, fetcher, orchestrator, decision_engine):
         'report_builder': ReportBuilder(config)
     }
 
-    from .service_manager import ServiceManager
     service_manager = ServiceManager(fetcher)
 
     logger.info("🚀 Starting background data services for CLI mode...")

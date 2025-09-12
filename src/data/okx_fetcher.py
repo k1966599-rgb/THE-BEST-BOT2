@@ -29,7 +29,7 @@ class OKXDataFetcher(BaseDataFetcher):
     Fetches historical and REST-based data from OKX.
     Manages the WebSocket client for live data.
     """
-    def __init__(self, config: Dict, data_dir: str = 'okx_data'):
+    def __init__(self, config: Dict, data_dir: str = 'data'):
         self.config = config
         self.base_url = 'https://www.okx.com'
         self.data_dir = Path(data_dir)
@@ -54,7 +54,6 @@ class OKXDataFetcher(BaseDataFetcher):
 
     def fetch_current_prices(self, symbols: Optional[List[str]] = None) -> Dict[str, Any]:
         """Fetches current prices via REST API."""
-        # ... [implementation unchanged] ...
         return {}
 
     def _timeframe_to_minutes(self, timeframe: str) -> int:
@@ -64,29 +63,38 @@ class OKXDataFetcher(BaseDataFetcher):
         try:
             if 'm' in timeframe:
                 return int(timeframe.replace('m', ''))
-            elif 'H' in timeframe: # OKX uses 'H' for hour
+            elif 'H' in timeframe:
                 return int(timeframe.replace('H', '')) * 60
-            elif 'D' in timeframe: # OKX uses 'D' for day
+            elif 'D' in timeframe:
                 return int(timeframe.replace('D', '')) * 24 * 60
         except (ValueError, TypeError):
-            logger.warning(f"Could not parse timeframe '{timeframe}', defaulting to 1440 minutes (1 day).")
-            return 1440 # Default to 1 day
-
-        logger.warning(f"Unknown timeframe format '{timeframe}', defaulting to 1440 minutes (1 day).")
+            return 1440
         return 1440
 
+    def _get_timeframe_group(self, timeframe: str) -> str:
+        """Determines the timeframe group from the timeframe string."""
+        timeframe_groups = self.config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
+        for group, timeframes in timeframe_groups.items():
+            if timeframe in timeframes:
+                return group
+        return "other"
+
+    def _get_file_path(self, symbol: str, timeframe: str) -> Path:
+        """Constructs the file path for storing historical data."""
+        symbol_dir = symbol.replace('/', '-')
+        timeframe_group = self._get_timeframe_group(timeframe)
+        return self.data_dir / symbol_dir / timeframe_group / f"{timeframe}.json"
+
     def _read_from_cache(self, cache_key: tuple) -> Optional[Dict[str, Any]]:
-        """Reads data from the in-memory cache."""
         if cache_key in self.historical_cache:
             logger.info(f"✅ Found historical data for {cache_key} in cache.")
             return self.historical_cache[cache_key]
         return None
 
     def _read_from_file(self, symbol: str, timeframe: str) -> Optional[Dict[str, Any]]:
-        """Reads data from a local JSON file."""
-        file_path = Path(f"{symbol}_{timeframe}_historical.json")
+        file_path = self._get_file_path(symbol, timeframe)
         if file_path.exists():
-            logger.info(f"💾 Loading historical data for {symbol} from {file_path}...")
+            logger.info(f"💾 Loading historical data for {symbol} ({timeframe}) from {file_path}...")
             try:
                 with open(file_path, 'r') as f:
                     return json.load(f)
@@ -95,69 +103,88 @@ class OKXDataFetcher(BaseDataFetcher):
         return None
 
     def _save_to_file(self, symbol: str, timeframe: str, data: Dict[str, Any]):
-        """Saves data to a local JSON file."""
-        file_path = Path(f"{symbol}_{timeframe}_historical.json")
+        file_path = self._get_file_path(symbol, timeframe)
         try:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, 'w') as f:
-                json.dump(data, f, indent=4)
-            logger.info(f"💾 Saved historical data for {symbol} to {file_path}")
+                json.dump(data, f, indent=2)
+            logger.info(f"💾 Saved historical data for {symbol} ({timeframe}) to {file_path}")
         except IOError as e:
             logger.error(f"❌ Error saving historical data file {file_path}: {e}")
 
     def _fetch_from_network(self, symbol: str, timeframe: str, days_to_fetch: int) -> List[List[str]]:
-        """Fetches raw candle data from the OKX API."""
         logger.info(f"📊 Fetching historical data for {symbol} ({timeframe}) for {days_to_fetch} days from network...")
         all_candles = []
         current_before_ts = None
         endpoint_url = f"{self.base_url}/api/v5/market/candles"
         limit_per_request = 300
-        tf_minutes = self._timeframe_to_minutes(timeframe)
-        if tf_minutes <= 0: tf_minutes = 1440
-        total_candles_needed = (days_to_fetch * 24 * 60) / tf_minutes
-        max_requests = 20
 
-        while len(all_candles) < total_candles_needed and max_requests > 0:
+        tf_minutes = self._timeframe_to_minutes(timeframe)
+        total_candles_needed = (days_to_fetch * 24 * 60) / tf_minutes
+
+        while len(all_candles) < total_candles_needed:
             params = {'instId': symbol, 'bar': timeframe, 'limit': str(limit_per_request)}
             if current_before_ts:
                 params['before'] = current_before_ts
-            try:
-                response = requests.get(endpoint_url, params=params, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
-                response.raise_for_status()
-                data = response.json()
-                if data.get('code') == '0':
-                    candles_data = data.get('data', [])
-                    if not candles_data:
-                        logger.info(f"⏹️ No more historical data from API for {symbol}.")
-                        break
-                    all_candles.extend(candles_data)
-                    current_before_ts = candles_data[-1][0]
-                    time.sleep(0.3)
-                else:
-                    raise requests.exceptions.RequestException(f"API Error: {data.get('msg', 'Unknown error')}")
-            except requests.exceptions.RequestException as e:
-                logger.error(f"❌ HTTP Error fetching historical data for {symbol}: {e}")
-                return []
-            finally:
-                max_requests -= 1
 
-        if max_requests == 0:
-            logger.warning(f"⚠️ Hit max request limit for {symbol}. Data may be incomplete.")
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(endpoint_url, params=params, headers={'User-Agent': 'Mozilla/5.0'}, timeout=60)
+                    response.raise_for_status()
+                    data = response.json()
+                    if data.get('code') == '0':
+                        candles_data = data.get('data', [])
+                        if not candles_data:
+                            logger.info(f"⏹️ No more historical data from API for {symbol}.")
+                        break
+                        all_candles.extend(candles_data)
+                        current_before_ts = candles_data[-1][0]
+                        time.sleep(0.5)
+                        break
+                    else:
+                        raise requests.exceptions.RequestException(f"API Error: {data.get('msg', 'Unknown error')}")
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"⚠️ Attempt {attempt + 1} of {max_retries} failed for {symbol}: {e}")
+                    if attempt + 1 == max_retries:
+                        logger.error(f"❌ All {max_retries} attempts failed. Aborting fetch for this timeframe.")
+                        return []
+                    time.sleep(5 * (attempt + 1))
+            else:
+                continue
+
+            if not candles_data:
+                break
 
         return all_candles
 
     def _process_candles(self, raw_candles: List[List[str]], symbol: str) -> Dict[str, Any]:
-        """Processes raw candle data and wraps it in the standard format."""
         historical_data = []
         seen_timestamps = set()
         for candle in raw_candles:
             timestamp = int(candle[0])
-            if timestamp not in seen_timestamps:
-                historical_data.append({
-                    'timestamp': timestamp, 'open': float(candle[1]), 'high': float(candle[2]),
-                    'low': float(candle[3]), 'close': float(candle[4]), 'volume': float(candle[5]),
-                    'date': datetime.fromtimestamp(timestamp / 1000).isoformat()
-                })
-                seen_timestamps.add(timestamp)
+            if timestamp in seen_timestamps:
+                continue
+
+            o, h, l, c, v = float(candle[1]), float(candle[2]), float(candle[3]), float(candle[4]), float(candle[5])
+
+            body_length = abs(c - o)
+            upper_tail = h - max(o, c)
+            lower_tail = min(o, c) - l
+
+            shape = 'doji'
+            if body_length > 0.0001:
+                shape = 'bullish' if c > o else 'bearish'
+
+            historical_data.append({
+                'timestamp': timestamp, 'open': o, 'high': h, 'low': l, 'close': c, 'volume': v,
+                'date': datetime.fromtimestamp(timestamp / 1000).isoformat(),
+                'body_length': body_length,
+                'upper_tail': upper_tail,
+                'lower_tail': lower_tail,
+                'shape': shape
+            })
+            seen_timestamps.add(timestamp)
 
         historical_data.sort(key=lambda x: x['timestamp'])
 
@@ -167,31 +194,24 @@ class OKXDataFetcher(BaseDataFetcher):
             'data': historical_data
         }
 
-    def fetch_historical_data(self, symbol: str = 'BTC-USDT', timeframe: str = '1D', days_to_fetch: int = 365) -> Dict[str, Any]:
-        """
-        Fetches historical data, checking local JSON files and in-memory cache first.
-        """
+    def fetch_historical_data(self, symbol: str = 'BTC-USDT', timeframe: str = '1D', days_to_fetch: int = 730) -> Dict[str, Any]:
         cache_key = (symbol, timeframe, days_to_fetch)
 
-        # 1. Check in-memory cache
         cached_data = self._read_from_cache(cache_key)
         if cached_data:
             return cached_data
 
-        # 2. Check local file
         file_data = self._read_from_file(symbol, timeframe)
         if file_data:
             self.historical_cache[cache_key] = file_data
             return file_data
 
-        # 3. Fetch from network
         raw_candles = self._fetch_from_network(symbol, timeframe, days_to_fetch)
         if not raw_candles:
             return {}
 
         processed_data = self._process_candles(raw_candles, symbol)
 
-        # 4. Cache and save the new data
         self.historical_cache[cache_key] = processed_data
         self._save_to_file(symbol, timeframe, processed_data)
 
@@ -202,7 +222,6 @@ class OKXDataFetcher(BaseDataFetcher):
         return self.price_cache.get(symbol)
 
     def start_data_services(self, symbols: List[str] = None):
-        """Starts background services for data collection."""
         if symbols is None:
             symbols = self.default_symbols
         logger.info("🚀 Starting all data services...")
@@ -210,7 +229,6 @@ class OKXDataFetcher(BaseDataFetcher):
         logger.info("✅ WebSocket client started.")
 
     def stop(self):
-        """Signals all running threads to stop."""
         logger.info("⏹️ Stopping data fetcher...")
         self._stop_event.set()
         logger.info("✅ Stop signal sent.")

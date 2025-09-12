@@ -25,8 +25,6 @@ def main():
     args, unknown_args = parser.parse_known_args()
 
     # --- Initialize Components ---
-    # This section is common for both modes.
-    # We can avoid circular dependencies by importing within the functions.
     from src.data.okx_fetcher import OKXDataFetcher
     from src.analysis.orchestrator import AnalysisOrchestrator
     from src.decision_engine.engine import DecisionEngine
@@ -61,6 +59,7 @@ def main():
     elif args.mode == 'interactive':
         logger.info("Starting in Interactive mode...")
         from src.notifiers.telegram_notifier import InteractiveTelegramBot
+        from src.service_manager import ServiceManager
 
         # The interactive bot needs access to all the core components
         interactive_bot = InteractiveTelegramBot(
@@ -70,7 +69,6 @@ def main():
             decision_engine=decision_engine
         )
 
-        from src.service_manager import ServiceManager
         service_manager = ServiceManager(fetcher)
 
         # Start background data services before running the bot

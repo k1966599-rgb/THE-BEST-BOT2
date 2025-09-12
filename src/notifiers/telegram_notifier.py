@@ -45,7 +45,6 @@ class InteractiveTelegramBot(BaseNotifier):
         self.token = self.config.get('BOT_TOKEN')
         self.bot = None
 
-        # The monitor needs a simple, non-interactive notifier to send alerts
         alert_notifier = SimpleTelegramNotifier(config.get('telegram', {}))
         self.trade_monitor = TradeMonitor(
             config=config,
@@ -57,15 +56,18 @@ class InteractiveTelegramBot(BaseNotifier):
     def _get_start_message_text(self) -> str:
         status = "🟢 متصل وجاهز للعمل" if self.bot_state["is_active"] else "🔴 متوقف"
         return f"💎 <b>THE BEST BOT</b> 💎\n<b>حالة النظام:</b> {status}"
+
     def _get_main_keyboard(self) -> InlineKeyboardMarkup:
         keyboard = [[InlineKeyboardButton("▶️ تشغيل", callback_data="start_bot"), InlineKeyboardButton("⏹️ إيقاف", callback_data="stop_bot")],
                     [InlineKeyboardButton("🔍 تحليل", callback_data="analyze_menu")]]
         return InlineKeyboardMarkup(keyboard)
+
     def _get_coin_list_keyboard(self) -> InlineKeyboardMarkup:
         watchlist = self.full_config.get('trading', {}).get('WATCHLIST', [])
         keyboard = [[InlineKeyboardButton(coin, callback_data=f"coin_{coin}") for coin in watchlist[i:i+2]] for i in range(0, len(watchlist), 2)]
         keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="start_menu")])
         return InlineKeyboardMarkup(keyboard)
+
     def _get_analysis_timeframe_keyboard(self, symbol: str) -> InlineKeyboardMarkup:
         keyboard = [[InlineKeyboardButton("تحليل طويل المدى", callback_data=f"analyze_long_{symbol}")],
                     [InlineKeyboardButton("تحليل متوسط المدى", callback_data=f"analyze_medium_{symbol}")],
@@ -94,7 +96,7 @@ class InteractiveTelegramBot(BaseNotifier):
                 okx_symbol = symbol.replace('/', '-')
                 api_timeframe = tf.replace('d', 'D').replace('h', 'H')
                 historical_data_wrapper = await anyio.to_thread.run_sync(
-                    self.fetcher.fetch_historical_data, okx_symbol, api_timeframe, 365
+                    self.fetcher.fetch_historical_data, okx_symbol, api_timeframe
                 )
                 if not historical_data_wrapper or not historical_data_wrapper.get('data'):
                     raise ConnectionError(f"Failed to fetch data for {symbol} on {tf}")
@@ -109,7 +111,6 @@ class InteractiveTelegramBot(BaseNotifier):
 
                 analysis_results = self.orchestrator.run(df)
                 recommendation = self.decision_engine.make_recommendation(analysis_results, df, symbol, tf, chat_id)
-                # Add current price to the recommendation dictionary for the report builder
                 recommendation['current_price'] = current_price
                 all_results.append(recommendation)
             except ConnectionError as e:
@@ -178,9 +179,9 @@ class InteractiveTelegramBot(BaseNotifier):
             analysis_scope = parts[1]
             symbol = "_".join(parts[2:])
             analysis_map = {
-                "long": ("استثمار طويل المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['long']),
-                "medium": ("تداول متوسط المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['medium']),
-                "short": ("مضاربة سريعة", self.full_config['trading']['TIMEFRAME_GROUPS']['short'])
+                "long": ("استثمار طويل المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['long_term']),
+                "medium": ("تداول متوسط المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['medium_term']),
+                "short": ("مضاربة سريعة", self.full_config['trading']['TIMEFRAME_GROUPS']['short_term'])
             }
             analysis_name, timeframes = analysis_map.get(analysis_scope, ("غير محدد", []))
             if not symbol or not timeframes:
@@ -196,7 +197,6 @@ class InteractiveTelegramBot(BaseNotifier):
                     await query.message.reply_text(report_parts['error'])
                     return
 
-                # --- Send Report in Pieces ---
                 if report_parts.get("header"):
                     await self._send_long_message(chat_id=chat_id, text=report_parts["header"], parse_mode='HTML')
 
@@ -209,15 +209,13 @@ class InteractiveTelegramBot(BaseNotifier):
                 if report_parts.get("final_recommendation"):
                     await self._send_long_message(chat_id=chat_id, text=report_parts["final_recommendation"], parse_mode='HTML')
 
-                # --- Handle Follow-up Action ---
                 ranked_results = report_parts.get('ranked_results', [])
-                self.last_analysis_results[chat_id] = ranked_results # Store for the follow button
+                self.last_analysis_results[chat_id] = ranked_results
                 primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
 
                 if primary_rec:
                     await query.message.reply_text(text="هل تريد متابعة هذه التوصية النهائية؟", reply_markup=self._get_follow_keyboard(primary_rec['trade_setup']))
                 else:
-                    # If no trade setup was generated, return to the main menu
                     await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
             except Exception as e:

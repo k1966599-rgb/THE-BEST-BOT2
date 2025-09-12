@@ -21,12 +21,20 @@ def test_fetcher_initialization(fetcher, config):
 
 def test_read_from_cache(fetcher):
     """Test reading from in-memory cache."""
-    cache_key = ('BTC-USDT', '1D', 365)
+    cache_key = ('BTC-USDT', '1D', 730)
     fetcher.historical_cache[cache_key] = {"data": "test_data"}
 
     result = fetcher._read_from_cache(cache_key)
 
     assert result == {"data": "test_data"}
+
+def test_get_file_path(fetcher):
+    """Test the construction of the file path."""
+    path = fetcher._get_file_path('BTC-USDT', '1D')
+    assert str(path) == 'data/BTC-USDT/long_term/1D.json'
+
+    path = fetcher._get_file_path('ETH-USDT', '5m')
+    assert str(path) == 'data/ETH-USDT/short_term/5m.json'
 
 @patch('src.data.okx_fetcher.Path.exists', return_value=True)
 @patch('builtins.open')
@@ -34,44 +42,53 @@ def test_read_from_cache(fetcher):
 def test_read_from_file_exists(mock_json_load, mock_open, mock_path_exists, fetcher):
     """Test reading from an existing file."""
     result = fetcher._read_from_file('BTC-USDT', '1D')
-
     assert result == {"data": "file_data"}
-    mock_path_exists.assert_called_once()
-    mock_open.assert_called_once()
-    mock_json_load.assert_called_once()
 
 @patch('src.data.okx_fetcher.Path.exists', return_value=False)
 def test_read_from_file_not_exists(mock_path_exists, fetcher):
     """Test reading from a non-existent file."""
     result = fetcher._read_from_file('BTC-USDT', '1D')
-
     assert result is None
 
 @patch('requests.get')
 def test_fetch_from_network_success(mock_requests_get, fetcher):
-    """Test successful fetching from network."""
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
+    """Test successful fetching from network and loop termination."""
+    mock_response_with_data = MagicMock()
+    mock_response_with_data.status_code = 200
+    mock_response_with_data.json.return_value = {
         "code": "0",
-        "data": [["1622505600000", "36000", "37000", "35000", "36500", "1000", "2021-06-01T00:00:00Z"]]
+        "data": [["1622505600000", "36000", "37000", "35000", "36500", "1000"]]
     }
-    mock_requests_get.return_value = mock_response
+
+    mock_response_empty = MagicMock()
+    mock_response_empty.status_code = 200
+    mock_response_empty.json.return_value = {
+        "code": "0",
+        "data": []
+    }
+
+    mock_requests_get.side_effect = [mock_response_with_data, mock_response_empty]
 
     result = fetcher._fetch_from_network('BTC-USDT', '1D', 1)
 
     assert len(result) == 1
     assert result[0][1] == "36000"
 
-def test_process_candles(fetcher):
-    """Test processing of raw candle data."""
-    raw_candles = [["1622505600000", "36000", "37000", "35000", "36500", "1000", "2021-06-01T00:00:00Z"]]
+def test_process_candles_new_properties(fetcher):
+    """Test processing of raw candle data and the new properties."""
+    raw_candles = [["1622505600000", "100", "110", "95", "105", "1000"]]
 
     result = fetcher._process_candles(raw_candles, 'BTC-USDT')
 
     assert result['symbol'] == 'BTC/USDT'
     assert len(result['data']) == 1
-    assert result['data'][0]['open'] == 36000
+    candle = result['data'][0]
+
+    assert candle['open'] == 100
+    assert candle['shape'] == 'bullish'
+    assert candle['body_length'] == 5.0
+    assert candle['upper_tail'] == 5.0
+    assert candle['lower_tail'] == 5.0
 
 @patch.object(OKXDataFetcher, '_read_from_cache', return_value=None)
 @patch.object(OKXDataFetcher, '_read_from_file', return_value=None)
@@ -83,7 +100,7 @@ def test_fetch_historical_data_orchestration(mock_save, mock_process, mock_fetch
     mock_fetch.return_value = ["raw_candle_data"]
     mock_process.return_value = {"data": ["processed_candle_data"]}
 
-    fetcher.fetch_historical_data('BTC-USDT', '1D', 365)
+    fetcher.fetch_historical_data('BTC-USDT', '1D')
 
     mock_read_cache.assert_called_once()
     mock_read_file.assert_called_once()

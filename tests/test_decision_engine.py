@@ -17,7 +17,7 @@ def decision_engine():
 @pytest.fixture
 def sample_bullish_pattern():
     return Pattern(
-        name='قاع مزدوج',
+        name='قاع مزدوج صاعد',
         status='مفعل',
         timeframe='1h',
         activation_level=100,
@@ -41,8 +41,10 @@ def sample_pending_pattern():
 
 def test_make_bullish_recommendation(decision_engine, sample_bullish_pattern):
     """Test that a bullish pattern results in a 'Buy' action."""
-    analysis_results = {'patterns': [sample_bullish_pattern], 'supports': [], 'resistances': []}
-    df = pd.DataFrame({'close': [101]})
+    analysis_results = {'patterns': [sample_bullish_pattern], 'supports': [], 'resistances': [], 'other_analysis': {}}
+    df = pd.DataFrame({'close': [101]*21, 'volume': [100]*21, 'sma_20': [99]*21, 'sma_50': [98]*21})
+    df.index = pd.to_datetime(pd.to_datetime(range(len(df)), unit='D'))
+
 
     recommendation = decision_engine.make_recommendation(analysis_results, df, "BTC/USDT", "1h", chat_id=123)
 
@@ -60,17 +62,13 @@ def test_make_pending_recommendation(decision_engine, sample_pending_pattern):
     recommendation = decision_engine.make_recommendation(analysis_results, df, "BTC/USDT", "4h")
 
     assert 'انتظار' in recommendation['main_action']
-    # TradeSetup should not be created if the pattern is just pending and no chat_id is provided
     assert recommendation['trade_setup'] is None
 
 def test_rank_recommendations(decision_engine):
     """Test the simplified ranking logic."""
     recs = [
-        # Stronger signal, should be first
         {'main_action': 'شراء', 'total_score': 75, 'confidence': 75},
-        # Weaker signal
         {'main_action': 'بيع', 'total_score': -50, 'confidence': 50},
-        # Wait signal, should be last
         {'main_action': 'انتظار ⏳', 'total_score': 0, 'confidence': 50},
     ]
 
@@ -112,8 +110,6 @@ def test_conflict_resolution_with_trend(decision_engine, sample_bullish_pattern)
 
 def test_generate_intelligent_confirmations(decision_engine, sample_bullish_pattern):
     """Test the generation of new, intelligent confirmation conditions."""
-    # 1. Setup mock data
-    # 1. Setup mock data with enough data for rolling calculations
     data = {
         'close': [98] * 20 + [101],
         'volume': [100] * 20 + [200],
@@ -122,7 +118,6 @@ def test_generate_intelligent_confirmations(decision_engine, sample_bullish_patt
     }
     mock_df = pd.DataFrame(data)
     mock_df.index = pd.to_datetime(pd.to_datetime(range(len(mock_df)), unit='D'))
-
 
     mock_analysis_results = {
         'patterns': [sample_bullish_pattern],
@@ -133,16 +128,13 @@ def test_generate_intelligent_confirmations(decision_engine, sample_bullish_patt
         }
     }
 
-    # 2. Execute
     recommendation = decision_engine.make_recommendation(mock_analysis_results, mock_df, "BTC/USDT", "1h", chat_id=123)
 
-    # 3. Verify
     assert recommendation['trade_setup'] is not None
     conditions = recommendation['trade_setup'].confirmation_conditions
 
-    assert len(conditions) > 1 # Should have more than just the base condition
+    assert len(conditions) > 1
 
-    # Check for specific confirmation messages
     assert any("حجم تداول مرتفع" in c for c in conditions)
     assert any("فوق المتوسطات المتحركة" in c for c in conditions)
     assert any("تتوافق مع الاتجاه العام الصاعد" in c for c in conditions)
