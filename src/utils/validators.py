@@ -34,5 +34,5 @@ def validate_symbol_timeframe(symbol: str, timeframe: str):
 
     supported_for_symbol = SUPPORTED_COMBINATIONS[okx_symbol]
 
-    if timeframe not in supported_for_symbol:
+    if timeframe.lower() not in supported_for_symbol:
         raise ValueError(f"Timeframe {timeframe} is not supported for {symbol} on OKX.")
