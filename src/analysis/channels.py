@@ -69,18 +69,18 @@ class PriceChannels(BaseAnalysis):
 
             supports = [
                 Level(
-                    name="Price Channel Support",
+                    name="دعم القناة السعرية",
                     value=latest_lower_band,
                     level_type='support',
-                    quality='bottom'
+                    quality='أسفل'
                 )
             ]
             resistances = [
                 Level(
-                    name="Price Channel Resistance",
+                    name="مقاومة القناة السعرية",
                     value=latest_upper_band,
                     level_type='resistance',
-                    quality='top'
+                    quality='أعلى'
                 )
             ]
 

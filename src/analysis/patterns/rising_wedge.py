@@ -26,7 +26,7 @@ class RisingWedge(BasePattern):
                 Defaults to None.
         """
         super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
-        self.name = "Rising Wedge"
+        self.name = "وتد صاعد"
 
     def check(self) -> List[Pattern]:
         """Checks for the Rising Wedge pattern.
@@ -69,8 +69,8 @@ class RisingWedge(BasePattern):
         )
 
         pattern = Pattern(
-            name='Rising Wedge',
-            status='Forming' if self.current_price > activation_level else 'Active',
+            name=self.name,
+            status='قيد التكون' if self.current_price > activation_level else 'نشط',
             timeframe=self.timeframe,
             activation_level=round(activation_level, 4),
             invalidation_level=round(stop_loss, 4),

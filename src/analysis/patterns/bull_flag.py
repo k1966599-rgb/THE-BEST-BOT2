@@ -28,7 +28,7 @@ class BullFlag(BasePattern):
                 Defaults to None.
         """
         super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
-        self.name = "Bull Flag"
+        self.name = "علم صاعد"
 
     def check(self) -> List[Pattern]:
         """Checks for the Bull Flag pattern.
@@ -81,8 +81,8 @@ class BullFlag(BasePattern):
             )
 
             pattern = Pattern(
-                name='Bull Flag',
-                status='Forming' if self.current_price < activation_level else 'Active',
+                name=self.name,
+                status='قيد التكون' if self.current_price < activation_level else 'نشط',
                 timeframe=self.timeframe,
                 activation_level=round(activation_level, 4),
                 invalidation_level=round(stop_loss, 4),

@@ -29,7 +29,7 @@ class AscendingTriangle(BasePattern):
                 Defaults to None.
         """
         super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
-        self.name = "Ascending Triangle"
+        self.name = "المثلث الصاعد"
 
     def check(self) -> List[Pattern]:
         """Checks for the Ascending Triangle pattern.
@@ -71,7 +71,7 @@ class AscendingTriangle(BasePattern):
         target1 = best_res_price + height
         target2 = best_res_price + height * 1.618
         stop_loss = support_lows[-1]['price'] * 0.99
-        status = 'Forming' if self.current_price < best_res_price else 'Active'
+        status = 'قيد التكون' if self.current_price < best_res_price else 'نشط'
 
         # Calculate confidence
         touch_count = len([h for h in self.highs if abs(h['price'] - best_res_price) / best_res_price <= self.price_tolerance]) + len(support_lows)
@@ -86,7 +86,7 @@ class AscendingTriangle(BasePattern):
         )
 
         pattern = Pattern(
-            name='Ascending Triangle',
+            name=self.name,
             status=status,
             timeframe=self.timeframe,
             activation_level=round(best_res_price, 4),
