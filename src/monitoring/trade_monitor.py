@@ -7,232 +7,153 @@ from ..data.base_fetcher import BaseDataFetcher
 from ..analysis.orchestrator import AnalysisOrchestrator
 from ..notifiers.telegram_sender import SimpleTelegramNotifier
 from ..utils.data_preprocessor import standardize_dataframe_columns
+from ..decision_engine.trade_setup import TradeSetup
 
 logger = logging.getLogger(__name__)
 
 class TradeMonitor:
-    """Monitors active trade setups for key events and sends alerts.
-
-    This class runs a continuous background loop to check followed trades
-    against new market data. It can detect events like price approaching key
-    levels, stop-loss hits, target achievements, and pattern status changes,
-    sending notifications via the provided notifier.
-    """
-    def __init__(
-        self,
-        config: Dict[str, Any],
-        fetcher: BaseDataFetcher,
-        orchestrator: AnalysisOrchestrator,
-        notifier: SimpleTelegramNotifier
-    ):
-        """Initializes the TradeMonitor.
-
-        Args:
-            config (Dict[str, Any]): The main configuration dictionary.
-            fetcher (BaseDataFetcher): An instance of a data fetcher to get
-                updated market data.
-            orchestrator (AnalysisOrchestrator): An instance of the analysis
-                orchestrator to re-evaluate the market state.
-            notifier (SimpleTelegramNotifier): An instance of a notifier to
-                send alerts.
-        """
+    """Monitors active trade setups for key events, including complex confirmations."""
+    def __init__(self, config: Dict, fetcher: BaseDataFetcher, orchestrator: AnalysisOrchestrator, notifier: SimpleTelegramNotifier):
         self.config = config
         self.fetcher = fetcher
         self.orchestrator = orchestrator
         self.notifier = notifier
-        self.followed_trades: Dict[str, Dict[str, Any]] = {}  # key: f"{chat_id}_{symbol}_{timeframe}"
-        self.monitoring_interval_seconds = 60  # Check every 60 seconds
-        self.proximity_threshold = 0.0075 # 0.75% proximity to be considered "approaching"
+        # Trades being monitored for SL/TP hits
+        self.active_trades: Dict[str, Dict] = {}
+        # Trades awaiting complex confirmation (e.g., 3-candle rule)
+        self.pending_confirmation_trades: Dict[str, TradeSetup] = {}
+        self.monitoring_interval_seconds = 60
+        self.proximity_threshold = 0.0075
 
     def add_trade(self, initial_recommendation: Dict[str, Any]):
-        """Adds a trade setup to the monitoring list.
-
-        Args:
-            initial_recommendation (Dict[str, Any]): The initial recommendation
-                dictionary which must contain a 'trade_setup' object.
-        """
         trade_setup = initial_recommendation.get('trade_setup')
         if not trade_setup:
-            logger.warning("محاولة متابعة صفقة بدون تفاصيل إعداد.")
+            logger.warning("Attempted to follow a trade without a trade_setup.")
             return
 
-        chat_id = trade_setup.chat_id
-        symbol = trade_setup.symbol
-        timeframe = trade_setup.timeframe
-        key = f"{chat_id}_{symbol}_{timeframe}"
+        key = f"{trade_setup.chat_id}_{trade_setup.symbol}_{trade_setup.timeframe}"
 
-        self.followed_trades[key] = {
-            "initial_recommendation": initial_recommendation,
-            "chat_id": chat_id,
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "notified_events": set()  # To avoid sending duplicate alerts
-        }
-        logger.info(f"تمت إضافة صفقة للمراقبة: {key}")
+        # Route the trade to the correct monitoring list
+        if trade_setup.confirmation_rule == '3_candle_close':
+            self.pending_confirmation_trades[key] = trade_setup
+            logger.info(f"Trade added to PENDING CONFIRMATION: {key}")
+            self.notifier.send(f"**تنبيه المراقبة: {trade_setup.symbol} ({trade_setup.timeframe})**\nتمت إضافة الصفقة للمراقبة. في انتظار اختراق السعر الأولي عند ${trade_setup.entry_price:,.2f} لبدء تأكيد الشموع.", trade_setup.chat_id)
+        else: # Standard price monitoring
+            self.active_trades[key] = {
+                "initial_recommendation": initial_recommendation,
+                "chat_id": trade_setup.chat_id,
+                "symbol": trade_setup.symbol,
+                "timeframe": trade_setup.timeframe,
+                "notified_events": set()
+            }
+            logger.info(f"Trade added to ACTIVE monitoring: {key}")
 
     async def run_monitoring_loop(self):
-        """The main background task that periodically checks followed trades.
-
-        This method runs an infinite loop that calls `check_all_trades` at a
-        regular interval defined by `monitoring_interval_seconds`.
-        """
-        logger.info("🚀 بدأت حلقة مراقبة الصفقات.")
+        logger.info("🚀 Trade monitoring loop started.")
         while True:
             try:
-                await self.check_all_trades()
+                await self._check_pending_confirmations()
+                await self._check_active_trades()
             except Exception:
-                logger.exception("حدث خطأ في حلقة مراقبة الصفقات.")
-
+                logger.exception("Error in monitoring loop.")
             await asyncio.sleep(self.monitoring_interval_seconds)
 
-    async def check_all_trades(self):
-        """Iterates through all followed trades and checks for alerts.
-
-        For each monitored trade, this method fetches the latest market data,
-        runs a new analysis, and then calls `_check_for_alerts` to see if any
-        noteworthy events have occurred.
-        """
-        if not self.followed_trades:
+    async def _check_pending_confirmations(self):
+        if not self.pending_confirmation_trades:
             return
 
-        logger.info(f"جاري فحص {len(self.followed_trades)} من الصفقات المتبعة...")
-        for key, trade_data in list(self.followed_trades.items()):
+        logger.info(f"Checking {len(self.pending_confirmation_trades)} trades pending confirmation...")
+        for key, trade in list(self.pending_confirmation_trades.items()):
             try:
-                symbol = trade_data['symbol']
-                timeframe = trade_data['timeframe']
-                okx_symbol = symbol.replace('/', '-')
+                okx_symbol = trade.symbol.replace('/', '-')
+                # Fetch more data to ensure we can see candle closes
+                df_raw = await anyio.to_thread.run_sync(self.fetcher.fetch_historical_data, okx_symbol, trade.timeframe, 10)
+                if not df_raw or not df_raw.get('data'): continue
 
-                historical_data_wrapper = await anyio.to_thread.run_sync(self.fetcher.fetch_historical_data, okx_symbol, timeframe, 90)
-                if not historical_data_wrapper or not historical_data_wrapper.get('data'):
-                    logger.warning(f"تعذر جلب البيانات التاريخية لـ {symbol} على {timeframe} للمراقبة.")
-                    continue
+                df = standardize_dataframe_columns(pd.DataFrame(df_raw['data']))
+                if len(df) < 2: continue
 
-                df = pd.DataFrame(historical_data_wrapper['data'])
-                df = standardize_dataframe_columns(df)
+                last_candle = df.iloc[-2] # The last fully closed candle
+                is_bullish = 'Bullish' in trade.pattern_name or 'Bottom' in trade.pattern_name
 
-                latest_price_data = self.fetcher.get_cached_price(okx_symbol)
-                if latest_price_data and not df.empty:
-                    latest_price = latest_price_data['price']
-                    df.loc[df.index[-1], 'close'] = latest_price
-                    current_price = latest_price
-                elif not df.empty:
-                    current_price = df['close'].iloc[-1]
-                else:
-                    continue
+                # If we haven't started counting yet, check for the initial breach
+                if trade.confirmation_candles_closed == 0:
+                    if (is_bullish and last_candle['close'] > trade.entry_price) or \
+                       (not is_bullish and last_candle['close'] < trade.entry_price):
+                        trade.confirmation_candles_closed = 1
+                        logger.info(f"Initial breakout for {key}. Candle 1/3 confirmed.")
+                        self.notifier.send(f"**تنبيه أولي: {trade.symbol} ({trade.timeframe})**\nتم اختراق السعر الأولي. بدء عد شموع التأكيد (1/3).", trade.chat_id)
 
-                new_analysis_results = self.orchestrator.run(df.copy())
+                # If we are already counting, check the next candle
+                elif trade.confirmation_candles_closed > 0:
+                    if (is_bullish and last_candle['close'] > trade.entry_price) or \
+                       (not is_bullish and last_candle['close'] < trade.entry_price):
+                        trade.confirmation_candles_closed += 1
+                        logger.info(f"Consecutive close for {key}. Candle {trade.confirmation_candles_closed}/3 confirmed.")
+                        self.notifier.send(f"**تأكيد المتابعة: {trade.symbol} ({trade.timeframe})**\nشمعة إضافية أغلقت في صالح الصفقة ({trade.confirmation_candles_closed}/3).", trade.chat_id)
+                    else: # Condition failed, reset counter
+                        trade.confirmation_candles_closed = 0
+                        logger.info(f"Confirmation failed for {key}. Resetting counter.")
+                        self.notifier.send(f"**إعادة تعيين التأكيد: {trade.symbol} ({trade.timeframe})**\nفشلت شمعة في الحفاظ على الاختراق. تم إعادة تعيين عداد التأكيد.", trade.chat_id)
 
-                await self._check_for_alerts(current_price, new_analysis_results, trade_data, key)
+                # If we have 3 confirmed candles, activate the trade
+                if trade.confirmation_candles_closed >= 3:
+                    logger.info(f"TRADE CONFIRMED for {key}. Moving to active monitoring.")
+                    self.notifier.send(f"✅ **تم تأكيد الصفقة بالكامل: {trade.symbol} ({trade.timeframe})**\nتم إغلاق 3 شموع متتالية بنجاح. الصفقة الآن نشطة وتتم مراقبتها للأهداف ووقف الخسارة.", trade.chat_id)
+
+                    # Move from pending to active
+                    initial_rec = {'trade_setup': trade, 'raw_analysis': trade.raw_pattern_data}
+                    self.active_trades[key] = {
+                        "initial_recommendation": initial_rec, "chat_id": trade.chat_id,
+                        "symbol": trade.symbol, "timeframe": trade.timeframe, "notified_events": set()
+                    }
+                    del self.pending_confirmation_trades[key]
 
             except Exception as e:
-                logger.exception(f"Error checking trade {key}: {e}")
+                logger.exception(f"Error checking pending trade {key}: {e}")
 
-    async def _check_for_alerts(self, current_price: float, new_analysis: Dict[str, Any], trade_data: Dict[str, Any], trade_key: str):
-        """Compares new analysis with the initial setup to find alertable events.
+    async def _check_active_trades(self):
+        if not self.active_trades:
+            return
 
-        This method checks for a wide range of events, including:
-        - Price approaching key support/resistance levels.
-        - Breaches of key support/resistance levels.
-        - Stop-loss or profit-target hits.
-        - Changes in the underlying pattern's status (e.g., activation, failure).
+        logger.info(f"Checking {len(self.active_trades)} active trades...")
+        for key, trade_data in list(self.active_trades.items()):
+            try:
+                # This logic remains largely the same as the original file's check_all_trades
+                # but simplified as it only deals with already-confirmed trades
+                trade_setup = trade_data['initial_recommendation']['trade_setup']
+                okx_symbol = trade_setup.symbol.replace('/', '-')
+                latest_price_data = self.fetcher.get_cached_price(okx_symbol)
+                if not latest_price_data: continue
 
-        It uses a set of notified events to prevent sending duplicate alerts.
+                current_price = latest_price_data['price']
+                await self._check_sl_tp_alerts(current_price, trade_data, key)
 
-        Args:
-            current_price (float): The current price of the asset.
-            new_analysis (Dict[str, Any]): The results from the new analysis.
-            trade_data (Dict[str, Any]): The data for the monitored trade.
-            trade_key (str): The unique key for the monitored trade.
-        """
+            except Exception as e:
+                logger.exception(f"Error checking active trade {key}: {e}")
+
+    async def _check_sl_tp_alerts(self, current_price: float, trade_data: Dict, trade_key: str):
         chat_id = trade_data['chat_id']
         symbol = trade_data['symbol']
         notified_events = trade_data['notified_events']
-        initial_rec = trade_data['initial_recommendation']
-        trade_setup = initial_rec.get('trade_setup')
+        trade_setup: TradeSetup = trade_data['initial_recommendation']['trade_setup']
 
-        # Helper function to send notification and add to notified events
         def notify(event_key: str, message: str):
             if event_key not in notified_events:
-                self.notifier.send(f"**تنبيه صفقة: {symbol} ({trade_setup.timeframe})**\n{message}", chat_id)
+                self.notifier.send(f"**تنبيه صفقة نشطة: {symbol} ({trade_setup.timeframe})**\n{message}", chat_id)
                 notified_events.add(event_key)
-
-        # --- 1. Check for approaching key levels from the new analysis ---
-        # Supports
-        for support in new_analysis.get('supports', []):
-            level_val = support.value
-            if current_price > level_val and abs(current_price - level_val) / level_val < self.proximity_threshold:
-                notify(f"approach_support_{level_val:.2f}", f"⚠️ **تنبيه اقتراب من الدعم:** السعر يقترب من مستوى الدعم ${level_val:,.2f} ({support.name}).")
-
-        # Resistances
-        for res in new_analysis.get('resistances', []):
-            level_val = res.value
-            if current_price < level_val and abs(current_price - level_val) / level_val < self.proximity_threshold:
-                notify(f"approach_res_{level_val:.2f}", f"⚠️ **تنبيه اقتراب من المقاومة:** السعر يقترب من مستوى المقاومة ${level_val:,.2f} ({res.name}).")
-
-        # Dynamic levels from other analysis (e.g., trendlines, channels, MAs)
-        other_analysis = new_analysis.get('other_analysis', {})
-        for analysis_name, results in other_analysis.items():
-            if isinstance(results, dict):
-                # Check for S/R levels within other analyses
-                for s_or_r_list in ['supports', 'resistances']:
-                    for level in results.get(s_or_r_list, []):
-                        level_val = level.value
-                        is_support = s_or_r_list == 'supports'
-                        if is_support and current_price > level_val and abs(current_price - level_val) / level_val < self.proximity_threshold:
-                            notify(f"approach_dyn_support_{analysis_name}_{level.name}", f"📈 **اقتراب من دعم ديناميكي:** السعر يقترب من {level.name} عند ${level_val:,.2f}.")
-                        elif not is_support and current_price < level_val and abs(current_price - level_val) / level_val < self.proximity_threshold:
-                            notify(f"approach_dyn_res_{analysis_name}_{level.name}", f"📉 **اقتراب من مقاومة ديناميكية:** السعر يقترب من {level.name} عند ${level_val:,.2f}.")
-
-        # --- 2. Check for breaches of key trade setup levels (including generic S/R) ---
-        # Generic S/R breaks from initial analysis
-        initial_analysis = initial_rec.get('raw_analysis', {})
-        for support in initial_analysis.get('supports', []):
-            if current_price < support.value:
-                notify(f"support_break_{support.value:.2f}", f"💥 **تنبيه كسر الدعم:** كسر السعر مستوى الدعم ${support.value:,.2f} ({support.name}).")
-
-        for res in initial_analysis.get('resistances', []):
-            if current_price > res.value:
-                notify(f"res_break_{res.value:.2f}", f"💥 **تنبيه كسر المقاومة:** كسر السعر مستوى المقاومة ${res.value:,.2f} ({res.name}).")
 
         # Stop Loss
         if current_price < trade_setup.stop_loss:
             notify("stop_loss_hit", f"🛑 **تم ضرب وقف الخسارة!** تم الوصول إلى سعر وقف الخسارة ${trade_setup.stop_loss:,.2f}.")
-            if self.followed_trades.get(trade_key):
-                 del self.followed_trades[trade_key]
-            return # Stop further checks
+            if self.active_trades.get(trade_key): del self.active_trades[trade_key]
+            return
 
         # Targets
         if trade_setup.target2 and current_price >= trade_setup.target2:
              notify("target2_hit", f"🎯 **تم تحقيق الهدف الثاني!** تم الوصول إلى الهدف الثاني ${trade_setup.target2:,.2f}.")
-             if self.followed_trades.get(trade_key):
-                 del self.followed_trades[trade_key]
-             return # Stop further checks
+             if self.active_trades.get(trade_key): del self.active_trades[trade_key]
+             return
         elif current_price >= trade_setup.target1:
              notify("target1_hit", f"🎯 **تم تحقيق الهدف الأول!** تم الوصول إلى الهدف الأول ${trade_setup.target1:,.2f}.")
-
-        # --- 3. Check for pattern status changes and activations ---
-        initial_pattern = trade_setup.raw_pattern_data
-        new_pattern_list = [p for p in new_analysis.get('patterns', []) if p.name == initial_pattern.get('name')]
-
-        if new_pattern_list:
-            new_pattern = new_pattern_list[0]
-            initial_status = initial_pattern.get('status')
-            new_status = new_pattern.status
-
-            if new_status != initial_status:
-                event_key = f"pattern_status_{new_status}"
-                if new_status == 'Active':
-                    message = f"✅ **تم تفعيل الصفقة!** تم تفعيل نمط {initial_pattern.get('name')} عند سعر ${current_price:,.2f}."
-                elif new_status == 'Failed':
-                    message = f"❌ **فشلت الصفقة!** فشل نمط {initial_pattern.get('name')} في الحفاظ على شروطه."
-                else:
-                    message = f"🔔 **تحديث النمط:** تغيرت حالة نمط {initial_pattern.get('name')} إلى '{new_status}'."
-
-                notify(event_key, message)
-
-                # If the pattern has reached a terminal state, remove it from monitoring
-                if new_status in ['Active', 'Failed', 'Cancelled']:
-                    logger.info(f"النمط لـ {trade_key} في حالة نهائية ('{new_status}'). تتم إزالته من المراقبة.")
-                    if self.followed_trades.get(trade_key):
-                        del self.followed_trades[trade_key]
-                    return # Stop further checks for this trade
+             # Don't remove yet, wait for target 2
