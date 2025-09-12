@@ -167,7 +167,7 @@ class ReportBuilder:
             if horizon:
                 grouped_results[horizon].append(res)
 
-        for horizon, name in [('long_term', 'Long-term'), ('medium_term', 'Medium-term'), ('short_term', 'Short-term')]:
+        for horizon, name in [('long_term', 'تحليل طويل المدى'), ('medium_term', 'تحليل متوسط المدى'), ('short_term', 'تحليل قصير المدى')]:
             results_in_horizon = grouped_results.get(horizon, [])
             if not results_in_horizon: continue
 
