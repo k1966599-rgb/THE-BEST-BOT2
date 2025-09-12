@@ -1,4 +1,4 @@
-The following fields from the requested template are not currently supported by the bot's analysis engine because they represent price ZONES rather than specific price LEVELS:
+The following analysis types are not fully supported in the way a dedicated trading platform might be. This file documents the limitations.
 
-1.  منطقة طلب عالية (High Demand Zone) - Represents a price range, not a single level.
-2.  منطقة عرض عالية (High Supply Zone) - Represents a price range, not a single level.
+1.  **مناطق الطلب والعرض (Supply/Demand Zones)**: The bot simulates this by identifying high-volume nodes from a volume profile (POC and HVNs). This is a strong indicator but differs from classic supply/demand zone analysis which is based on price action and order flow.
+2.  **Naming Specificity**: The bot attempts to name levels descriptively (e.g., "Fibonacci", "Trend"), but the exact naming might differ slightly from the user's template as it depends on the data returned by the underlying analysis modules.

@@ -30,7 +30,8 @@ def main():
     from src.decision_engine.engine import DecisionEngine
     from src.analysis import (
         TechnicalIndicators, TrendAnalysis, PriceChannels,
-        SupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
+        SupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis,
+        VolumeProfileAnalysis
     )
 
     config = get_config()
@@ -42,6 +43,7 @@ def main():
         PriceChannels(config=config.get('analysis')),
         SupportResistanceAnalysis(config=config.get('analysis')),
         FibonacciAnalysis(config=config.get('analysis')),
+        VolumeProfileAnalysis(config=config.get('analysis')),
         ClassicPatterns(config=config.get('analysis')),
         TrendLineAnalysis(config=config.get('analysis'))
     ]

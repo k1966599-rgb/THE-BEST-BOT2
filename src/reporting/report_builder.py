@@ -13,21 +13,15 @@ class ReportBuilder:
         self.config = config
 
     def build_report(self, ranked_results: List[Dict[str, Any]], general_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Builds the full report as a list of message dictionaries.
-        """
         messages = []
 
-        # 1. Header Message
         header_content = self._format_header(general_info)
         messages.append({"type": "header", "content": header_content, "keyboard": None})
 
-        # 2. Individual Timeframe Messages
         for result in ranked_results:
             timeframe_content = self._format_timeframe_section(result)
             messages.append({"type": "timeframe", "content": timeframe_content, "keyboard": None})
 
-        # 3. Final Combined Summary & Trade Setup Message
         final_message_content = self._format_combined_summary_and_trade(ranked_results)
 
         primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
@@ -92,12 +86,15 @@ class ReportBuilder:
     def _format_levels(self, levels: List[Level], level_type: str, patterns: List[Pattern]) -> str:
         level_texts = []
 
+        # This map helps translate the internal level names to the user-facing names.
         level_map = {
             'trend': 'دعم ترند',
             'channel': 'دعم قناة سعرية',
             'fibonacci support 0.618': 'دعم فيبو 0.618',
             'fibonacci support 0.5': 'دعم فيبو 0.5',
-            'دعم عام سابق': 'دعم عام سابق', # Exact match for the new level type
+            'دعم عام سابق': 'دعم عام سابق',
+            'volume profile poc': 'دعم نقطة التحكم (POC)',
+            'high volume node': 'دعم منطقة تداول عالية',
             'confluent': 'دعم منطقة مدمجة',
         }
         if level_type == 'resistance':
@@ -106,38 +103,35 @@ class ReportBuilder:
                 'channel': 'مقاومة قناة سعرية',
                 'fibonacci resistance': 'مقاومة فيبو',
                 'fibonacci extension': 'مقاومة فيبو امتداد',
-                'مقاومة عامة سابقة': 'مقاومة عامة سابقة', # Exact match
+                'مقاومة عامة سابقة': 'مقاومة عامة سابقة',
+                'volume profile poc': 'مقاومة نقطة التحكم (POC)',
+                'high volume node': 'مقاومة منطقة تداول عالية',
                 'confluent': 'مقاومة منطقة مدمجة',
             }
 
-        formatted_levels = set()
         for level in levels:
             key_found = False
+            # Find the best matching key in our map for the given level name
             for key, text in level_map.items():
                 if key in level.name.lower():
                     # Special handling for confluent zones to show what they contain
                     if 'confluent' in key:
-                        text = f"{text} ({level.name.split('(')[-1]}"
+                        try:
+                            text = f"{text} ({level.name.split('(')[1]}"
+                        except IndexError:
+                            text = text # Fallback if split fails
                     level_texts.append(f"{text}: ${level.value:,.2f} ({level.quality})")
-                    formatted_levels.add(key)
                     key_found = True
                     break
-            if not key_found:
+            if not key_found: # Fallback for any levels not in the map
                  level_texts.append(f"{level.name}: ${level.value:,.2f} ({level.quality})")
 
-        if patterns:
+        # Add pattern targets as resistance levels
+        if patterns and level_type == 'resistance':
             p = patterns[0]
-            if level_type == 'resistance' and 'target' not in formatted_levels:
-                level_texts.append(f"مقاومة هدف النموذج: ${p.target1:,.2f} (فني)")
-            if level_type == 'resistance' and p.target2:
+            level_texts.append(f"مقاومة هدف النموذج: ${p.target1:,.2f} (فني)")
+            if p.target2:
                 level_texts.append(f"مقاومة هدف النموذج 2: ${p.target2:,.2f} (فني)")
-
-        # The new approach is to only show what is found, so no placeholders.
-        # The 'unsupported_analysis_fields.txt' file serves as documentation for what is out of scope.
-        # if level_type == 'support':
-        #     level_texts.append("منطقة طلب عالية: (غير مدعوم حاليًا)")
-        # else:
-        #     level_texts.append("منطقة عرض عالية: (غير مدعوم حاليًا)")
 
         if not level_texts:
             return "لا توجد مستويات واضحة.\n"
@@ -148,6 +142,7 @@ class ReportBuilder:
         if not ranked_results:
             return "📌 الملخص التنفيذي والشامل\n\nلا تتوفر بيانات كافية."
 
+        # --- Part 1: Executive Summary ---
         summary_section = "📌 الملخص التنفيذي والشامل\n\n"
         timeframe_groups = self.config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
         horizon_map = {tf: horizon for horizon, tfs in timeframe_groups.items() for tf in tfs}
@@ -168,10 +163,12 @@ class ReportBuilder:
         summary_section += f"اختراق المقاومة: {', '.join(activations)}\n"
         summary_section += f"كسر الدعم: {', '.join(invalidations)}\n"
 
+        # --- Part 2: Confirmed Trade Setup ---
         primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
 
         trade_section = "\n📌 صفقة مؤكدة بعد دمج الفريمات الثلاثة\n\n"
         if not primary_rec or not primary_rec.get('trade_setup'):
+            # This should no longer happen with the DecisionEngine fix, but keep as a safeguard.
             trade_section += "لا توجد صفقة مؤكدة بشروط واضحة في الوقت الحالي."
             return summary_section + trade_section
 

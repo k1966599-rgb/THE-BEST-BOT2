@@ -63,7 +63,7 @@ class SupportResistanceAnalysis(BaseAnalysis):
                     name="دعم عام سابق",
                     value=round(general_support, 4),
                     level_type='support',
-                    quality='تاريخي'
+                    quality='Historic'
                 ))
 
             if resistance_levels_raw:
@@ -72,7 +72,7 @@ class SupportResistanceAnalysis(BaseAnalysis):
                     name="مقاومة عامة سابقة",
                     value=round(general_resistance, 4),
                     level_type='resistance',
-                    quality='تاريخي'
+                    quality='Historic'
                 ))
             # --- End of New Logic ---
 
