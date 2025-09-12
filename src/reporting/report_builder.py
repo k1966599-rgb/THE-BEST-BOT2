@@ -154,25 +154,22 @@ class ReportBuilder:
 
         # --- Part 1: Executive Summary ---
         summary_section = "📌 الملخص التنفيذي والشامل\n\n"
+        # Simplified logic: Iterate through all results and create a summary line for each.
+        # This ensures every timeframe is represented, fixing the user's issue.
         timeframe_groups = self.config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
         horizon_map = {tf: horizon for horizon, tfs in timeframe_groups.items() for tf in tfs}
-
-        grouped_results = {'long_term': [], 'medium_term': [], 'short_term': []}
-        for res in ranked_results:
-            # Bug fix: Ensure the lookup is case-insensitive by uppercasing the timeframe
-            horizon = horizon_map.get(res.get('timeframe', '').upper())
-            if horizon:
-                grouped_results[horizon].append(res)
-
         horizon_names = {'short_term': 'قصير المدى', 'medium_term': 'متوسط المدى', 'long_term': 'طويل المدى'}
-        for horizon, results in grouped_results.items():
-            if not results: continue
-            best_res = results[0]
-            p = best_res.get('raw_analysis', {}).get('patterns', [None])[0]
+
+        for res in ranked_results:
+            p = res.get('raw_analysis', {}).get('patterns', [None])[0]
             if p:
+                horizon_key = horizon_map.get(res.get('timeframe', '').upper(), 'N/A')
+                horizon_name = horizon_names.get(horizon_key, 'غير محدد')
+
                 targets = [t for t in [p.target1, p.target2, p.target3] if t]
                 target_str = ' → '.join([f"${t:,.0f}" for t in targets])
-                summary_section += f"{horizon_names[horizon]} ({best_res.get('timeframe').upper()}): {p.name} → اختراق {p.activation_level:,.0f}$ → أهداف: {target_str}\n"
+
+                summary_section += f"{horizon_name} ({res.get('timeframe').upper()}): {p.name} → اختراق {p.activation_level:,.0f}$ → أهداف: {target_str}\n"
 
         summary_section += "\nنقاط المراقبة الحرجة:\n"
         activations = [f"{res.get('timeframe').upper()} = ${res.get('raw_analysis', {}).get('patterns', [Pattern(name='', status='', timeframe='', activation_level=0, invalidation_level=0, target1=0)])[0].activation_level:,.0f}" for res in ranked_results if res.get('raw_analysis', {}).get('patterns')]
