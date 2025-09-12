@@ -98,8 +98,11 @@ class DecisionEngine:
                 conflict_note = "Bearish pattern conflicts with the bullish overall trend. Strong confirmation is recommended."
                 main_action = "Wait ⏳"
 
-        if main_action == "Wait ⏳":
-            trade_setup = None
+        # This was the root cause of the user's complaint.
+        # A trade setup should be presented if a pattern is found, even if the
+        # final recommendation is to "Wait", so the user can evaluate it.
+        # if main_action == "Wait ⏳":
+        #     trade_setup = None
 
         total_score = confidence if 'Buy' in main_action else -confidence if 'Sell' in main_action else 0
 
