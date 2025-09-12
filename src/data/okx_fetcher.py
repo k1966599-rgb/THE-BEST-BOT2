@@ -49,8 +49,7 @@ class OKXDataFetcher(BaseDataFetcher):
 
         self.websocket_client = OKXWebSocketClient(
             config=self.config,
-            price_cache=self.price_cache,
-            stop_event=self._stop_event
+            price_cache=self.price_cache
         )
         self.default_symbols = self.config.get('trading', {}).get('DEFAULT_SYMBOLS', [])
         self._ensure_data_directory()
@@ -371,5 +370,6 @@ class OKXDataFetcher(BaseDataFetcher):
         to terminate its connection and stop running.
         """
         logger.info("⏹️ Stopping data fetcher...")
+        self.websocket_client.stop()
         self._stop_event.set()
         logger.info("✅ Stop signal sent.")
