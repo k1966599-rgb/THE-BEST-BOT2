@@ -4,17 +4,40 @@ from .base_pattern import BasePattern
 from ..data_models import Pattern
 
 class RisingWedge(BasePattern):
-    """
-    A class for detecting the Rising Wedge pattern.
+    """Detects the Rising Wedge chart pattern.
+
+    The Rising Wedge is a bearish pattern that begins wide at the bottom and
+    contracts as prices move higher. It is characterized by two converging,
+    upward-sloping trend lines.
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
                  current_price: float, price_tolerance: float, timeframe: str, trend_context: dict = None):
+        """Initializes the RisingWedge pattern detector.
+
+        Args:
+            df (pd.DataFrame): The market data.
+            config (dict): Configuration settings.
+            highs (List[Dict]): List of pivot high points.
+            lows (List[Dict]): List of pivot low points.
+            current_price (float): The current market price.
+            price_tolerance (float): The tolerance for price comparisons.
+            timeframe (str): The timeframe of the data.
+            trend_context (dict, optional): Context about the preceding trend.
+                Defaults to None.
+        """
         super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
         self.name = "Rising Wedge"
 
     def check(self) -> List[Pattern]:
-        """
-        Checks for the Rising Wedge pattern.
+        """Checks for the Rising Wedge pattern.
+
+        This method identifies two converging, upward-sloping trend lines,
+        validates their quality, and if a pattern is found, calculates targets,
+        stop-loss, and a confidence score.
+
+        Returns:
+            List[Pattern]: A list containing the detected Rising Wedge
+            Pattern object, or an empty list if no pattern is found.
         """
         window_highs, window_lows = self._filter_pivots(search_window_bars=80)
         if len(window_highs) < 3 or len(window_lows) < 3:

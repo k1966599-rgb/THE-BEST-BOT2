@@ -5,15 +5,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 def apply_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Applies a curated set of key technical indicators to the DataFrame using pandas_ta.
-    This is a more lightweight approach than calculating all possible indicators.
+    """Applies a curated set of technical indicators to the DataFrame.
+
+    This function uses the pandas_ta library to calculate and append a
+    pre-selected list of key technical indicators to the input DataFrame.
+    The indicators include RSI, MACD, Bollinger Bands, ATR, OBV, ADX,
+    Stochastic Oscillator, and several moving averages (SMA, EMA).
 
     Args:
-        df: DataFrame with columns 'open', 'high', 'low', 'close', 'volume'.
+        df (pd.DataFrame): The input DataFrame, which must contain 'open',
+            'high', 'low', 'close', and 'volume' columns.
 
     Returns:
-        DataFrame with added indicator columns.
+        pd.DataFrame: A new DataFrame with the indicator columns added.
+        If an error occurs during calculation, the original DataFrame is
+        returned.
     """
     if df.empty:
         logger.warning("Input DataFrame is empty. Skipping indicator application.")

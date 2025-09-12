@@ -7,17 +7,40 @@ from .base_pattern import BasePattern
 from ..data_models import Pattern
 
 class AscendingTriangle(BasePattern):
-    """
-    A class for detecting the Ascending Triangle pattern.
+    """Detects the Ascending Triangle chart pattern.
+
+    This pattern is characterized by a horizontal resistance line and a rising
+    support line, indicating bullish pressure. This class identifies candidates
+    for these lines among the provided pivot points.
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
                  current_price: float, price_tolerance: float, timeframe: str, trend_context: dict = None):
+        """Initializes the AscendingTriangle pattern detector.
+
+        Args:
+            df (pd.DataFrame): The market data.
+            config (dict): Configuration settings.
+            highs (List[Dict]): List of pivot high points.
+            lows (List[Dict]): List of pivot low points.
+            current_price (float): The current market price.
+            price_tolerance (float): The tolerance for price comparisons.
+            timeframe (str): The timeframe of the data.
+            trend_context (dict, optional): Context about the preceding trend.
+                Defaults to None.
+        """
         super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
         self.name = "Ascending Triangle"
 
     def check(self) -> List[Pattern]:
-        """
-        Checks for the Ascending Triangle pattern and returns Pattern objects.
+        """Checks for the Ascending Triangle pattern.
+
+        The method identifies a horizontal resistance and a rising support line,
+        calculates targets, stop-loss, and a confidence score for any
+        valid patterns found.
+
+        Returns:
+            List[Pattern]: A list containing the detected Ascending Triangle
+            Pattern object, or an empty list if no pattern is found.
         """
         if len(self.highs) < 2 or len(self.lows) < 2:
             return []

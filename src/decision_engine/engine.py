@@ -7,13 +7,46 @@ from ..analysis.data_models import Pattern, Level
 logger = logging.getLogger(__name__)
 
 class DecisionEngine:
+    """Processes analysis results to generate trading recommendations.
+
+    This engine takes the raw output from the analysis orchestrator,
+    interprets the patterns and indicators, checks for conflicts, and
+    formulates a clear trading recommendation (Buy, Sell, Wait). It can also
+    generate a detailed `TradeSetup` object for monitoring.
+    """
     def __init__(self, config: dict):
+        """Initializes the DecisionEngine.
+
+        Args:
+            config (dict): The main configuration dictionary, from which the
+                'recommendation' section will be used.
+        """
         self.config = config.get('recommendation', {})
         if not self.config:
             logger.warning("Recommendation config not found. Using empty defaults.")
             self.config = {}
 
     def make_recommendation(self, analysis_results: Dict[str, Any], df: pd.DataFrame, symbol: str, timeframe: str, chat_id: Optional[int] = None) -> Dict[str, Any]:
+        """Makes a trading recommendation based on analysis results.
+
+        The logic prioritizes detected patterns but will check for conflicts
+        with the overall market trend. If a valid, non-conflicting trade
+        opportunity is found, it may generate a TradeSetup object.
+
+        Args:
+            analysis_results (Dict[str, Any]): The aggregated results from the
+                AnalysisOrchestrator.
+            df (pd.DataFrame): The DataFrame with market data.
+            symbol (str): The trading symbol.
+            timeframe (str): The timeframe of the analysis.
+            chat_id (Optional[int], optional): The chat ID for which to create
+                a TradeSetup. If None, no TradeSetup is created. Defaults to None.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the recommendation,
+            including 'main_action', 'confidence', and an optional
+            'trade_setup'.
+        """
         logger.info(f"Decision Engine: Making recommendation for {symbol} on {timeframe}.")
 
         patterns: List[Pattern] = analysis_results.get('patterns', [])
@@ -82,7 +115,15 @@ class DecisionEngine:
         }
 
     def _confirm_breakout_volume(self, df: pd.DataFrame) -> Optional[str]:
-        """Checks if the volume on the last candle is significantly higher than average."""
+        """Checks for high volume on the most recent candle.
+
+        Args:
+            df (pd.DataFrame): The market data DataFrame.
+
+        Returns:
+            Optional[str]: A confirmation message if volume is high,
+            otherwise None.
+        """
         if 'volume' not in df.columns or len(df) < 21:
             return None
         avg_volume = df['volume'].rolling(window=20).mean().iloc[-2]
@@ -92,7 +133,16 @@ class DecisionEngine:
         return None
 
     def _confirm_ma_support_resistance(self, df: pd.DataFrame, is_bullish: bool) -> Optional[str]:
-        """Checks if the price is respecting key moving averages."""
+        """Checks if price is trading above/below key moving averages.
+
+        Args:
+            df (pd.DataFrame): The market data DataFrame.
+            is_bullish (bool): True if checking for a bullish setup, False otherwise.
+
+        Returns:
+            Optional[str]: A confirmation message if the condition is met,
+            otherwise None.
+        """
         if 'sma_20' not in df.columns or 'sma_50' not in df.columns:
             return None
         last_close = df['close'].iloc[-1]
@@ -103,7 +153,16 @@ class DecisionEngine:
         return None
 
     def _confirm_trend_alignment(self, analysis: Dict[str, Any], is_bullish: bool) -> Optional[str]:
-        """Checks if the trade direction aligns with the overall trend."""
+        """Checks if the trade direction aligns with the overall trend.
+
+        Args:
+            analysis (Dict[str, Any]): The analysis results dictionary.
+            is_bullish (bool): True if checking for a bullish setup.
+
+        Returns:
+            Optional[str]: A confirmation message if the trade aligns with
+            the trend, otherwise None.
+        """
         trend = analysis.get('other_analysis', {}).get('TrendAnalysis', {})
         trend_direction = trend.get('trend_direction')
         if is_bullish and trend_direction == 'Uptrend':
@@ -113,8 +172,19 @@ class DecisionEngine:
         return None
 
     def _generate_confirmation_conditions(self, df: pd.DataFrame, analysis: Dict[str, Any], pattern: Pattern) -> List[str]:
-        """
-        Generates a list of dynamic, intelligent confirmation conditions for a trade setup.
+        """Generates a list of confirmation conditions for a trade setup.
+
+        This method aggregates results from various confirmation checks to
+        provide a human-readable list of conditions that would strengthen
+        the case for a trade.
+
+        Args:
+            df (pd.DataFrame): The market data DataFrame.
+            analysis (Dict[str, Any]): The analysis results.
+            pattern (Pattern): The detected pattern object.
+
+        Returns:
+            List[str]: A list of string messages for the user.
         """
         is_bullish = 'صاعد' in pattern.name or 'قاع' in pattern.name
         conditions = []
@@ -138,8 +208,18 @@ class DecisionEngine:
         return conditions
 
     def rank_recommendations(self, recommendations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Ranks recommendations based on score and confidence.
+        """Ranks a list of recommendations based on a calculated score.
+
+        The ranking score is based on the recommendation's total score and
+        is weighted down if the main action is 'Wait'.
+
+        Args:
+            recommendations (List[Dict[str, Any]]): A list of recommendation
+                dictionaries to be ranked.
+
+        Returns:
+            List[Dict[str, Any]]: The list of recommendations, sorted in
+            descending order of their rank score.
         """
         logger.info(f"Decision Engine: Ranking {len(recommendations)} recommendations.")
 

@@ -1,1 +1,1 @@
-# This file makes this directory a Python package.
+"""A collection of modules for detecting specific technical analysis patterns."""

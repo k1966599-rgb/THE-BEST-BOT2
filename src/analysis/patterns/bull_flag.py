@@ -6,17 +6,40 @@ from .base_pattern import BasePattern
 from ..data_models import Pattern
 
 class BullFlag(BasePattern):
-    """
-    A class for detecting the Bull Flag pattern.
+    """Detects the Bull Flag chart pattern.
+
+    A Bull Flag is a bullish continuation pattern characterized by a sharp
+    advance (the flagpole) followed by a brief, downward-sloping consolidation
+    channel (the flag).
     """
     def __init__(self, df: pd.DataFrame, config: dict, highs: List[Dict], lows: List[Dict],
                  current_price: float, price_tolerance: float, timeframe: str, trend_context: dict = None):
+        """Initializes the BullFlag pattern detector.
+
+        Args:
+            df (pd.DataFrame): The market data.
+            config (dict): Configuration settings.
+            highs (List[Dict]): List of pivot high points.
+            lows (List[Dict]): List of pivot low points.
+            current_price (float): The current market price.
+            price_tolerance (float): The tolerance for price comparisons.
+            timeframe (str): The timeframe of the data.
+            trend_context (dict, optional): Context about the preceding trend.
+                Defaults to None.
+        """
         super().__init__(df, config, highs, lows, current_price, price_tolerance, timeframe, trend_context)
         self.name = "Bull Flag"
 
     def check(self) -> List[Pattern]:
-        """
-        Checks for the Bull Flag pattern.
+        """Checks for the Bull Flag pattern.
+
+        This method iterates through historical pivots to find a flagpole,
+        followed by a consolidation flag with the correct characteristics.
+        It calculates targets, stop-loss, and a confidence score.
+
+        Returns:
+            List[Pattern]: A list containing the detected Bull Flag Pattern
+            object, or an empty list if no pattern is found.
         """
         if len(self.lows) < 3: return []
 

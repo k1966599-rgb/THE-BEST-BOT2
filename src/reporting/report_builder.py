@@ -4,12 +4,32 @@ from ..decision_engine.trade_setup import TradeSetup
 from ..analysis.data_models import Level, Pattern
 
 class ReportBuilder:
+    """Builds a human-readable report from analysis results.
+
+    This class takes the ranked recommendations from the DecisionEngine and
+    formats them into a structured, multi-part text report suitable for
+    sending to a user.
+    """
     def __init__(self, config: dict):
+        """Initializes the ReportBuilder.
+
+        Args:
+            config (dict): The main configuration dictionary.
+        """
         self.config = config
 
     def build_report(self, ranked_results: List[Dict[str, Any]], general_info: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Builds the full report by assembling its components.
+        """Builds the full report by assembling its various components.
+
+        Args:
+            ranked_results (List[Dict[str, Any]]): The list of ranked
+                recommendations from the DecisionEngine.
+            general_info (Dict[str, Any]): General information about the
+                analysis request (symbol, price, etc.).
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the different parts of the
+            report as formatted strings ('header', 'timeframe_reports', etc.).
         """
         header = self._format_header(general_info)
 
@@ -29,6 +49,14 @@ class ReportBuilder:
         }
 
     def _format_header(self, general_info: Dict) -> str:
+        """Formats the main header of the report.
+
+        Args:
+            general_info (Dict): General info about the analysis request.
+
+        Returns:
+            str: The formatted header string.
+        """
         symbol = general_info.get('symbol', 'N/A')
         current_price = general_info.get('current_price', 0)
         analysis_type = general_info.get('analysis_type', 'تحليل شامل')
@@ -42,8 +70,14 @@ class ReportBuilder:
                 f"نوع التحليل: {analysis_type} ({timeframe_str})")
 
     def _format_timeframe_section(self, result: Dict, priority: int) -> str:
-        """
-        Formats a single timeframe's analysis into a string.
+        """Formats the detailed analysis section for a single timeframe.
+
+        Args:
+            result (Dict): The analysis result for one timeframe.
+            priority (int): The priority rank of this timeframe.
+
+        Returns:
+            str: The formatted string for this section of the report.
         """
         timeframe = result.get('timeframe', 'N/A').upper()
         symbol = result.get('symbol', 'N/A')
@@ -84,7 +118,14 @@ class ReportBuilder:
         return section
 
     def _format_trade_setup(self, trade_setup: TradeSetup) -> str:
-        """Formats the detailed trade setup information into a string."""
+        """Formats the detailed trade setup information into a string.
+
+        Args:
+            trade_setup (TradeSetup): The TradeSetup object to format.
+
+        Returns:
+            str: The formatted trade setup string.
+        """
         setup_text = "📈 **تفاصيل الصفقة المقترحة:**\n"
         setup_text += f"   - **النموذج:** {trade_setup.pattern_name} ({trade_setup.pattern_status})\n"
         setup_text += f"   - **سعر الدخول:** ${trade_setup.entry_price:,.2f}\n"
@@ -102,6 +143,17 @@ class ReportBuilder:
         return setup_text
 
     def _format_summary(self, ranked_results: List[Dict]) -> str:
+        """Formats the executive summary section of the report.
+
+        This method provides a high-level overview of the findings across
+        different time horizons (long, medium, short term).
+
+        Args:
+            ranked_results (List[Dict]): The list of ranked recommendations.
+
+        Returns:
+            str: The formatted summary string.
+        """
         if not ranked_results:
             return "📌 الملخص التنفيذي والشامل\n\nلا توجد بيانات كافية."
 
@@ -138,6 +190,17 @@ class ReportBuilder:
         return summary
 
     def _format_final_recommendation(self, ranked_results: List[Dict]) -> str:
+        """Formats the final, actionable recommendation section.
+
+        This focuses on the highest-ranked trade setup and provides clear
+        entry conditions, targets, and stop-loss.
+
+        Args:
+            ranked_results (List[Dict]): The list of ranked recommendations.
+
+        Returns:
+            str: The formatted final recommendation string.
+        """
         primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
         if not primary_rec or not primary_rec.get('trade_setup'):
             return "📌 صفقة مؤكدة\n\n❌ لا توجد توصية واضحة بمواصفات كاملة حاليًا."

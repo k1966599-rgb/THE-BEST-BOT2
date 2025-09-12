@@ -5,8 +5,23 @@ from typing import Dict, List
 from .data_models import Level
 
 def find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, width: int = 10) -> Dict[str, List[Level]]:
-    """
-    Identifies support and resistance levels and returns them as standardized Level objects.
+    """Identifies support and resistance levels from price data.
+
+    This function uses peak finding on high and low prices to identify
+    significant price levels. These levels are then clustered to group
+    nearby values, and classified as support or resistance based on the
+    last closing price. The historical high and low are also included.
+
+    Args:
+        df (pd.DataFrame): DataFrame with 'high', 'low', and 'close' columns.
+        prominence (float, optional): The prominence of the peaks, as a
+            fraction of the total price range. Defaults to 0.02.
+        width (int, optional): The minimum width of the peaks. Defaults to 10.
+
+    Returns:
+        Dict[str, List[Level]]: A dictionary containing lists of the top 5
+        support and resistance Level objects. Returns empty lists if the
+        input data is insufficient.
     """
     if df.empty or not all(col in df.columns for col in ['high', 'low', 'close']):
         return {'supports': [], 'resistances': []}
