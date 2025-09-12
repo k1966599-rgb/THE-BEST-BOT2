@@ -22,11 +22,10 @@ def validate_symbol_timeframe(symbol: str, timeframe: str):
     The symbol format is 'BTC/USDT'.
     """
     okx_symbol = symbol.replace('/', '-')
-    supported_for_symbol = SUPPORTED_COMBINATIONS.get(okx_symbol)
+    if okx_symbol not in SUPPORTED_COMBINATIONS:
+        raise ValueError(f"Symbol {symbol} is not supported.")
 
-    # If the symbol is not explicitly listed, assume it has the same support as ETH (more comprehensive).
-    if not supported_for_symbol:
-        supported_for_symbol = SUPPORTED_COMBINATIONS['ETH-USDT']
+    supported_for_symbol = SUPPORTED_COMBINATIONS[okx_symbol]
 
     if timeframe not in supported_for_symbol:
         raise ValueError(f"Timeframe {timeframe} is not supported for {symbol} on OKX.")

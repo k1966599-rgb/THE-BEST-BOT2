@@ -31,10 +31,10 @@ def test_read_from_cache(fetcher):
 def test_get_file_path(fetcher):
     """Test the construction of the file path."""
     path = fetcher._get_file_path('BTC-USDT', '1D')
-    assert str(path) == 'data/BTC-USDT/long_term/1D.json'
+    assert str(path) == 'data/BTC-USDT/long/1D.json'
 
     path = fetcher._get_file_path('ETH-USDT', '5m')
-    assert str(path) == 'data/ETH-USDT/short_term/5m.json'
+    assert str(path) == 'data/ETH-USDT/short/5m.json'
 
 @patch('src.data.okx_fetcher.Path.exists', return_value=True)
 @patch('builtins.open')

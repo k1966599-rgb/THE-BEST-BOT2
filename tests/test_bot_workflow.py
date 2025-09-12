@@ -55,7 +55,7 @@ async def test_bot_full_analysis_workflow(core_components):
     )
 
     symbol = 'BTC/USDT'
-    timeframes = get_config()['trading']['TIMEFRAME_GROUPS']['medium_term']
+    timeframes = get_config()['trading']['TIMEFRAME_GROUPS']['medium']
     analysis_type = "تحليل متوسط المدى"
     chat_id = 12345
 
