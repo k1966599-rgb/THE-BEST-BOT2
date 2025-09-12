@@ -121,5 +121,24 @@ class TestTradeManagement(unittest.TestCase):
         self.assertEqual(trade_plan['trade_idea_name'], 'مراقبة كسر نمط Bearish Pattern')
         self.assertEqual(trade_plan['conditional_entry'], 110)
 
+    def test_correct_atr_calculation(self):
+        """
+        Tests that the get_trade_levels function uses the correct ATR calculation.
+        """
+        data = {
+            'high': [110, 112, 108, 115, 118, 120, 122, 118, 121, 125, 123, 126, 122, 128, 130, 127, 132, 135, 133, 138],
+            'low': [100, 105, 102, 106, 110, 112, 115, 114, 118, 120, 119, 121, 118, 124, 126, 123, 128, 130, 129, 132],
+            'close': [105, 110, 106, 112, 116, 118, 120, 116, 120, 124, 121, 125, 120, 127, 128, 125, 130, 133, 130, 136]
+        }
+        df = pd.DataFrame(data)
+        trade_manager = TradeManagement(df)
+
+        # With the correct ATR calculation, the last ATR value is approx 6.495
+        # The current price is 136.
+        # long_stop_loss = 136 - 6.495 = 129.505
+        levels = trade_manager.get_trade_levels({})
+        self.assertAlmostEqual(levels['long_stop_loss'], 129.50, places=2)
+
+
 if __name__ == '__main__':
     unittest.main()
