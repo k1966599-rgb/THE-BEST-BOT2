@@ -6,6 +6,7 @@ import warnings
 from typing import Dict, Any
 
 import pandas as pd
+import pandas_ta as ta
 
 warnings.filterwarnings('ignore')
 
@@ -18,6 +19,7 @@ class TradeManagement:
         self.account_balance = account_balance
         self.max_risk_per_trade = max_risk_per_trade
         self.current_price = df['close'].iloc[-1]
+        self.df.ta.atr(length=14, append=True)
 
     def calculate_position_size(
         self, entry_price: float, stop_loss: float
@@ -49,7 +51,14 @@ class TradeManagement:
         nearest_support = sr_analysis.get('nearest_support', {}).get('price')
         nearest_resistance = sr_analysis.get('nearest_resistance', {}).get('price')
 
-        atr = self.df['high'].iloc[-14:].max() - self.df['low'].iloc[-14:].min()
+        if 'ATRr_14' in self.df.columns:
+            atr = self.df['ATRr_14'].iloc[-1]
+            if pd.isna(atr):
+                warnings.warn("ATR is NaN, falling back to simple volatility calculation.")
+                atr = self.df['high'].iloc[-14:].max() - self.df['low'].iloc[-14:].min()
+        else:
+            warnings.warn("ATRr_14 column not found, falling back to simple volatility calculation.")
+            atr = self.df['high'].iloc[-14:].max() - self.df['low'].iloc[-14:].min()
 
         long_stop_loss = self.current_price - atr
         if nearest_support and nearest_support < self.current_price:
