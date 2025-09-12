@@ -128,6 +128,7 @@ class OKXDataFetcher(BaseDataFetcher):
                 params['before'] = current_before_ts
 
             max_retries = 3
+            candles_data = None
             for attempt in range(max_retries):
                 try:
                     response = requests.get(endpoint_url, params=params, headers={'User-Agent': 'Mozilla/5.0'}, timeout=60)
@@ -138,10 +139,7 @@ class OKXDataFetcher(BaseDataFetcher):
                         if not candles_data:
                             logger.info(f"⏹️ No more historical data from API for {symbol}.")
                         break
-                        all_candles.extend(candles_data)
-                        current_before_ts = candles_data[-1][0]
-                        time.sleep(0.5)
-                        break
+
                     else:
                         raise requests.exceptions.RequestException(f"API Error: {data.get('msg', 'Unknown error')}")
                 except requests.exceptions.RequestException as e:
@@ -150,11 +148,13 @@ class OKXDataFetcher(BaseDataFetcher):
                         logger.error(f"❌ All {max_retries} attempts failed. Aborting fetch for this timeframe.")
                         return []
                     time.sleep(5 * (attempt + 1))
-            else:
-                continue
 
             if not candles_data:
                 break
+
+            all_candles.extend(candles_data)
+            current_before_ts = candles_data[-1][0]
+            time.sleep(0.5)
 
         return all_candles
 
