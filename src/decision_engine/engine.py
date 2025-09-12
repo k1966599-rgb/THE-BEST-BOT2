@@ -21,23 +21,18 @@ class DecisionEngine:
         confidence = 50
         trade_setup = None
 
-        # --- 1. Base decision on the most relevant pattern found ---
         if patterns:
-            primary_pattern = patterns[0] # Assuming orchestrator sorts them by relevance
-
-            # Determine action from pattern type
+            primary_pattern = patterns[0]
             if 'صاعد' in primary_pattern.name or 'قاع' in primary_pattern.name:
                 main_action = "شراء 📈"
             elif 'هابط' in primary_pattern.name or 'قمة' in primary_pattern.name:
                 main_action = "بيع 📉"
 
-            # If pattern is not yet active, or confidence is too low, recommend waiting
             if primary_pattern.status == 'قيد التكوين' or primary_pattern.confidence < 65:
                 main_action = "انتظار ⏳"
 
             confidence = primary_pattern.confidence
 
-            # --- 2. Create TradeSetup from Pattern ---
             if chat_id:
                 try:
                     confirmation_conditions = self._generate_confirmation_conditions(df, analysis_results, primary_pattern)
@@ -57,28 +52,22 @@ class DecisionEngine:
                 except Exception as e:
                     logger.exception(f"Failed to create TradeSetup from pattern: {e}")
 
-        # --- 3. Conflict Resolution with General Trend ---
         conflict_note = None
         trend_direction = analysis_results.get('other_analysis', {}).get('TrendAnalysis', {}).get('trend_direction')
 
         if trend_direction:
             is_bullish_action = 'شراء' in main_action
             is_bearish_action = 'بيع' in main_action
-
             if is_bullish_action and trend_direction == 'Downtrend':
                 conflict_note = "النمط الصاعد يتعارض مع الاتجاه العام الهابط. يوصى بانتظار تأكيد قوي."
                 main_action = "انتظار ⏳"
-
             if is_bearish_action and trend_direction == 'Uptrend':
                 conflict_note = "النمط الهابط يتعارض مع الاتجاه العام الصاعد. يوصى بانتظار تأكيد قوي."
                 main_action = "انتظار ⏳"
 
-        # --- 4. Final Sanity Check ---
-        # If, after all logic, the recommendation is to wait, there should be no active trade setup.
         if main_action == "انتظار ⏳":
             trade_setup = None
 
-        # Simplified score for ranking
         total_score = confidence if 'شراء' in main_action else -confidence if 'بيع' in main_action else 0
 
         return {
@@ -88,13 +77,13 @@ class DecisionEngine:
             'confidence': confidence,
             'total_score': total_score,
             'conflict_note': conflict_note,
-            'raw_analysis': analysis_results, # Pass the full analysis for reporting
+            'raw_analysis': analysis_results,
             'trade_setup': trade_setup
         }
 
     def _confirm_breakout_volume(self, df: pd.DataFrame) -> Optional[str]:
         """Checks if the volume on the last candle is significantly higher than average."""
-        if 'volume' not in df.columns:
+        if 'volume' not in df.columns or len(df) < 21:
             return None
         avg_volume = df['volume'].rolling(window=20).mean().iloc[-2]
         last_volume = df['volume'].iloc[-1]
@@ -130,11 +119,9 @@ class DecisionEngine:
         is_bullish = 'صاعد' in pattern.name or 'قاع' in pattern.name
         conditions = []
 
-        # --- Base Condition ---
         breakout_direction = "فوق" if is_bullish else "تحت"
         conditions.append(f"⏳ إغلاق شمعة {pattern.timeframe} {breakout_direction} مستوى {pattern.activation_level:,.2f}")
 
-        # --- Dynamic Confirmation Checks ---
         confirmation_checks = [
             self._confirm_breakout_volume(df),
             self._confirm_ma_support_resistance(df, is_bullish),
@@ -145,8 +132,7 @@ class DecisionEngine:
             if confirmation:
                 conditions.append(confirmation)
 
-        # --- Fallback Condition ---
-        if len(conditions) == 1: # Only the base condition was added
+        if len(conditions) == 1:
             conditions.append("⚠️ لا توجد تأكيدات قوية، يرجى توخي الحذر.")
 
         return conditions
@@ -159,7 +145,6 @@ class DecisionEngine:
 
         for rec in recommendations:
             if not rec.get('error'):
-                # Simple ranking: prioritize actionable signals with high confidence
                 signal_multiplier = 0.1 if 'انتظار' in rec.get('main_action', '') else 1.0
                 rank_score = abs(rec.get('total_score', 0)) * signal_multiplier
                 rec['rank_score'] = rank_score

@@ -27,13 +27,13 @@ TRADING_CONFIG = {
     ],
 
     # الفريمات الزمنية التي سيتم تحليلها بالترتيب
-    'TIMEFRAMES_TO_ANALYZE': ['1d', '4h', '1h', '30m', '15m', '5m', '3m'],
+    'TIMEFRAMES_TO_ANALYZE': ['1D', '4H', '1H', '30m', '15m', '5m', '3m'],
 
     # مجموعات الفريمات الزمنية لأنواع التحليل المختلفة
     'TIMEFRAME_GROUPS': {
-        "long": ['1d', '4h', '1h'],
-        "medium": ['30m', '15m'],
-        "short": ['5m', '3m']
+        "long_term": ['1D', '4H', '1H'],
+        "medium_term": ['30m', '15m'],
+        "short_term": ['5m', '3m']
     }
 }
 
