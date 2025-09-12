@@ -60,10 +60,12 @@ class ReportBuilder:
         if patterns:
             p = patterns[0]
             section += f"📊 النموذج الفني: {p.name} — {p.status}\n\n"
-            section += f"شروط التفعيل: اختراق المقاومة ${p.activation_level:,.2f} مع ثبات شمعة {timeframe} فوقها\n\n"
-            section += f"شروط الإلغاء: كسر الدعم ${p.invalidation_level:,.2f} مع إغلاق شمعة {timeframe} تحته\n\n"
         else:
             section += "📊 النموذج الفني: لا يوجد نموذج واضح حاليًا.\n\n"
+
+        trade_setup = result.get('trade_setup')
+        if trade_setup:
+            section += self._format_trade_setup(trade_setup)
 
         section += "🟢 الدعوم\n\n"
         if supports:
@@ -80,6 +82,24 @@ class ReportBuilder:
             section += "لا توجد مقاومات واضحة.\n\n"
 
         return section
+
+    def _format_trade_setup(self, trade_setup: TradeSetup) -> str:
+        """Formats the detailed trade setup information into a string."""
+        setup_text = "📈 **تفاصيل الصفقة المقترحة:**\n"
+        setup_text += f"   - **النموذج:** {trade_setup.pattern_name} ({trade_setup.pattern_status})\n"
+        setup_text += f"   - **سعر الدخول:** ${trade_setup.entry_price:,.2f}\n"
+        setup_text += f"   - **وقف الخسارة:** ${trade_setup.stop_loss:,.2f}\n"
+
+        targets = [t for t in [trade_setup.target1, trade_setup.target2] if t]
+        target_str = ' | '.join([f"${t:,.2f}" for t in targets])
+        setup_text += f"   - **الأهداف:** {target_str}\n\n"
+
+        if trade_setup.confirmation_conditions:
+            setup_text += "**شروط تأكيد الدخول:**\n"
+            for cond in trade_setup.confirmation_conditions:
+                setup_text += f"   - {cond}\n"
+        setup_text += "\n"
+        return setup_text
 
     def _format_summary(self, ranked_results: List[Dict]) -> str:
         if not ranked_results:
