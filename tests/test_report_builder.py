@@ -36,12 +36,12 @@ def test_format_trade_setup(report_builder, sample_trade_setup):
     """Tests the _format_trade_setup method."""
     report_text = report_builder._format_trade_setup(sample_trade_setup)
 
-    assert "Proposed Trade Details" in report_text
-    assert "Pattern:** Bull Flag (Active)" in report_text
-    assert "Entry Price:** $50,000.00" in report_text
-    assert "Stop Loss:** $48,000.00" in report_text
-    assert "Targets:** $55,000.00 | $58,000.00" in report_text
-    assert "Entry Confirmation Conditions" in report_text
+    assert "تفاصيل الصفقة المقترحة" in report_text
+    assert "النموذج:** Bull Flag (Active)" in report_text
+    assert "سعر الدخول:** $50,000.00" in report_text
+    assert "وقف الخسارة:** $48,000.00" in report_text
+    assert "الأهداف:** $55,000.00 | $58,000.00" in report_text
+    assert "شروط تأكيد الدخول" in report_text
     assert "High breakout volume" in report_text
     assert "above key moving averages" in report_text
 
@@ -74,5 +74,5 @@ def test_build_report_with_trade_setup(report_builder, sample_trade_setup):
 
     timeframe_report = full_report["timeframe_reports"][0]
 
-    assert "Proposed Trade Details" in timeframe_report
-    assert "Entry Price:** $50,000.00" in timeframe_report
+    assert "تفاصيل الصفقة المقترحة" in timeframe_report
+    assert "سعر الدخول:** $50,000.00" in timeframe_report

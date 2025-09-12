@@ -40,11 +40,11 @@ class SimpleTelegramNotifier(BaseNotifier):
             bool: True if the message was sent successfully, False otherwise.
         """
         if not self.token or not self.chat_id:
-            logger.warning("Telegram BOT_TOKEN or CHAT_ID not configured. Skipping message.")
+            logger.warning("توكن بوت التليجرام أو معرف الدردشة غير مهيأ. سيتم تخطي الرسالة.")
             return False
 
         message_preview = message.split('\n')[0]
-        logger.info(f"Attempting to send report to Telegram: {message_preview}...")
+        logger.info(f"محاولة إرسال تقرير إلى تليجرام: {message_preview}...")
 
         max_length = 4096
         try:
@@ -69,16 +69,16 @@ class SimpleTelegramNotifier(BaseNotifier):
                     parts.append(current_part)
 
                 for i, part in enumerate(parts):
-                    header = f"📊 <b>Analysis Report (Part {i+1}/{len(parts)})</b>\n\n"
+                    header = f"📊 <b>تقرير التحليل (جزء {i+1}/{len(parts)})</b>\n\n"
                     params = {'chat_id': self.chat_id, 'text': header + part, 'parse_mode': parse_mode}
                     response = requests.post(url, params=params, timeout=10)
                     response.raise_for_status()
 
-            logger.info("✅ Report sent successfully to Telegram.")
+            logger.info("✅ تم إرسال التقرير بنجاح إلى تليجرام.")
             return True
         except requests.exceptions.RequestException as e:
-            logger.error(f"❌ Error sending Telegram message: {e}")
+            logger.error(f"❌ خطأ في إرسال رسالة تليجرام: {e}")
             return False
         except Exception as e:
-            logger.exception(f"❌ An unexpected error occurred while sending Telegram message.")
+            logger.exception(f"❌ حدث خطأ غير متوقع أثناء إرسال رسالة تليجرام.")
             return False
