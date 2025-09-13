@@ -102,7 +102,10 @@ class ReportBuilder:
             elif 'channel' in name_lower:
                 display_name = "دعم قناة سعرية" if is_support else "مقاومة قناة سعرية"
             elif 'fibonacci' in name_lower:
-                display_name = re.sub(r'resistance|support', '', level.name, flags=re.IGNORECASE).strip()
+                # Bug Fix 2: Handle underscores in fibo names
+                fibo_number = name_lower.replace('fibonacci', '').replace('support', '').replace('resistance', '').replace('_', ' ').strip()
+                prefix = "دعم فيبو" if is_support else "مقاومة فيبو"
+                display_name = f"{prefix} {fibo_number}"
             elif 'high volume node' in name_lower or 'hvn' in name_lower:
                 display_name = "منطقة طلب عالية" if is_support else "منطقة عرض عالية"
             elif 'previous' in name_lower or 'historical' in name_lower or 'عام' in name_lower:
@@ -116,22 +119,23 @@ class ReportBuilder:
             if pattern:
                 p_name_lower = pattern.name.lower()
                 # Use a small tolerance for float comparison
-                is_activation = abs(level.value - pattern.activation_level) < 0.001
-                is_invalidation = abs(level.value - pattern.invalidation_level) < 0.001
+                is_activation = abs(level.value - pattern.activation_level) < 0.001 if pattern.activation_level else False
+                is_invalidation = abs(level.value - pattern.invalidation_level) < 0.001 if pattern.invalidation_level else False
 
-                if not is_support and is_activation:
+                if not is_support and is_activation and 'poc' in name_lower:
                     if 'علم' in p_name_lower: # Bull or Bear Flag
                         display_name = "مقاومة العلم"
-                    elif 'مثلث' in p_name_lower: # Ascending/Descending Triangle
-                        display_name = "مقاومة المثلث"
                     elif 'قاع مزدوج' in p_name_lower: # Double Bottom
                         display_name = "خط عنق القاع المزدوج"
 
-                if is_support and is_invalidation:
-                     if 'علم' in p_name_lower:
-                         display_name = "دعم قاع العلم"
-                     elif 'قناة' in p_name_lower:
-                         display_name = "دعم قاع القناة"
+                # Bug Fix 1: Make renaming less aggressive. Only rename channel supports.
+                if is_support and 'channel' in name_lower:
+                    if 'علم' in p_name_lower:
+                        display_name = "دعم قناة/قاع العلم"
+                    elif 'قاع مزدوج' in p_name_lower:
+                        display_name = "دعم قناة/قاع مزدوج"
+                    elif is_invalidation and 'قناة' in p_name_lower: # Fallback for simple channels
+                        display_name = "دعم قاع القناة"
 
             # Determine quality label based on user template
             if 'critical' in (level.quality or '').lower() or 'حرج' in (level.quality or ''): quality_label = "(حرج)"
@@ -142,7 +146,8 @@ class ReportBuilder:
             elif 'technical' in (level.quality or '').lower() or 'فني' in (level.quality or '') or 'target' in name_lower: quality_label = "(فني)"
             elif 'historical' in (level.quality or '').lower() or 'تاريخي' in (level.quality or ''): quality_label = "(تاريخي)"
 
-            level_texts.append(f"{display_name}: ${level.value:,.0f} {quality_label}")
+            # Final Bug Fix: Conditionally add space for quality label
+            level_texts.append(f"{display_name}: ${level.value:,.0f}{' ' + quality_label if quality_label else ''}")
 
         return "\n".join(level_texts) + "\n"
 
@@ -185,7 +190,7 @@ class ReportBuilder:
         summary += "صفقة مؤكدة:\n\n"
         entry_price_str = f"${setup.entry_price:,.0f}"
         stop_loss_str = f"${setup.stop_loss:,.0f}"
-        targets = [t for t in [setup.target1, setup.target2] if t]
+        targets = [t for t in [setup.target1, setup.target2, setup.target3] if t]
         targets_str = ' → '.join([f"${t:,.0f}" for t in targets])
 
         summary += f"سعر الدخول: عند اختراق {entry_price_str} (فريم {setup.timeframe.upper()}) مع ثبات 3 شموع ساعة فوقه\n"
