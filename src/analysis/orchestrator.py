@@ -7,8 +7,10 @@ from .data_models import Level, Pattern
 
 class AnalysisOrchestrator:
     """Coordinates and runs all analysis modules."""
-    def __init__(self, analysis_modules: List[BaseAnalysis]):
+    def __init__(self, analysis_modules: List[BaseAnalysis], config: Dict = None):
         self.analysis_modules = analysis_modules
+        self.config = config or {}
+        self.merge_levels_flag = self.config.get('analysis', {}).get('MERGE_CONFLUENT_LEVELS', False)
 
     def run(self, df: pd.DataFrame) -> Dict[str, Any]:
         df_with_indicators = apply_all_indicators(df.copy())
@@ -45,12 +47,16 @@ class AnalysisOrchestrator:
         master_supports.sort(key=lambda x: x.value, reverse=True)
         master_resistances.sort(key=lambda x: x.value)
 
-        merged_supports = self._merge_confluent_levels(master_supports)
-        merged_resistances = self._merge_confluent_levels(master_resistances)
+        if self.merge_levels_flag:
+            supports = self._merge_confluent_levels(master_supports)
+            resistances = self._merge_confluent_levels(master_resistances)
+        else:
+            supports = master_supports
+            resistances = master_resistances
 
         return {
-            'supports': merged_supports,
-            'resistances': merged_resistances,
+            'supports': supports,
+            'resistances': resistances,
             'patterns': master_patterns,
             'other_analysis': other_results
         }

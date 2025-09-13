@@ -40,7 +40,8 @@ def orchestrator():
         ClassicPatterns(config=config.get('analysis')),
         TrendLineAnalysis(config=config.get('analysis'))
     ]
-    return AnalysisOrchestrator(analysis_modules)
+    # Pass config to orchestrator
+    return AnalysisOrchestrator(analysis_modules, config=config)
 
 def test_orchestrator_output_structure(orchestrator, sample_data):
     """
@@ -77,7 +78,7 @@ def test_orchestrator_output_structure(orchestrator, sample_data):
 
 def test_orchestrator_level_confluence(orchestrator):
     """
-    Tests that the orchestrator correctly merges confluent S/R levels.
+    Tests that the orchestrator, with default config, does NOT merge confluent levels.
     """
     # Arrange
     # Mock the analyze methods of modules to return specific, overlapping levels
@@ -86,8 +87,8 @@ def test_orchestrator_level_confluence(orchestrator):
     mock_support_level_3 = Level(name="Channel Support", value=95.0, level_type='support', quality='Bottom') # This one is not close
 
     # This mocks the return value of the analyze() method for each class instance
-    orchestrator.analysis_modules[2].analyze = lambda df: {'supports': [mock_support_level_3], 'resistances': []} # PriceChannels
-    orchestrator.analysis_modules[4].analyze = lambda df: {'supports': [mock_support_level_1, mock_support_level_2], 'resistances': []} # FibonacciAnalysis
+    orchestrator.analysis_modules[2].analyze = lambda df, **kwargs: {'supports': [mock_support_level_3], 'resistances': []} # PriceChannels
+    orchestrator.analysis_modules[4].analyze = lambda df, **kwargs: {'supports': [mock_support_level_1, mock_support_level_2], 'resistances': []} # FibonacciAnalysis
 
     # Create a dummy DataFrame
     df = pd.DataFrame({'close': [105]})
@@ -97,14 +98,8 @@ def test_orchestrator_level_confluence(orchestrator):
 
     # Assert
     supports = results['supports']
-    assert len(supports) == 2 # The two close levels should be merged, the other one should remain
+    # With merging now disabled by default, all 3 levels should be present.
+    assert len(supports) == 3
 
-    # Check for the merged level
-    merged_level_found = False
-    for s in supports:
-        if "Confluent" in s.name:
-            merged_level_found = True
-            assert s.quality == "Very Strong"
-            assert abs(s.value - 100.35) < 0.01 # Check if the value is the average
-
-    assert merged_level_found, "A confluent level was not created."
+    # Check that no merged level was created
+    assert not any("Confluent" in s.name for s in supports)
