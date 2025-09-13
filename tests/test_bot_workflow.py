@@ -39,7 +39,6 @@ def core_components():
     fetcher.stop()
 
 
-@pytest.mark.skip(reason="Skipping until templates are re-implemented. This test expects templates to exist.")
 @pytest.mark.anyio
 async def test_bot_full_analysis_workflow(core_components):
     """
@@ -71,15 +70,19 @@ async def test_bot_full_analysis_workflow(core_components):
     assert not any("error" in msg for msg in report_messages), f"The analysis workflow returned an error."
 
     # Check the structure and content of the messages
+    assert len(report_messages) == 1 + len(timeframes) + 1 # Header + Timeframes + Summary
+
     header = report_messages[0]
     assert header['type'] == 'header'
     assert '💎 تحليل فني شامل' in header['content']
     assert symbol in header['content']
 
+    timeframe_messages = report_messages[1:-1]
+    assert len(timeframe_messages) == len(timeframes)
+    for msg in timeframe_messages:
+        assert msg['type'] == 'timeframe'
+
     final_summary = report_messages[-1]
     assert final_summary['type'] == 'final_summary'
     assert '📌 الملخص التنفيذي والشامل' in final_summary['content']
-
-    # Check that we have a message for each timeframe requested
-    timeframe_messages = [m for m in report_messages if m['type'] == 'timeframe']
-    assert len(timeframe_messages) == len(timeframes)
+    assert 'keyboard' in final_summary
