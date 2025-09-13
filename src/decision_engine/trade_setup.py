@@ -16,6 +16,7 @@ class TradeSetup:
     stop_loss: float
     target1: float
     target2: Optional[float] = None
+    target3: Optional[float] = None
 
     # --- Confirmed Entry Details ---
     confirmation_status: str = "🟡 Waiting for breakout"
