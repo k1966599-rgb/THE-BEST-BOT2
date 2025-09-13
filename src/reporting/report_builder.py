@@ -73,7 +73,10 @@ class ReportBuilder:
         for level in levels:
             if 'confluent' in level.name.lower():
                 min_val, max_val = level.raw_data.get('range_min', level.value), level.raw_data.get('range_max', level.value)
-                level_texts.append(f"منطقة مدمجة (Confluent): ${min_val:,.2f} – ${max_val:,.2f}")
+                name_details = ""
+                match = re.search(r'\((.*?)\)', level.name)
+                if match: name_details = f" ({match.group(1)})"
+                level_texts.append(f"منطقة مدمجة{name_details}: ${min_val:,.2f} – ${max_val:,.2f}")
                 continue
 
             display_name, label = level.name, '(عام)'
