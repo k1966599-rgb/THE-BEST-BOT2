@@ -3,7 +3,8 @@ import re
 import time
 import anyio
 import asyncio
-from typing import Dict, Any, List
+import uuid
+from typing import Dict, Any, List, Tuple
 import pandas as pd
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -44,7 +45,7 @@ class InteractiveTelegramBot(BaseNotifier):
         self.decision_engine = decision_engine
         self.report_builder = ReportBuilder(config)
         self.bot_state = {"is_active": True}
-        self.last_analysis_results: Dict[int, List[Dict]] = {}
+        self.pending_analyses: Dict[str, List[Dict]] = {}
         self.token = self.config.get('BOT_TOKEN')
         self.bot = None
 
@@ -78,11 +79,9 @@ class InteractiveTelegramBot(BaseNotifier):
                     [InlineKeyboardButton("🔙 رجوع إلى قائمة العملات", callback_data="analyze_menu")]]
         return InlineKeyboardMarkup(keyboard)
 
-    def _get_follow_keyboard(self, trade_setup: TradeSetup) -> InlineKeyboardMarkup:
-        symbol = trade_setup.symbol
-        timeframe = trade_setup.timeframe
+    def _get_follow_keyboard(self, analysis_id: str) -> InlineKeyboardMarkup:
         keyboard = [[
-            InlineKeyboardButton(f"📈 متابعة توصية {symbol}/{timeframe}", callback_data=f"follow_{symbol}_{timeframe}"),
+            InlineKeyboardButton("📈 متابعة الصفقة", callback_data=f"follow_{analysis_id}"),
             InlineKeyboardButton("🗑️ تجاهل", callback_data="ignore")
         ]]
         return InlineKeyboardMarkup(keyboard)
@@ -90,7 +89,7 @@ class InteractiveTelegramBot(BaseNotifier):
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
-    async def _run_analysis_for_request(self, chat_id: int, symbol: str, timeframes: list, analysis_type: str) -> List[Dict[str, Any]]:
+    async def _run_analysis_for_request(self, chat_id: int, symbol: str, timeframes: list, analysis_type: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         logger.info(f"Bot request: Starting analysis for {symbol} on timeframes: {timeframes}...")
         all_results = []
         current_price = 0
@@ -117,20 +116,22 @@ class InteractiveTelegramBot(BaseNotifier):
                 all_results.append(recommendation)
             except Exception as e:
                 logger.exception(f"Unhandled error during analysis for {symbol} on Bot request.")
-                return [{"error": f"❌ An internal error occurred while analyzing {symbol} on {tf}."}]
+                return [{"error": f"❌ An internal error occurred while analyzing {symbol} on {tf}."}], []
 
         if not all_results:
-            return [{"error": f"❌ Could not analyze {symbol} for any of the requested timeframes."}]
+            return [{"error": f"❌ Could not analyze {symbol} for any of the requested timeframes."}], []
 
         ranked_recs = self.decision_engine.rank_recommendations(all_results)
         general_info = {'symbol': symbol, 'analysis_type': analysis_type, 'current_price': current_price, 'timeframes': timeframes}
-        return self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
+        report_messages = self.report_builder.build_report(ranked_results=ranked_recs, general_info=general_info)
+        return report_messages, ranked_recs
 
     async def _send_long_message(self, chat_id, text: str, **kwargs):
         MAX_LENGTH = 4096
         if len(text) <= MAX_LENGTH:
             await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
             return
+
         parts = text.split('\n\n')
         current_message = ""
         for part in parts:
@@ -171,23 +172,27 @@ class InteractiveTelegramBot(BaseNotifier):
             await query.edit_message_text(text=f"جاري تحضير <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
                 chat_id = query.message.chat_id
-                report_messages = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_name)
+                report_messages, ranked_recs = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_name)
 
-                if report_messages and report_messages[0].get("error"):
-                    await query.message.reply_text(report_messages[0]["error"])
+                if not report_messages or (report_messages and report_messages[0].get("error")):
+                    error_message = report_messages[0].get("error") if report_messages else "حدث خطأ غير معروف."
+                    await query.message.reply_text(error_message)
                     return
 
-                if report_messages:
-                    self.last_analysis_results[chat_id] = report_messages[0].get('ranked_results', [])
+                analysis_id = None
+                if any(r.get('trade_setup') for r in ranked_recs):
+                    analysis_id = str(uuid.uuid4())
+                    self.pending_analyses[analysis_id] = ranked_recs
 
                 for message_info in report_messages:
                     reply_markup = None
-                    if message_info.get("keyboard") == "follow_ignore" and message_info.get("trade_setup"):
-                        reply_markup = self._get_follow_keyboard(message_info["trade_setup"])
+                    if message_info.get("keyboard") == "follow_ignore" and analysis_id:
+                        reply_markup = self._get_follow_keyboard(analysis_id)
+
                     if message_info.get("content"):
                         await self._send_long_message(chat_id=chat_id, text=message_info["content"], parse_mode='HTML', reply_markup=reply_markup)
 
-                if not report_messages or not report_messages[-1].get("keyboard"):
+                if not any(msg.get("keyboard") for msg in report_messages):
                      await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
             except Exception as e:
@@ -195,17 +200,23 @@ class InteractiveTelegramBot(BaseNotifier):
                 await query.message.reply_text(f"حدث خطأ فادح: {e}", parse_mode='HTML')
 
         elif callback_data.startswith("follow_"):
-            chat_id = query.message.chat_id
-            if chat_id in self.last_analysis_results:
-                ranked_results = self.last_analysis_results[chat_id]
-                primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
-                if primary_rec:
-                    self.trade_monitor.add_trade(primary_rec)
-                    await query.edit_message_text(text=f"✅ تمت إضافة {primary_rec.get('symbol')} على الإطار الزمني {primary_rec.get('timeframe')} للمراقبة.")
+            analysis_id = callback_data.split("_", 1)[1]
+            ranked_recs = self.pending_analyses.pop(analysis_id, None)
+
+            if ranked_recs:
+                trades_added = 0
+                for rec in ranked_recs:
+                    if rec.get('trade_setup'):
+                        self.trade_monitor.add_trade(rec)
+                        trades_added += 1
+
+                if trades_added > 0:
+                    await query.edit_message_text(text=f"✅ تمت إضافة {trades_added} توصية للمراقبة.")
                 else:
-                    await query.edit_message_text(text="❌ تعذر العثور على الصفقة المحددة.")
+                    await query.edit_message_text(text="❌ لم يتم العثور على توصيات قابلة للمتابعة في هذا التحليل.")
             else:
-                await query.edit_message_text(text="❌ انتهت صلاحية التحليل. يرجى طلب تحليل جديد.")
+                await query.edit_message_text(text="❌ انتهت صلاحية التحليل أو تم استخدامه بالفعل. يرجى طلب تحليل جديد.")
+
             await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
         elif callback_data == "ignore":
