@@ -1,0 +1,5 @@
+{emoji} فريم {timeframe} — {symbol}
+
+{pattern_details}
+{supports}
+{resistances}
