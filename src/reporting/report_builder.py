@@ -125,24 +125,23 @@ class ReportBuilder:
             name, label = "غير محدد", "(عام)"
 
             # More specific mapping based on user request
-            level_type_lower = level.type.lower()
             name_lower = level.name.lower()
 
-            if 'trend' in level_type_lower:
+            if 'trend' in name_lower:
                 name, label = (f"دعم ترند {'متوسط' if 'medium' in name_lower else 'قصير'}", "(ترند)") if is_support else ("مقاومة ترند", "(ترند)")
-            elif 'channel' in level_type_lower:
+            elif 'channel' in name_lower:
                 name, label = ("دعم قناة سعرية", "(قناة)") if is_support else ("مقاومة قناة سعرية", "(قناة)")
-            elif 'fibonacci' in level_type_lower:
+            elif 'fibonacci' in name_lower:
                 ratio_match = re.search(r'(\d\.\d+)', name_lower)
                 ratio = f" {ratio_match.group(1)}" if ratio_match else ""
                 name, label = (f"دعم فيبو{ratio}", "(فايبو)") if is_support else (f"مقاومة فيبو امتداد", "(فيبو امتداد)")
-            elif 'previous' in level_type_lower:
+            elif 'previous' in name_lower:
                 name, label = ("دعم عام سابق", "(سابق)") if is_support else ("مقاومة عامة سابقة", "(سابق)")
             elif 'poc' in name_lower:
                 name, label = ("منطقة طلب عالية (POC)", "(POC)") if is_support else ("مقاومة رئيسية", "(POC/مقاومة رئيسية)")
-            elif 'hvn' in level_type_lower:
+            elif 'hvn' in name_lower:
                 name, label = ("منطقة طلب عالية (HVN)", "(HVN)") if is_support else ("منطقة عرض عالية (HVN)", "(HVN)")
-            elif 'confluent' in level_type_lower:
+            elif 'confluent' in name_lower:
                 min_val, max_val = level.raw_data.get('range_min', level.value), level.raw_data.get('range_max', level.value)
                 label = "(Confluent)"
                 name = "دعم منطقة مدمجة" if is_support else "مقاومة منطقة مدمجة"
@@ -150,7 +149,7 @@ class ReportBuilder:
                 continue
 
             # Special case for pattern targets
-            if 'target' in level_type_lower:
+            if 'target' in name_lower:
                 name, label = "مقاومة هدف النموذج", "(هدف فني)"
 
             level_texts.append(f"{name}: ${level.value:,.3f} {label}")
