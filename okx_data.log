@@ -33540,3 +33540,30 @@
 2025-09-12 11:49:09,104 - src.data.okx_websocket_client - INFO - ⏹️ Stopping WebSocket client...
 2025-09-12 11:49:09,617 - src.data.okx_websocket_client - INFO - ✅ WebSocket client stopped.
 2025-09-12 11:49:09,617 - src.data.okx_fetcher - INFO - ✅ Stop signal sent.
+2025-09-13 19:57:39,666 - __main__ - INFO - --- 🚀 Starting Historical Data Population ---
+2025-09-13 19:57:39,680 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: data
+2025-09-13 19:57:39,680 - __main__ - INFO - 🎯 Targeting specific symbol: BTC/USDT
+2025-09-13 19:57:39,680 - __main__ - INFO - 🎯 Targeting specific timeframe: 1D
+2025-09-13 19:57:39,680 - __main__ - INFO - 🔍 Found 1 symbols and 1 timeframes to process.
+2025-09-13 19:57:39,681 - __main__ - INFO - --- (1/1) Fetching data for BTC/USDT on 1D timeframe ---
+2025-09-13 19:57:39,681 - src.data.okx_fetcher - INFO - 💾 Loading historical data for BTC-USDT (1D) from data/BTC-USDT/long_term/1D.json...
+2025-09-13 19:57:39,686 - __main__ - INFO - ✅ Successfully fetched and stored 300 candles for BTC/USDT (1D).
+2025-09-13 19:57:40,687 - __main__ - INFO - --- ✅ Historical Data Population Complete ---
+2025-09-13 19:57:42,028 - __main__ - INFO - --- 🚀 Starting Historical Data Population ---
+2025-09-13 19:57:42,029 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: data
+2025-09-13 19:57:42,030 - __main__ - INFO - 🎯 Targeting specific symbol: BTC/USDT
+2025-09-13 19:57:42,030 - __main__ - INFO - 🎯 Targeting specific timeframe: 4H
+2025-09-13 19:57:42,030 - __main__ - INFO - 🔍 Found 1 symbols and 1 timeframes to process.
+2025-09-13 19:57:42,030 - __main__ - INFO - --- (1/1) Fetching data for BTC/USDT on 4H timeframe ---
+2025-09-13 19:57:42,030 - src.data.okx_fetcher - INFO - 💾 Loading historical data for BTC-USDT (4H) from data/BTC-USDT/long_term/4H.json...
+2025-09-13 19:57:42,036 - __main__ - INFO - ✅ Successfully fetched and stored 300 candles for BTC/USDT (4H).
+2025-09-13 19:57:43,036 - __main__ - INFO - --- ✅ Historical Data Population Complete ---
+2025-09-13 19:57:43,980 - __main__ - INFO - --- 🚀 Starting Historical Data Population ---
+2025-09-13 19:57:43,980 - src.data.okx_fetcher - INFO - 📁 OKX Data Fetcher initialized - Data Dir: data
+2025-09-13 19:57:43,980 - __main__ - INFO - 🎯 Targeting specific symbol: BTC/USDT
+2025-09-13 19:57:43,980 - __main__ - INFO - 🎯 Targeting specific timeframe: 1H
+2025-09-13 19:57:43,981 - __main__ - INFO - 🔍 Found 1 symbols and 1 timeframes to process.
+2025-09-13 19:57:43,981 - __main__ - INFO - --- (1/1) Fetching data for BTC/USDT on 1H timeframe ---
+2025-09-13 19:57:43,981 - src.data.okx_fetcher - INFO - 💾 Loading historical data for BTC-USDT (1H) from data/BTC-USDT/long_term/1H.json...
+2025-09-13 19:57:43,983 - __main__ - INFO - ✅ Successfully fetched and stored 300 candles for BTC/USDT (1H).
+2025-09-13 19:57:44,983 - __main__ - INFO - --- ✅ Historical Data Population Complete ---

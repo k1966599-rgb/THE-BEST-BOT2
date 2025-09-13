@@ -80,8 +80,8 @@ class ReportBuilder:
 
         pattern_details = self._format_pattern_details(pattern, result.get('timeframe')) if pattern else ""
 
-        supports = "n".join([self._format_level(level) for level in analysis.get('supports', [])])
-        resistances = "n".join([self._format_level(level) for level in analysis.get('resistances', [])])
+        supports = "\n".join([self._format_level(level) for level in analysis.get('supports', [])])
+        resistances = "\n".join([self._format_level(level) for level in analysis.get('resistances', [])])
 
         return template.format(
             emoji=emoji,
