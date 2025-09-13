@@ -5,122 +5,227 @@ from ..decision_engine.trade_setup import TradeSetup
 from ..analysis.data_models import Level, Pattern
 
 class ReportBuilder:
-    """Builds the final, comprehensive, user-specified report."""
+    """
+    Builds the final, comprehensive, user-specified report in a multi-message format.
+    """
     def __init__(self, config: dict):
         self.config = config
 
     def build_report(self, ranked_results: List[Dict[str, Any]], general_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        messages = []
-        messages.append({"type": "header", "content": self._format_header(general_info)})
-        for result in ranked_results:
-            messages.append({"type": "timeframe", "content": self._format_timeframe_section(result)})
+        """
+        Constructs a list of messages to be sent.
 
-        final_message_content = self._format_combined_summary_and_trade(ranked_results)
-        primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
+        1.  Header Message
+        2.  Timeframe-specific analysis messages (one for each)
+        3.  Final Summary & Trade Proposal
+        """
+        messages = []
+
+        # Message 1: Basic Info Header
+        messages.append({"type": "header", "content": self._format_message_1_header(general_info)})
+
+        # Messages 2, 3, 4...: Timeframe Analyses
+        sorted_results = sorted(ranked_results, key=lambda x: (
+            {'1D': 0, '4H': 1, '1H': 2, '30m': 3, '15m': 4, '5m': 5, '3m': 6}.get(x.get('timeframe', '').upper(), 99)
+        ))
+
+        message_number = 2
+        for result in sorted_results:
+            messages.append({
+                "type": "timeframe",
+                "content": self._format_message_2_timeframe(result, message_number)
+            })
+            message_number += 1
+
+        # Final Message: Summary and Trade Proposal
+        final_message_content, primary_trade_setup = self._format_message_5_summary(sorted_results, message_number)
         messages.append({
-            "type": "final_summary", "content": final_message_content,
-            "keyboard": "follow_ignore" if primary_rec else None,
-            "trade_setup": primary_rec.get('trade_setup') if primary_rec else None
+            "type": "final_summary",
+            "content": final_message_content,
+            "keyboard": "follow_ignore" if primary_trade_setup else None,
+            "trade_setup": primary_trade_setup
         })
+
         return messages
 
-    def _format_header(self, general_info: Dict) -> str:
-        return (f"💎 تحليل فني شامل — {general_info.get('symbol', 'N/A')} 💎\n\n"
-                f"المنصة: OKX Exchange\n"
-                f"التاريخ والوقت: {datetime.now().strftime('%Y-%m-%d | %H:%M:%S')}\n"
-                f"السعر الحالي: ${general_info.get('current_price', 0):,.2f}\n"
-                f"نوع التحليل: {general_info.get('analysis_type', 'تحليل شامل')} ({' – '.join(general_info.get('timeframes', []))})")
+    def _format_message_1_header(self, general_info: Dict) -> str:
+        """Formats Message 1: Basic Analysis Information."""
+        symbol = general_info.get('symbol', 'N/A')
+        current_price = general_info.get('current_price', 0)
+        analysis_type = general_info.get('analysis_type', 'تحليل شامل')
+        timeframes = general_info.get('timeframes', [])
 
-    def _format_timeframe_section(self, result: Dict) -> str:
-        timeframe, symbol, analysis = result.get('timeframe', 'N/A').upper(), result.get('symbol', 'N/A'), result.get('raw_analysis', {})
-        patterns: List[Pattern] = analysis.get('patterns', [])
-        p_status_map = {"Forming": "⏳ قيد التكوين", "Active": "✅ نشط / مفعل", "Failed": "❌ فشل"}
-        section = f"🕐 فريم {timeframe} — {symbol}\n\n"
-        if patterns:
-            p = patterns[0]
-            section += f"النموذج الفني: {p.name} — {p_status_map.get(p.status, p.status)}\n\n"
-            section += f"شروط التفعيل:\n\nاختراق المقاومة ${p.activation_level:,.2f} مع ثبات شمعة {timeframe} فوقها.\n\n"
-            section += f"شروط الإلغاء:\n\nكسر الدعم ${p.invalidation_level:,.2f} مع إغلاق شمعة {timeframe} تحته.\n\n"
+        return (
+            f"📩 الرسالة الأولى — معلومات التحليل الأساسية\n\n"
+            f"اسم العملة: {symbol.replace('-', '/')}\n"
+            f"المنصة: OKX Exchange\n"
+            f"التاريخ والوقت: {datetime.now().strftime('%Y-%m-%d | %H:%M:%S')}\n"
+            f"السعر الحالي: ${current_price:,.3f}\n"
+            f"نوع التحليل: {analysis_type} ({' – '.join(timeframes)})"
+        )
 
-        section += "🟢 الدعوم (أنواع وأسعار)\n\n" + self._format_levels(analysis.get('supports', []))
-        section += "\n🔴 المقاومات (أنواع وأسعار)\n\n" + self._format_levels(analysis.get('resistances', []))
+    def _format_message_2_timeframe(self, result: Dict, message_number: int) -> str:
+        """Formats a message for a single timeframe analysis."""
+        timeframe = result.get('timeframe', 'N/A').upper()
+        analysis = result.get('raw_analysis', {})
+        pattern: Optional[Pattern] = analysis.get('patterns', [None])[0]
 
-        fibo_levels = [lvl for lvl in analysis.get('supports', []) + analysis.get('resistances', []) if 'fibonacci' in lvl.name.lower()]
-        if fibo_levels:
-            section += f"\n📌 مستويات فيبوناتشي ({timeframe})\n\n"
-            for lvl in sorted(fibo_levels, key=lambda x: x.value, reverse=True):
-                if "0.5" in lvl.name: section += f"0.5 = ${lvl.value:,.2f}\n"
-                if "0.618" in lvl.name: section += f"0.618 = ${lvl.value:,.2f}\n"
-                if "0.786" in lvl.name: section += f"0.786 = ${lvl.value:,.2f}\n"
+        # Mapping for pattern status
+        p_status_map = {"Forming": "⏳ قيد التكوين", "Active": "✅ مفعل / نشط", "Failed": "❌ فشل", "Completed": "✅ مكتمل"}
+
+        # Message header
+        section = f"📩 الرسالة {message_number} — فريم {timeframe}\n\n"
+
+        # Technical Pattern
+        if pattern and pattern.name:
+            status_text = p_status_map.get(pattern.status, pattern.status)
+            section += f"النموذج الفني: {pattern.name} — {status_text}\n\n"
+            section += f"شروط تفعيل النموذج:\n"
+            section += f"اختراق المقاومة ${getattr(pattern, 'activation_level', 0):,.3f} مع إغلاق شمعة {timeframe} فوقها.\n\n"
+            section += f"شروط إلغاء/فشل النموذج:\n"
+            section += f"كسر الدعم ${getattr(pattern, 'invalidation_level', 0):,.3f} مع إغلاق شمعة {timeframe} تحته.\n\n"
+        else:
+            section += "النموذج الفني: لا يوجد نموذج واضح حاليًا.\n\n"
+
+        # Supports and Resistances
+        section += "🟢 الدعوم (نوع السعر)\n" + self._format_levels(analysis.get('supports', []), is_support=True) + "\n"
+        section += "🔴 المقاومات (نوع السعر)\n" + self._format_levels(analysis.get('resistances', []), is_support=False) + "\n"
+
+        # Fibonacci Levels
+        fibo_levels = {
+            "0.5": None, "0.618": None, "0.786": None
+        }
+        all_levels = analysis.get('supports', []) + analysis.get('resistances', [])
+        for lvl in all_levels:
+            if 'fibonacci' in lvl.name.lower():
+                if "0.5" in lvl.name: fibo_levels["0.5"] = lvl.value
+                if "0.618" in lvl.name: fibo_levels["0.618"] = lvl.value
+                if "0.786" in lvl.name: fibo_levels["0.786"] = lvl.value
+
+        fibo_text = f"📌 مستويات فيبوناتشي المهمة ({timeframe})\n"
+        has_fibo = False
+        for ratio, value in fibo_levels.items():
+            if value is not None:
+                fibo_text += f"{ratio} = ${value:,.3f}\n"
+                has_fibo = True
+
+        if has_fibo:
+            section += fibo_text
+
         return section
 
-    def _format_levels(self, levels: List[Level]) -> str:
+    def _format_levels(self, levels: List[Level], is_support: bool) -> str:
+        """Helper to format support or resistance levels with specific user-requested names."""
         level_texts = []
-        level_map = {
-            'دعم الاتجاه قصير المدى': ('دعم ترند قصير', '(ترند)'),
-            'مقاومة الاتجاه قصير المدى': ('مقاومة ترند قصير', '(ترند)'),
-            'دعم القناة السعرية': ('دعم قناة سعرية', '(قناة)'),
-            'مقاومة القناة السعرية': ('مقاومة قناة سعرية', '(قناة)'),
-            'fibonacci support': ('دعم فيبو', '(فايبو)'),
-            'fibonacci resistance': ('مقاومة فيبو', '(فايبو)'),
-            'fibonacci extension': ('مقاومة فيبو امتداد', '(فيبو امتداد)'),
-            'دعم عام سابق': ('دعم عام سابق', '(سابق)'),
-            'مقاومة عامة سابقة': ('مقاومة عامة سابقة', '(سابق)'),
-            'volume profile poc': ('منطقة طلب عالية (POC)', '(POC)'),
-            'high volume node': ('منطقة طلب عالية (HVN)', '(HVN)'),
-        }
+
+        # Sort levels by value, descending for resistance, ascending for support
+        levels.sort(key=lambda x: x.value, reverse=not is_support)
 
         for level in levels:
-            if 'confluent' in level.name.lower():
+            name, label = "غير محدد", "(عام)"
+
+            # More specific mapping based on user request
+            level_type_lower = level.type.lower()
+            name_lower = level.name.lower()
+
+            if 'trend' in level_type_lower:
+                name, label = (f"دعم ترند {'متوسط' if 'medium' in name_lower else 'قصير'}", "(ترند)") if is_support else ("مقاومة ترند", "(ترند)")
+            elif 'channel' in level_type_lower:
+                name, label = ("دعم قناة سعرية", "(قناة)") if is_support else ("مقاومة قناة سعرية", "(قناة)")
+            elif 'fibonacci' in level_type_lower:
+                ratio_match = re.search(r'(\d\.\d+)', name_lower)
+                ratio = f" {ratio_match.group(1)}" if ratio_match else ""
+                name, label = (f"دعم فيبو{ratio}", "(فايبو)") if is_support else (f"مقاومة فيبو امتداد", "(فيبو امتداد)")
+            elif 'previous' in level_type_lower:
+                name, label = ("دعم عام سابق", "(سابق)") if is_support else ("مقاومة عامة سابقة", "(سابق)")
+            elif 'poc' in name_lower:
+                name, label = ("منطقة طلب عالية (POC)", "(POC)") if is_support else ("مقاومة رئيسية", "(POC/مقاومة رئيسية)")
+            elif 'hvn' in level_type_lower:
+                name, label = ("منطقة طلب عالية (HVN)", "(HVN)") if is_support else ("منطقة عرض عالية (HVN)", "(HVN)")
+            elif 'confluent' in level_type_lower:
                 min_val, max_val = level.raw_data.get('range_min', level.value), level.raw_data.get('range_max', level.value)
-                name_details = ""
-                match = re.search(r'\((.*?)\)', level.name)
-                if match: name_details = f" ({match.group(1)})"
-                level_texts.append(f"منطقة مدمجة{name_details}: ${min_val:,.2f} – ${max_val:,.2f}")
+                label = "(Confluent)"
+                name = "دعم منطقة مدمجة" if is_support else "مقاومة منطقة مدمجة"
+                level_texts.append(f"{name}: ${min_val:,.3f} – ${max_val:,.3f} {label}")
                 continue
 
-            display_name, label = level.name, '(عام)'
-            for key, (name, lbl) in level_map.items():
-                if key in level.name.lower():
-                    display_name, label = name, lbl
-                    if "فيبو" in display_name:
-                        ratio_match = re.search(r'(\d\.\d+)', level.name)
-                        if ratio_match: display_name += f" {ratio_match.group(1)}"
-                    break
-            level_texts.append(f"{display_name}: ${level.value:,.2f} {label}")
+            # Special case for pattern targets
+            if 'target' in level_type_lower:
+                name, label = "مقاومة هدف النموذج", "(هدف فني)"
+
+            level_texts.append(f"{name}: ${level.value:,.3f} {label}")
 
         return "\n".join(level_texts) + "\n" if level_texts else "لا توجد مستويات واضحة.\n"
 
-    def _format_combined_summary_and_trade(self, ranked_results: List[Dict]) -> str:
-        summary_section = "📌 الملخص التنفيذي والصفقة المقترحة (مجمّع)\nالملخص لكل فريم مع حالة النجاح / الفشل\n\n"
+    def _format_message_5_summary(self, ranked_results: List[Dict], message_number: int) -> (str, Optional[TradeSetup]):
+        """Formats the final summary message and identifies the primary trade setup."""
+        summary = f"📩 الرسالة {message_number} — الملخص التنفيذي والصفقة المقترحة (مجمّع)\n"
+        summary += "الملخص لكل فريم مع حالة النجاح / الفشل\n\n"
+
         p_status_map = {"Forming": "⏳ قيد التكوين", "Active": "✅ مفعل / نشط", "Failed": "❌ فشل"}
+
+        # Timeframe Summaries
         for res in ranked_results:
-            p = res.get('raw_analysis', {}).get('patterns', [None])[0]
-            if p:
-                targets = ' → '.join([f"${t:,.0f}" for t in [p.target1, p.target2, p.target3] if t])
-                summary_section += f"{res.get('timeframe').upper()}: {p.name} ({p_status_map.get(p.status, p.status)})\n"
-                summary_section += f"نجاح النموذج: اختراق ${p.activation_level:,.0f} → أهداف: {targets}\n"
-                summary_section += f"فشل النموذج: كسر ${p.invalidation_level:,.0f}\n\n"
+            tf = res.get('timeframe', 'N/A').upper()
+            p: Optional[Pattern] = res.get('raw_analysis', {}).get('patterns', [None])[0]
+            if p and p.name:
+                status = p_status_map.get(p.status, p.status)
+                summary += f"{tf}: {p.name} ({status})\n"
 
-        summary_section += "نقاط المراقبة الحرجة (مجمّعة)\n\nاختراقات المقاومة:\n"
-        for res in ranked_results: summary_section += f"{res.get('timeframe').upper()} = ${res.get('raw_analysis', {}).get('patterns', [Pattern(name='', status='', timeframe='', activation_level=0, invalidation_level=0, target1=0)])[0].activation_level:,.0f}$\n"
-        summary_section += "\nكسور الدعم:\n"
-        for res in ranked_results: summary_section += f"{res.get('timeframe').upper()} = ${res.get('raw_analysis', {}).get('patterns', [Pattern(name='', status='', timeframe='', activation_level=0, invalidation_level=0, target1=0)])[0].invalidation_level:,.0f}$\n"
+                targets = ' → '.join([f"${t:,.0f}" for t in [getattr(p, 'target1', None), getattr(p, 'target2', None)] if t])
+                if targets:
+                    summary += f"نجاح: اختراق ${getattr(p, 'activation_level', 0):,.0f} → أهداف: {targets}\n"
+                else:
+                    summary += f"نجاح: اختراق ${getattr(p, 'activation_level', 0):,.0f}\n"
 
+                summary += f"فشل: كسر ${getattr(p, 'invalidation_level', 0):,.0f}\n\n"
+
+        # Critical Monitoring Points
+        summary += "نقاط المراقبة الحرجة (مجمّعة)\n"
+        res_resistances = [f"{r.get('timeframe').upper()} = ${getattr(r.get('raw_analysis', {}).get('patterns', [object()])[0], 'activation_level', 0):,.0f}" for r in ranked_results if getattr(r.get('raw_analysis', {}).get('patterns', [object()])[0], 'activation_level', 0)]
+        res_supports = [f"{r.get('timeframe').upper()} = ${getattr(r.get('raw_analysis', {}).get('patterns', [object()])[0], 'invalidation_level', 0):,.0f}" for r in ranked_results if getattr(r.get('raw_analysis', {}).get('patterns', [object()])[0], 'invalidation_level', 0)]
+        summary += f"اختراقات المقاومة: {' | '.join(res_resistances)}\n"
+        summary += f"كسور الدعم: {' | '.join(res_supports)}\n\n"
+
+        # Find the primary trade recommendation
         primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
-        if not primary_rec or not primary_rec.get('trade_setup'): return summary_section
+        if not primary_rec or not primary_rec.get('trade_setup'):
+            return summary, None
 
         setup: TradeSetup = primary_rec.get('trade_setup')
-        summary_section += f"\n✅ الصفقة المؤكدة (مقترحة بعد دمج الفريمات)\n\nسعر الدخول المبدئي: {''.join(setup.confirmation_conditions)}.\n"
-        if setup.optional_confirmation_conditions:
-            summary_section += "\nشروط التأكيد الإضافية (اختياري لكن موصى به):\n\n" + "\n".join(f"- {cond}" for cond in setup.optional_confirmation_conditions) + "\n"
 
-        summary_section += f"\nوقف الخسارة: كسر ${setup.stop_loss:,.2f} وإغلاق ساعة تحته (فريم {setup.timeframe.upper()}).\n"
-        targets = [t for t in [setup.target1, setup.target2] if t]
-        if targets:
-            summary_section += f"\nالأهداف:\nهدف أول: ${targets[0]:,.2f}\n"
-            if len(targets) > 1: summary_section += f"هدف ثاني: ${targets[1]:,.2f}\n"
-            summary_section += f"تمدد محتمل: ${targets[-1] * 1.03:,.2f}\n"
+        # Proposed Trade Section
+        summary += "✅ الصفقة المؤكدة (مقترحة بعد دمج الفريمات)\n\n"
+        entry_condition_text = f"ثبات السعر فوق ${setup.entry_price:,.3f}"
+        if setup.confirmation_rule:
+            if '3_candle' in setup.confirmation_rule:
+                entry_condition_text += f" مع إغلاق 3 شمعات {setup.timeframe} متتالية فوقه."
+            else:
+                entry_condition_text += " مع تأكيد الإغلاق."
+        else:
+            entry_condition_text += "."
 
-        summary_section += "\nاستراتيجية دعم الفريمات:\n\n- إذا 4H يخترق المقاومة ويغلق 4 ساعات فوقها، فهذه إشارة كلاسيكية للنظر في زيادة المراكز (scaling in).\n- إذا 1D يخترق مقاومته الرئيسية، فهذا قد يحول الصفقة إلى استثمار طويل الأمد بأهداف عليا.\n- إذا أي فريم يكسر دعمه المعلن، فهذا حدث حرج يتطلب إعادة تقييم فورية للصفقة أو الخروج حسب سياسة إدارة المخاطر.\n"
-        return summary_section
+        summary += f"سعر الدخول المبدئي: {entry_condition_text}\n\n"
+
+        summary += "شروط التأكيد الإضافية (موصى بها):\n"
+        summary += "- OBV متزايد أثناء/بعد الاختراق.\n"
+        summary += "- MACD تقاطع صاعد أو ميل إيجابي.\n"
+        summary += "- ADX > 20–25 لدعم قوة الاتجاه.\n"
+        summary += "- ATR في تصاعد أو مرتفع لدعم قوة الحركة.\n\n"
+
+        summary += f"وقف الخسارة: كسر ${setup.stop_loss:,.3f} مع إغلاق ساعة تحته (فريم {setup.timeframe.upper()}).\n\n"
+
+        summary += "الأهداف:\n"
+        if setup.target1: summary += f"هدف أول: ${setup.target1:,.3f}\n"
+        if setup.target2: summary += f"هدف ثاني: ${setup.target2:,.3f}\n"
+        if setup.target2: summary += f"تمدد محتمل: ${setup.target2 * 1.05:,.3f}\n\n" # Example of extension
+
+        # Multi-timeframe Strategy
+        summary += "استراتيجية دعم الفريمات أثناء الصفقة\n"
+        if '4H' in [r['timeframe'] for r in ranked_results]:
+            summary += "- إذا فريم 4H يخترق مقاومته ويغلق 4 ساعات فوقها → النظر في زيادة المركز تدريجيًا (scaling in).\n"
+        if '1D' in [r['timeframe'] for r in ranked_results]:
+            summary += "- إذا فريم 1D يخترق مقاومته ويغلق يومياً فوقه → تحويل جزء من المراكز لأهداف طويلة المدى.\n"
+        summary += "- إذا أي فريم يكسر الدعم المعلن (إغلاق شمعة على الفريم المناسب أسفل الدعم) → إعادة تقييم فورية أو إغلاق حسب سياسة المخاطرة.\n"
+
+        return summary, setup
