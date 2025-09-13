@@ -89,64 +89,71 @@ class ReportBuilder:
         return section
 
     def _format_levels(self, levels: List[Level], is_support: bool, pattern: Optional[Pattern] = None) -> str:
-        """Robustly formats levels based on the user's specific template, including pattern context."""
+        """Formats levels using a prioritized if/elif chain for robustness."""
         level_texts = []
         for level in levels:
             name_lower = level.name.lower()
-            display_name = level.name
-            quality_label = f"({level.quality})" if level.quality else ""
+            quality_lower = (level.quality or '').lower()
+            display_name = level.name  # Default
 
-            # Default name based on level type
-            if 'trend' in name_lower:
-                display_name = f"دعم ترند {'قصير' if 'short' in name_lower else 'متوسط' if 'medium' in name_lower else 'طويل'}" if is_support else "مقاومة ترند"
+            # 1. Determine Display Name by priority
+            if 'hvn' in quality_lower or 'high volume node' in name_lower:
+                display_name = "منطقة طلب عالية" if is_support else "منطقة عرض عالية"
+            elif 'trend' in name_lower:
+                term = 'قصير' if 'short' in name_lower else 'متوسط' if 'medium' in name_lower else 'طويل'
+                prefix = "دعم ترند" if is_support else "مقاومة ترند"
+                display_name = f"{prefix} {term} المدى"
             elif 'channel' in name_lower:
-                display_name = "دعم قناة سعرية" if is_support else "مقاومة قناة سعرية"
+                display_name = "دعم القناة السعرية" if is_support else "مقاومة القناة السعرية"
             elif 'fibonacci' in name_lower:
-                # Bug Fix 2: Handle underscores in fibo names
                 fibo_number = name_lower.replace('fibonacci', '').replace('support', '').replace('resistance', '').replace('_', ' ').strip()
                 prefix = "دعم فيبو" if is_support else "مقاومة فيبو"
                 display_name = f"{prefix} {fibo_number}"
-            elif 'high volume node' in name_lower or 'hvn' in name_lower:
-                display_name = "منطقة طلب عالية" if is_support else "منطقة عرض عالية"
-            elif 'previous' in name_lower or 'historical' in name_lower or 'عام' in name_lower:
-                display_name = "دعم عام سابق" if is_support else "منطقة عرض عالية"
+            elif 'previous' in name_lower:
+                display_name = "دعم عام سابق"
+            elif 'historical' in name_lower:
+                display_name = "دعم تاريخي" if is_support else "مقاومة تاريخية"
             elif 'poc' in name_lower:
                 display_name = "مقاومة رئيسية"
             elif 'target' in name_lower:
                 display_name = "مقاومة هدف النموذج"
 
-            # Context-aware naming based on the pattern
+            # 2. Handle Pattern-Specific Overrides
             if pattern:
-                p_name_lower = pattern.name.lower()
-                # Use a small tolerance for float comparison
-                is_activation = abs(level.value - pattern.activation_level) < 0.001 if pattern.activation_level else False
                 is_invalidation = abs(level.value - pattern.invalidation_level) < 0.001 if pattern.invalidation_level else False
-
-                if not is_support and is_activation and 'poc' in name_lower:
-                    if 'علم' in p_name_lower: # Bull or Bear Flag
-                        display_name = "مقاومة العلم"
-                    elif 'قاع مزدوج' in p_name_lower: # Double Bottom
-                        display_name = "خط عنق القاع المزدوج"
-
-                # Bug Fix 1: Make renaming less aggressive. Only rename channel supports.
-                if is_support and 'channel' in name_lower:
+                if is_support and 'channel' in name_lower and is_invalidation:
+                    p_name_lower = pattern.name.lower()
                     if 'علم' in p_name_lower:
                         display_name = "دعم قناة/قاع العلم"
                     elif 'قاع مزدوج' in p_name_lower:
                         display_name = "دعم قناة/قاع مزدوج"
-                    elif is_invalidation and 'قناة' in p_name_lower: # Fallback for simple channels
-                        display_name = "دعم قاع القناة"
 
-            # Determine quality label based on user template
-            if 'critical' in (level.quality or '').lower() or 'حرج' in (level.quality or ''): quality_label = "(حرج)"
-            elif 'strong' in (level.quality or '').lower() or 'قوي' in (level.quality or ''): quality_label = "(قوي)"
-            elif 'medium' in (level.quality or '').lower() or 'متوسط' in (level.quality or ''): quality_label = "(متوسط)"
-            elif 'secondary' in (level.quality or '').lower() or 'ثانوي' in (level.quality or ''): quality_label = "(ثانوي)"
-            elif 'bottom' in (level.quality or '').lower() or 'قاع' in (level.quality or ''): quality_label = "(قاع)"
-            elif 'technical' in (level.quality or '').lower() or 'فني' in (level.quality or '') or 'target' in name_lower: quality_label = "(فني)"
-            elif 'historical' in (level.quality or '').lower() or 'تاريخي' in (level.quality or ''): quality_label = "(تاريخي)"
+                is_activation = abs(level.value - pattern.activation_level) < 0.001 if pattern.activation_level else False
+                if not is_support and is_activation:
+                    p_name_lower = pattern.name.lower()
+                    if 'علم' in p_name_lower:
+                        display_name = "مقاومة العلم"
+                    elif 'قاع مزدوج' in p_name_lower:
+                        display_name = "خط عنق القاع المزدوج"
 
-            # Final Bug Fix: Conditionally add space for quality label
+            # 3. Determine Quality Label
+            QUALITY_MAP = {
+                'critical': "(حرج)", 'حرج': "(حرج)",
+                'strong': "(قوي)", 'قوي': "(قوي)",
+                'medium': "(متوسط)", 'متوسط': "(متوسط)",
+                'secondary': "(ثانوي)", 'ثانوي': "(ثانوي)",
+                'bottom': "(الحد السفلي)", 'أسفل': "(الحد السفلي)",
+                'top': "(الحد العلوي)", 'أعلى': "(الحد العلوي)",
+                'technical': "(فني)", 'فني': "(فني)",
+                'historical': "(تاريخي)", 'تاريخي': "(تاريخي)",
+                'hvn': "(حجم تداول عالٍ)",
+            }
+            quality_label = ""
+            for key, label in QUALITY_MAP.items():
+                if key in quality_lower:
+                    quality_label = label
+                    break
+
             level_texts.append(f"{display_name}: ${level.value:,.0f}{' ' + quality_label if quality_label else ''}")
 
         return "\n".join(level_texts) + "\n"
