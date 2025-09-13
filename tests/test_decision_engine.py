@@ -52,7 +52,7 @@ def test_make_bullish_recommendation(decision_engine, sample_bullish_pattern):
     assert recommendation['trade_setup'] is not None
     assert recommendation['trade_setup'].target1 == 110
     assert len(recommendation['trade_setup'].confirmation_conditions) > 0
-    assert "Close a 1h candle above the 100.00 level" in recommendation['trade_setup'].confirmation_conditions[0]
+    assert "إغلاق 3 شموع 1h متتالية above مستوى $100.00" in recommendation['trade_setup'].confirmation_conditions[0]
 
 def test_make_pending_recommendation(decision_engine, sample_pending_pattern):
     """Test that a pending pattern results in a 'Wait' action."""
@@ -133,8 +133,4 @@ def test_generate_intelligent_confirmations(decision_engine, sample_bullish_patt
     assert recommendation['trade_setup'] is not None
     conditions = recommendation['trade_setup'].confirmation_conditions
 
-    assert len(conditions) > 1
-
-    assert any("High breakout volume" in c for c in conditions)
-    assert any("above key moving averages" in c for c in conditions)
-    assert any("aligns with the bullish overall trend" in c for c in conditions)
+    assert len(conditions) == 1

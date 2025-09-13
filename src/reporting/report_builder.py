@@ -54,7 +54,7 @@ class ReportBuilder:
             f"💎 تحليل فني شامل - {symbol} 💎\n\n"
             f"المنصة: OKX Exchange\n"
             f"التاريخ والوقت: {datetime.now().strftime('%Y-%m-%d | %H:%M:%S')}\n"
-            f"السعر الحالي: ${current_price:,.3f}\n"
+            f"السعر الحالي: ${current_price:,.0f}\n"
             f"نوع التحليل: {analysis_type} ({' – '.join(timeframes)})"
         )
 
@@ -63,17 +63,20 @@ class ReportBuilder:
         timeframe = result.get('timeframe', 'N/A').upper()
         symbol = result.get('symbol', 'N/A').replace('-', '/')
         analysis = result.get('raw_analysis', {})
-        pattern: Optional[Pattern] = analysis.get('patterns', [None])[0]
+        pattern: Optional[Pattern] = (analysis.get('patterns') or [None])[0]
 
         p_status_map = {"Forming": "قيد التكوين", "Active": "مفعل", "Failed": "فشل", "Completed": "مكتمل"}
+        timeframe_full_name_map = {'1H': 'ساعة', '4H': '4 ساعات', '1D': 'يومية'}
+        timeframe_name = timeframe_full_name_map.get(timeframe, timeframe)
+
 
         section = f"{emoji} فريم {timeframe} — {symbol}\n\n"
 
         if pattern and pattern.name:
             status_text = p_status_map.get(pattern.status, pattern.status)
             section += f"النموذج الفني: {pattern.name} ({status_text})\n"
-            section += f"شروط التفعيل: اختراق المقاومة ${getattr(pattern, 'activation_level', 0):,.3f} مع ثبات شمعة {timeframe} فوقها\n"
-            section += f"شروط الإلغاء: كسر الدعم ${getattr(pattern, 'invalidation_level', 0):,.3f} مع إغلاق شمعة {timeframe} تحته\n\n"
+            section += f"شروط التفعيل: اختراق المقاومة ${getattr(pattern, 'activation_level', 0):,.0f} مع ثبات شمعة {timeframe_name} فوقها\n"
+            section += f"شروط الإلغاء: كسر الدعم ${getattr(pattern, 'invalidation_level', 0):,.0f} مع إغلاق شمعة {timeframe_name} تحته\n\n"
 
         supports = analysis.get('supports', [])
         resistances = analysis.get('resistances', [])
@@ -86,31 +89,49 @@ class ReportBuilder:
         return section
 
     def _format_levels(self, levels: List[Level], is_support: bool) -> str:
-        """Robustly formats levels based on name and quality."""
+        """Robustly formats levels based on the user's specific template."""
         level_texts = []
         for level in levels:
             name_lower = level.name.lower()
-            display_name = level.name
+            display_name = level.name  # Default
             quality_label = f"({level.quality})" if level.quality else ""
 
-            if 'fibonacci' in name_lower:
-                # For fibonacci, the name from the module is good, just need the quality label
-                display_name = re.sub(r'resistance|support', '', level.name, flags=re.IGNORECASE).strip()
-            elif 'trend' in name_lower or 'اتجاه' in name_lower:
-                display_name = "دعم ترند قصير" if is_support else "مقاومة ترند"
-            elif 'channel' in name_lower or 'قناة' in name_lower:
+            # Determine display name based on type
+            if 'trend' in name_lower:
+                display_name = f"دعم ترند {'قصير' if 'short' in name_lower else 'متوسط' if 'medium' in name_lower else 'طويل'}" if is_support else "مقاومة ترند"
+            elif 'channel' in name_lower:
                 display_name = "دعم قناة سعرية" if is_support else "مقاومة قناة سعرية"
-            elif 'previous' in name_lower or 'عام' in name_lower or 'تاريخي' in name_lower:
-                display_name = "دعم عام سابق" if is_support else "منطقة عرض عالية" if 'تاريخي' in name_lower else "مقاومة عامة سابقة"
+            elif 'fibonacci' in name_lower:
+                display_name = re.sub(r'resistance|support', '', level.name, flags=re.IGNORECASE).strip()
+            elif 'high volume node' in name_lower or 'hvn' in name_lower:
+                display_name = "منطقة طلب عالية" if is_support else "منطقة عرض عالية"
+            elif 'previous' in name_lower or 'historical' in name_lower or 'عام' in name_lower:
+                display_name = "دعم عام سابق" if is_support else "منطقة عرض عالية"
             elif 'poc' in name_lower:
                 display_name = "مقاومة رئيسية"
-            elif 'hvn' in name_lower or 'high volume node' in name_lower:
-                display_name = "منطقة طلب عالية" if is_support else "منطقة عرض عالية"
             elif 'target' in name_lower:
                 display_name = "مقاومة هدف النموذج"
-                quality_label = "(فني)" # Override quality for targets
+            elif 'neckline' in name_lower:
+                display_name = "خط عنق القاع المزدوج" if is_support else "خط عنق الرأس والكتفين"
 
-            level_texts.append(f"{display_name}: ${level.value:,.3f} {quality_label}")
+            # Determine quality label based on user template
+            if 'critical' in (level.quality or '').lower() or 'حرج' in (level.quality or ''):
+                quality_label = "(حرج)"
+            elif 'strong' in (level.quality or '').lower() or 'قوي' in (level.quality or ''):
+                quality_label = "(قوي)"
+            elif 'medium' in (level.quality or '').lower() or 'متوسط' in (level.quality or ''):
+                quality_label = "(متوسط)"
+            elif 'secondary' in (level.quality or '').lower() or 'ثانوي' in (level.quality or ''):
+                quality_label = "(ثانوي)"
+            elif 'bottom' in (level.quality or '').lower() or 'قاع' in (level.quality or ''):
+                quality_label = "(قاع)"
+            elif 'technical' in (level.quality or '').lower() or 'فني' in (level.quality or '') or 'target' in name_lower:
+                quality_label = "(فني)"
+            elif 'historical' in (level.quality or '').lower() or 'تاريخي' in (level.quality or ''):
+                 quality_label = "(تاريخي)"
+
+
+            level_texts.append(f"{display_name}: ${level.value:,.0f} {quality_label}")
 
         return "\n".join(level_texts) + "\n"
 
@@ -158,31 +179,43 @@ class ReportBuilder:
 
         summary += f"سعر الدخول: عند اختراق {entry_price_str} (فريم {setup.timeframe.upper()}) مع ثبات 3 شموع ساعة فوقه\n"
         summary += f"الأهداف: {targets_str}\n"
-        summary += f"وقف الخسارة: عند كسر {stop_loss_str}\n\n"
+        summary += f"وقف الخسارة: عند كسر {stop_loss_str}\n"
 
         # Dynamic Strategy Section
         strategy_text = self._generate_dynamic_strategy(setup, ranked_results)
-        summary += f"استراتيجية دعم الفريمات: {strategy_text}\n"
+        if strategy_text:
+            summary += f"استراتيجية دعم الفريمات: {strategy_text}\n"
 
         return summary, setup
 
     def _generate_dynamic_strategy(self, primary_setup: TradeSetup, all_results: List[Dict]) -> str:
-        """Generates a dynamic strategy text based on other timeframes."""
+        """Generates a dynamic strategy text based on other timeframes as per user spec."""
         primary_tf = primary_setup.timeframe
-        other_timeframes = [r for r in all_results if r.get('timeframe') != primary_tf]
+        other_timeframes = [r for r in all_results if r.get('timeframe') != primary_tf and r.get('raw_analysis', {}).get('patterns', [None])[0]]
 
         if not other_timeframes:
-            return "مراقبة الإطار الزمني الأساسي للصفقة."
+            return ""
+
+        timeframe_map = {'1H': 'للأهداف القصيرة', '4H': 'للأهداف المتوسطة', '1D': 'للأهداف الطويلة'}
 
         dynamic_parts = []
         for res in other_timeframes:
             tf = res.get('timeframe').upper()
             p: Optional[Pattern] = res.get('raw_analysis', {}).get('patterns', [None])[0]
+
             if p and getattr(p, 'activation_level', 0):
                 activation_str = f"${p.activation_level:,.0f}"
-                dynamic_parts.append(f"متابعة {tf} لاختراق {activation_str} لتأكيد قوة الاتجاه")
+                tf_target_desc = timeframe_map.get(tf, f"للأهداف على فريم {tf}")
 
-        if not dynamic_parts:
-            return "لا توجد إشارات دعم واضحة من الإطارات الزمنية الأخرى حاليًا."
+                targets = [t for t in [getattr(p, 'target1', None), getattr(p, 'target2', None)] if t]
+                if len(targets) > 1:
+                    targets_str = f"{tf_target_desc} ${targets[0]:,.0f} – ${targets[1]:,.0f}"
+                elif len(targets) == 1:
+                    targets_str = f"{tf_target_desc} ${targets[0]:,.0f}"
+                else:
+                    targets_str = ""
+
+                if targets_str:
+                    dynamic_parts.append(f"متابعة {tf} لاختراق {activation_str} {targets_str}")
 
         return "، ".join(dynamic_parts)

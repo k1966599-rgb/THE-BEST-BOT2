@@ -1,14 +1,12 @@
 import sys
 import os
 import pytest
-import pandas as pd
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 # HACK: Add project root to path to allow absolute imports from src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.monitoring.trade_monitor import TradeMonitor
-from src.analysis.orchestrator import AnalysisOrchestrator
 from src.config import get_config
 from src.analysis.data_models import Level, Pattern
 from src.decision_engine.trade_setup import TradeSetup
@@ -22,7 +20,6 @@ def mock_notifier():
 @pytest.fixture
 def mock_fetcher():
     fetcher = MagicMock()
-    # Mock the synchronous fetch_historical_data method
     fetcher.fetch_historical_data.return_value = {
         'data': [{'timestamp': 1, 'open': 50000, 'high': 51000, 'low': 49000, 'close': 50500, 'volume': 100}]
     }
@@ -35,104 +32,92 @@ def mock_orchestrator():
 @pytest.fixture
 def trade_monitor(mock_fetcher, mock_orchestrator, mock_notifier):
     config = get_config()
-    return TradeMonitor(config, mock_fetcher, mock_orchestrator, mock_notifier)
+    monitor = TradeMonitor(config, mock_fetcher, mock_orchestrator, mock_notifier)
+    monitor.proximity_threshold = 0.01 # 1%
+    return monitor
 
 @pytest.fixture
 def sample_recommendation():
     """A sample recommendation object to add to the monitor."""
-    pattern = Pattern(
-        name='Bull Flag',
-        status='Forming',
-        timeframe='1h',
-        activation_level=60000,
-        invalidation_level=58000,
-        target1=62000
-    )
+    pattern = Pattern(name='Bull Flag', status='Forming', timeframe='1h', activation_level=60000, invalidation_level=58000, target1=62000, target2=64000)
     return {
         'symbol': 'BTC/USDT',
         'timeframe': '1h',
         'trade_setup': TradeSetup(
-            chat_id=123,
-            symbol='BTC/USDT',
-            timeframe='1h',
-            pattern_name='Bull Flag',
-            pattern_status='Forming',
-            entry_price=60000,
-            stop_loss=58000,
-            target1=62000,
-            raw_pattern_data=pattern.__dict__ # Fix: Pass raw pattern data to the setup
+            chat_id=123, symbol='BTC/USDT', timeframe='1h',
+            pattern_name='Bull Flag', pattern_status='Forming',
+            entry_price=60000, stop_loss=58000, target1=62000, target2=64000,
+            raw_pattern_data=pattern.__dict__
         ),
         'raw_analysis': {
-            'supports': [Level(name='Support', value=58000, level_type='support')],
-            'resistances': [Level(name='Resistance', value=60000, level_type='resistance')],
+            'supports': [Level(name='Minor Support', value=59000, level_type='support')],
+            'resistances': [Level(name='Major Resistance', value=61000, level_type='resistance')],
             'patterns': [pattern]
         }
     }
 
 def test_add_trade(trade_monitor, sample_recommendation):
-    # Act
     trade_monitor.add_trade(sample_recommendation)
-
-    # Assert
     key = "123_BTC/USDT_1h"
     assert key in trade_monitor.followed_trades
     assert trade_monitor.followed_trades[key]['symbol'] == 'BTC/USDT'
 
 @pytest.mark.anyio
-async def test_resistance_break_alert(trade_monitor, mock_fetcher, mock_orchestrator, mock_notifier, sample_recommendation):
-    # Arrange
+async def test_support_hit_alert(trade_monitor, mock_fetcher, mock_orchestrator, mock_notifier, sample_recommendation):
     trade_monitor.add_trade(sample_recommendation)
+    mock_fetcher.get_cached_price.return_value = {'price': 59050} # Price near support
+    mock_orchestrator.run.return_value = {} # Dummy analysis
 
-    # Mock the fetcher to return a dataframe with a price breaking resistance
-    mock_fetcher.get_cached_price.return_value = {'price': 61000}
-
-    # Mock the orchestrator to return some dummy analysis
-    mock_orchestrator.run.return_value = {'supports': [], 'resistances': [], 'patterns': []}
-
-    # Act
     await trade_monitor.check_all_trades()
 
-    # Assert
     mock_notifier.send.assert_called_once()
-    message_sent = mock_notifier.send.call_args[0][0]
-    assert "تنبيه كسر المقاومة" in message_sent
-    assert "60,000.00" in message_sent
+    message = mock_notifier.send.call_args[0][0]
+    assert "تنبيه متابعة" in message
+    assert "ارتداد السعر من دعم" in message
+    assert "59,000" in message
+    assert "نصيحة: قد يكون ارتدادًا صعوديًا" in message
 
 @pytest.mark.anyio
-async def test_pattern_status_change_alert(trade_monitor, mock_fetcher, mock_orchestrator, mock_notifier, sample_recommendation):
-    # Arrange
+async def test_resistance_hit_alert(trade_monitor, mock_fetcher, mock_orchestrator, mock_notifier, sample_recommendation):
     trade_monitor.add_trade(sample_recommendation)
-    key = "123_BTC/USDT_1h"
+    mock_fetcher.get_cached_price.return_value = {'price': 60950} # Price near resistance
+    mock_orchestrator.run.return_value = {}
 
-    # Mock the fetcher to return some data
-    mock_fetcher.get_cached_price.return_value = {'price': 60500}
-
-    # Mock the orchestrator to return an updated pattern status
-    new_analysis = {
-        'supports': [], 'resistances': [],
-        'patterns': [Pattern(
-            name='Bull Flag',
-            status='Active', # Status has changed
-            timeframe='1h',
-            activation_level=60000,
-            invalidation_level=58000,
-            target1=62000
-        )]
-    }
-    mock_orchestrator.run.return_value = new_analysis
-
-    # Act
     await trade_monitor.check_all_trades()
 
-    # Assert
-    assert mock_notifier.send.call_count >= 1 # Can be 1 or 2 depending on order
+    mock_notifier.send.assert_called_once()
+    message = mock_notifier.send.call_args[0][0]
+    assert "تنبيه متابعة" in message
+    assert "ملامسة السعر لمقاومة" in message
+    assert "61,000" in message
+    assert "نصيحة: قد يواجه السعر صعوبة في الاختراق" in message
 
-    # Check that both expected alerts were sent
-    call_args_list = mock_notifier.send.call_args_list
-    messages = [call[0][0] for call in call_args_list]
-    assert any("تنبيه كسر المقاومة" in msg for msg in messages)
-    # Check for the more specific "activation" message
-    assert any("تم تفعيل الصفقة" in msg for msg in messages)
+@pytest.mark.anyio
+async def test_stop_loss_hit_alert(trade_monitor, mock_fetcher, mock_orchestrator, mock_notifier, sample_recommendation):
+    trade_monitor.add_trade(sample_recommendation)
+    key = "123_BTC/USDT_1h"
+    mock_fetcher.get_cached_price.return_value = {'price': 57900} # Price below SL
+    mock_orchestrator.run.return_value = {}
 
-    # The trade should be removed after a terminal status update
-    assert key not in trade_monitor.followed_trades
+    await trade_monitor.check_all_trades()
+
+    mock_notifier.send.assert_called_once()
+    message = mock_notifier.send.call_args[0][0]
+    assert "وقف الخسارة" in message
+    assert "58,000" in message
+    assert key not in trade_monitor.followed_trades # Trade should be removed
+
+@pytest.mark.anyio
+async def test_target_hit_alert(trade_monitor, mock_fetcher, mock_orchestrator, mock_notifier, sample_recommendation):
+    trade_monitor.add_trade(sample_recommendation)
+    mock_fetcher.get_cached_price.return_value = {'price': 62100} # Price above target 1
+    mock_orchestrator.run.return_value = {}
+
+    await trade_monitor.check_all_trades()
+
+    mock_notifier.send.assert_called_once()
+    message = mock_notifier.send.call_args[0][0]
+    assert "تحقيق هدف" in message
+    assert "62,000" in message
+    # Trade should still be monitored for target 2
+    assert "123_BTC/USDT_1h" in trade_monitor.followed_trades
