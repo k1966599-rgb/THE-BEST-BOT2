@@ -11,5 +11,6 @@ from .trend_lines import TrendLineAnalysis
 from .channels import PriceChannels
 from .support_resistance import SupportResistanceAnalysis
 from .fibonacci import FibonacciAnalysis
+from .volume_profile import VolumeProfileAnalysis
 from .classic_patterns import ClassicPatterns
 from .orchestrator import AnalysisOrchestrator
