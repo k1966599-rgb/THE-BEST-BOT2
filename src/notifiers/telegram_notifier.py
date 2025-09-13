@@ -81,8 +81,8 @@ class InteractiveTelegramBot(BaseNotifier):
 
     def _get_follow_keyboard(self, analysis_id: str) -> InlineKeyboardMarkup:
         keyboard = [[
-            InlineKeyboardButton("📈 متابعة الصفقة", callback_data=f"follow_{analysis_id}"),
-            InlineKeyboardButton("🗑️ تجاهل", callback_data="ignore")
+            InlineKeyboardButton("متابعة", callback_data=f"follow_{analysis_id}"),
+            InlineKeyboardButton("تجاهل", callback_data="ignore")
         ]]
         return InlineKeyboardMarkup(keyboard)
 

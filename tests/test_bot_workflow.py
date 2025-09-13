@@ -60,20 +60,25 @@ async def test_bot_full_analysis_workflow(core_components):
     chat_id = 12345
 
     # --- Execute ---
-    report = await bot._run_analysis_for_request(chat_id, symbol, timeframes, analysis_type)
+    report_messages, ranked_recs = await bot._run_analysis_for_request(chat_id, symbol, timeframes, analysis_type)
 
     # --- Verify ---
-    assert 'error' not in report, f"The analysis workflow returned an error: {report.get('error')}"
-    assert isinstance(report, dict), "Report should be a dictionary."
+    assert isinstance(report_messages, list), "The report should be a list of message dictionaries."
+    assert len(report_messages) > 0, "The report should contain at least one message."
 
-    # Check for the completeness of the new report structure
-    expected_keys = ['header', 'timeframe_reports', 'summary', 'final_recommendation', 'ranked_results']
-    for key in expected_keys:
-        assert key in report, f"Report must contain key: '{key}'"
+    # Check that there are no errors
+    assert not any("error" in msg for msg in report_messages), f"The analysis workflow returned an error."
 
-    # Check that the content is non-empty
-    assert report["header"].strip() != ""
-    assert isinstance(report["timeframe_reports"], list)
-    assert len(report["timeframe_reports"]) == len(timeframes)
-    assert report["summary"].strip() != ""
-    assert report["final_recommendation"].strip() != ""
+    # Check the structure and content of the messages
+    header = report_messages[0]
+    assert header['type'] == 'header'
+    assert '💎 تحليل فني شامل' in header['content']
+    assert symbol in header['content']
+
+    final_summary = report_messages[-1]
+    assert final_summary['type'] == 'final_summary'
+    assert '📌 الملخص التنفيذي والشامل' in final_summary['content']
+
+    # Check that we have a message for each timeframe requested
+    timeframe_messages = [m for m in report_messages if m['type'] == 'timeframe']
+    assert len(timeframe_messages) == len(timeframes)
