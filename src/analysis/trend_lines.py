@@ -70,10 +70,18 @@ class TrendLineAnalysis(BaseAnalysis):
         support_trend, resistance_trend = None, None
         if len(low_pivots_idx) >= 2:
             p1_idx, p2_idx = low_pivots_idx[-2], low_pivots_idx[-1]
-            support_trend = get_line_equation((p1_idx, data['low'].iloc[p1_idx]), (p2_idx, data['low'].iloc[p2_idx]))
+            p1_x_val = data.index[p1_idx]
+            p1_x = p1_x_val[0] if isinstance(p1_x_val, tuple) else p1_x_val.value
+            p2_x_val = data.index[p2_idx]
+            p2_x = p2_x_val[0] if isinstance(p2_x_val, tuple) else p2_x_val.value
+            support_trend = get_line_equation((p1_x, data['low'].iloc[p1_idx]), (p2_x, data['low'].iloc[p2_idx]))
         if len(high_pivots_idx) >= 2:
             p1_idx, p2_idx = high_pivots_idx[-2], high_pivots_idx[-1]
-            resistance_trend = get_line_equation((p1_idx, data['high'].iloc[p1_idx]), (p2_idx, data['high'].iloc[p2_idx]))
+            p1_x_val = data.index[p1_idx]
+            p1_x = p1_x_val[0] if isinstance(p1_x_val, tuple) else p1_x_val.value
+            p2_x_val = data.index[p2_idx]
+            p2_x = p2_x_val[0] if isinstance(p2_x_val, tuple) else p2_x_val.value
+            resistance_trend = get_line_equation((p1_x, data['high'].iloc[p1_idx]), (p2_x, data['high'].iloc[p2_idx]))
         return support_trend, resistance_trend
 
     def analyze(self, df: pd.DataFrame) -> Dict[str, List[Level]]:
@@ -100,15 +108,16 @@ class TrendLineAnalysis(BaseAnalysis):
         supports = []
         resistances = []
         current_price = data['close'].iloc[-1]
-        current_time_index = len(data) - 1
+        current_time_val = data.index[-1]
+        current_time_x = current_time_val[0] if isinstance(current_time_val, tuple) else current_time_val.value
 
         if support_trend:
-            support_price = support_trend['slope'] * current_time_index + support_trend['intercept']
+            support_price = support_trend['slope'] * current_time_x + support_trend['intercept']
             if support_price < current_price:
                 supports.append(Level(name="دعم الاتجاه قصير المدى", value=round(support_price, 4), level_type='support', quality='حرج'))
 
         if resistance_trend:
-            resistance_price = resistance_trend['slope'] * current_time_index + resistance_trend['intercept']
+            resistance_price = resistance_trend['slope'] * current_time_x + resistance_trend['intercept']
             if resistance_price > current_price:
                 resistances.append(Level(name="مقاومة الاتجاه قصير المدى", value=round(resistance_price, 4), level_type='resistance', quality='حرج'))
 
