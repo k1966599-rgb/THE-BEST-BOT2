@@ -18,6 +18,7 @@ class Level:
     value: float
     level_type: str
     quality: Optional[str] = None
+    raw_data: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Pattern:
