@@ -80,8 +80,8 @@ class ReportBuilder:
 
         pattern_details = self._format_pattern_details(pattern, result.get('timeframe')) if pattern else ""
 
-        supports = "\n".join([self._format_level(level) for level in analysis.get('supports', [])])
-        resistances = "\n".join([self._format_level(level) for level in analysis.get('resistances', [])])
+        supports = self._format_levels(analysis.get('supports', []), is_support=True)
+        resistances = self._format_levels(analysis.get('resistances', []), is_support=False)
 
         return template.format(
             emoji=emoji,
@@ -103,10 +103,38 @@ class ReportBuilder:
             f"شروط الإلغاء: كسر الدعم ${getattr(pattern, 'invalidation_level', 0):,.0f} مع إغلاق شمعة {timeframe_full_name_map.get(timeframe, timeframe)} تحته"
         )
 
-    def _format_level(self, level: Level) -> str:
-        """Formats a single support or resistance level."""
-        quality_label = f"({level.quality})" if level.quality else ""
-        return f"- {level.name}: ${level.value:,.0f} {quality_label}"
+    def _format_levels(self, levels: List[Level], is_support: bool) -> str:
+        """Formats a list of levels according to the user's fixed template."""
+
+        level_map = {
+            "دعم ترند": ["trend", "اتجاه"],
+            "دعم قناة سعرية": ["channel", "قناة"],
+            "دعم فيبو 0.618": ["fibonacci", "0.618"],
+            "دعم فيبو 0.5": ["fibonacci", "0.5"],
+            "منطقة طلب": ["volume", "طلب"],
+            "دعم عام سابق": ["previous", "historical", "عام"],
+            "مقاومة رئيسية": ["poc", "رئيسية"],
+            "مقاومة هدف النموذج": ["target"],
+            "مقاومة فيبو 1.0": ["fibonacci", "1.0 "],
+            "مقاومة فيبو 1.172": ["fibonacci", "1.172"],
+            "مقاومة فيبو 1.618": ["fibonacci", "1.618"],
+            "منطقة عرض عالية": ["volume", "عرض"]
+        }
+
+        output_levels = {}
+
+        for name, keywords in level_map.items():
+            if (is_support and 'دعم' not in name) and (not is_support and 'مقاومة' not in name):
+                continue
+
+            for level in levels:
+                if any(keyword in level.name.lower() for keyword in keywords):
+                    if name not in output_levels: # Take the first match
+                        quality_label = f"({level.quality})" if level.quality else ""
+                        output_levels[name] = f"- {name}: ${level.value:,.0f} {quality_label}"
+                        break # Move to the next name in the map
+
+        return "\n".join(output_levels.values())
 
     def _format_summary(self, ranked_results: List[Dict]) -> (str, Optional[TradeSetup]):
         """Formats the summary message."""
