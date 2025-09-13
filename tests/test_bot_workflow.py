@@ -79,10 +79,22 @@ async def test_bot_full_analysis_workflow(core_components):
 
     timeframe_messages = report_messages[1:-1]
     assert len(timeframe_messages) == len(timeframes)
+
+    expected_level_names = {
+        "دعم ترند", "دعم قناة سعرية", "دعم فيبو 0.618", "دعم فيبو 0.5",
+        "منطقة طلب", "دعم عام سابق", "مقاومة رئيسية", "مقاومة هدف النموذج",
+        "مقاومة فيبو 1.0", "مقاومة فيبو 1.172", "مقاومة فيبو 1.618", "منطقة عرض عالية"
+    }
+
     for msg in timeframe_messages:
         assert msg['type'] == 'timeframe'
         assert 'n' not in msg['content'], "The timeframe message should not contain 'n' characters."
-        assert '🟢 الدعوم' in msg['content'] or '🔴 المقاومات' in msg['content'], "Timeframe message should contain supports or resistances."
+
+        lines = msg['content'].split('\n')
+        for line in lines:
+            if line.startswith('- '):
+                level_name = line.split(':')[0][2:] # Remove '- ' prefix
+                assert level_name in expected_level_names, f"Unexpected level name: {level_name}"
 
     final_summary = report_messages[-1]
     assert final_summary['type'] == 'final_summary'
