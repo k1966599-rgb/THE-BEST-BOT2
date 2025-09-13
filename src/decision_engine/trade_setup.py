@@ -42,10 +42,7 @@ class TradeSetup:
 
     # --- Confirmed Entry Details ---
     confirmation_status: str = "🟡 Waiting for breakout"
-    confirmation_rule: Optional[str] = None # e.g., '3_candle_close'
-    confirmation_candles_closed: int = 0 # Counter for the monitor
     confirmation_conditions: List[str] = field(default_factory=list)
-    optional_confirmation_conditions: List[str] = field(default_factory=list)
     invalidation_conditions: List[str] = field(default_factory=list)
 
     # --- Additional Context ---

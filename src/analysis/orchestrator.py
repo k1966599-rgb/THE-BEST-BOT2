@@ -97,18 +97,28 @@ class AnalysisOrchestrator:
         }
 
     def _merge_confluent_levels(self, levels: List[Level], tolerance: float = 0.005) -> List[Level]:
-        """
-        Merges a list of S/R levels that are very close to each other.
-        Now also calculates the min/max range of the cluster and stores it.
+        """Merges a list of S/R levels that are very close to each other.
+
+        This method iterates through a sorted list of levels and groups them
+        into clusters based on a percentage tolerance. Levels within the same
+        cluster are merged into a single, stronger level.
+
+        Args:
+            levels (List[Level]): A list of support or resistance Level objects.
+            tolerance (float, optional): The percentage difference allowed for
+                levels to be considered part of the same cluster. Defaults to
+                0.005 (0.5%).
+
+        Returns:
+            List[Level]: A new list of levels with confluent levels merged.
         """
         if not levels:
             return []
 
+        # Sort by value to make clustering easier
         levels.sort(key=lambda x: x.value)
-        merged = []
-        if not levels:
-            return merged
 
+        merged = []
         cluster = [levels[0]]
 
         for level in levels[1:]:
@@ -116,46 +126,22 @@ class AnalysisOrchestrator:
             if (level.value - cluster_avg) / cluster_avg <= tolerance:
                 cluster.append(level)
             else:
-                # Process the completed cluster
                 if len(cluster) > 1:
+                    # Create a new confluent level
                     new_value = np.mean([l.value for l in cluster])
-                    min_val = min(l.value for l in cluster)
-                    max_val = max(l.value for l in cluster)
-
-                    base_names = set(l.name.split(' ')[0] for l in cluster)
-                    name_str = ', '.join(sorted(list(base_names)))
-                    new_name = f"Confluent Zone ({name_str})"
-
-                    merged.append(Level(
-                        name=new_name,
-                        value=new_value,
-                        level_type=cluster[0].level_type,
-                        quality="Very Strong",
-                        raw_data={'range_min': min_val, 'range_max': max_val}
-                    ))
+                    new_name = "Confluent Support Zone" if cluster[0].level_type == 'support' else "Confluent Resistance Zone"
+                    # You can get more creative with naming by combining names
+                    merged.append(Level(name=new_name, value=new_value, level_type=cluster[0].level_type, quality="Very Strong"))
                 else:
                     merged.append(cluster[0])
-
                 cluster = [level]
 
-        # Process the last cluster
+        # Handle the last cluster
         if len(cluster) > 1:
             new_value = np.mean([l.value for l in cluster])
-            min_val = min(l.value for l in cluster)
-            max_val = max(l.value for l in cluster)
-
-            base_names = set(l.name.split(' ')[0] for l in cluster)
-            name_str = ', '.join(sorted(list(base_names)))
-            new_name = f"Confluent Zone ({name_str})"
-
-            merged.append(Level(
-                name=new_name,
-                value=new_value,
-                level_type=cluster[0].level_type,
-                quality="Very Strong",
-                raw_data={'range_min': min_val, 'range_max': max_val}
-            ))
-        elif cluster:
+            new_name = "Confluent Support Zone" if cluster[0].level_type == 'support' else "Confluent Resistance Zone"
+            merged.append(Level(name=new_name, value=new_value, level_type=cluster[0].level_type, quality="Very Strong"))
+        else:
             merged.append(cluster[0])
 
         return merged

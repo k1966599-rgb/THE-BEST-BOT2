@@ -257,32 +257,42 @@ class InteractiveTelegramBot(BaseNotifier):
             await query.edit_message_text(text=f"جاري تحضير <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
                 chat_id = query.message.chat_id
-                report_parts = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_name)
+                # This now returns a list of message dicts, or a dict with an error key.
+                report_messages = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_name)
 
-                if 'error' in report_parts:
-                    await query.message.reply_text(report_parts['error'])
+                # Check for an error dictionary before proceeding
+                if isinstance(report_messages, dict) and 'error' in report_messages:
+                    await query.message.reply_text(report_messages['error'])
                     return
 
-                if report_parts.get("header"):
-                    await self._send_long_message(chat_id=chat_id, text=report_parts["header"], parse_mode='HTML')
+                # The result is a list of messages, handle it sequentially.
+                if isinstance(report_messages, list):
+                    # Save the analysis results for the follow/ignore feature
+                    if report_messages:
+                        # The ranked_results are attached to each message dict by the builder
+                        self.last_analysis_results[chat_id] = report_messages[0].get('ranked_results', [])
 
-                for report_section in report_parts.get("timeframe_reports", []):
-                    await self._send_long_message(chat_id=chat_id, text=report_section, parse_mode='HTML')
+                    # Sequentially send each message
+                    for message_info in report_messages:
+                        content = message_info.get("content")
+                        # The builder does not yet support keyboards, so this is placeholder logic
+                        # for when it is added. For now, it correctly sends the content.
+                        reply_markup = None
 
-                if report_parts.get("summary"):
-                    await self._send_long_message(chat_id=chat_id, text=report_parts["summary"], parse_mode='HTML')
+                        if content:
+                            await self._send_long_message(
+                                chat_id=chat_id,
+                                text=content,
+                                parse_mode='HTML',
+                                reply_markup=reply_markup
+                            )
 
-                if report_parts.get("final_recommendation"):
-                    await self._send_long_message(chat_id=chat_id, text=report_parts["final_recommendation"], parse_mode='HTML')
-
-                ranked_results = report_parts.get('ranked_results', [])
-                self.last_analysis_results[chat_id] = ranked_results
-                primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
-
-                if primary_rec:
-                    await query.message.reply_text(text="هل تريد متابعة هذه التوصية النهائية؟", reply_markup=self._get_follow_keyboard(primary_rec['trade_setup']))
-                else:
-                    await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
+                    # After sending all parts, show the follow/ignore keyboard if applicable
+                    primary_rec = next((r for r in self.last_analysis_results.get(chat_id, []) if r.get('trade_setup')), None)
+                    if primary_rec:
+                        await query.message.reply_text(text="هل تريد متابعة هذه التوصية النهائية؟", reply_markup=self._get_follow_keyboard(primary_rec['trade_setup']))
+                    else:
+                        await query.message.reply_text(text=self._get_start_message_text(), reply_markup=self._get_main_keyboard(), parse_mode='HTML')
 
             except Exception as e:
                 logger.exception(f"خطأ غير معالج في رد البوت لـ {symbol}.")
