@@ -36,7 +36,6 @@ def standardize_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
     column_mapping = {
         'time': 'timestamp',
         'datetime': 'timestamp',
-        'date': 'timestamp',
         'open': 'open',
         'high': 'high',
         'low': 'low',
@@ -55,5 +54,15 @@ def standardize_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
         logger.error(error_msg)
         raise ValueError(error_msg)
 
-    logger.info("DataFrame columns successfully standardized.")
+    # 4. Convert columns to correct data types
+    for col in ['open', 'high', 'low', 'close', 'volume']:
+        df_std[col] = pd.to_numeric(df_std[col], errors='coerce')
+
+    # Ensure timestamp is an integer type for indexing
+    df_std['timestamp'] = df_std['timestamp'].astype(int)
+
+    # Drop rows with NaN values that may have been introduced by coercion
+    df_std.dropna(inplace=True)
+
+    logger.info("DataFrame columns successfully standardized and converted to numeric types.")
     return df_std

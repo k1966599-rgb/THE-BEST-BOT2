@@ -71,16 +71,21 @@ class TrendLineAnalysis(BaseAnalysis):
         if len(low_pivots_idx) >= 2:
             p1_idx, p2_idx = low_pivots_idx[-2], low_pivots_idx[-1]
             p1_x_val = data.index[p1_idx]
-            p1_x = p1_x_val[0] if isinstance(p1_x_val, tuple) else p1_x_val.value
-            p2_x_val = data.index[p2_idx]
-            p2_x = p2_x_val[0] if isinstance(p2_x_val, tuple) else p2_x_val.value
+            if pd.api.types.is_datetime64_any_dtype(data.index):
+                p1_x = data.index[p1_idx].value
+                p2_x = data.index[p2_idx].value
+            else:
+                p1_x = data.index[p1_idx]
+                p2_x = data.index[p2_idx]
             support_trend = get_line_equation((p1_x, data['low'].iloc[p1_idx]), (p2_x, data['low'].iloc[p2_idx]))
         if len(high_pivots_idx) >= 2:
             p1_idx, p2_idx = high_pivots_idx[-2], high_pivots_idx[-1]
-            p1_x_val = data.index[p1_idx]
-            p1_x = p1_x_val[0] if isinstance(p1_x_val, tuple) else p1_x_val.value
-            p2_x_val = data.index[p2_idx]
-            p2_x = p2_x_val[0] if isinstance(p2_x_val, tuple) else p2_x_val.value
+            if pd.api.types.is_datetime64_any_dtype(data.index):
+                p1_x = data.index[p1_idx].value
+                p2_x = data.index[p2_idx].value
+            else:
+                p1_x = data.index[p1_idx]
+                p2_x = data.index[p2_idx]
             resistance_trend = get_line_equation((p1_x, data['high'].iloc[p1_idx]), (p2_x, data['high'].iloc[p2_idx]))
         return support_trend, resistance_trend
 
@@ -108,8 +113,10 @@ class TrendLineAnalysis(BaseAnalysis):
         supports = []
         resistances = []
         current_price = data['close'].iloc[-1]
-        current_time_val = data.index[-1]
-        current_time_x = current_time_val[0] if isinstance(current_time_val, tuple) else current_time_val.value
+        if pd.api.types.is_datetime64_any_dtype(data.index):
+            current_time_x = data.index[-1].value
+        else:
+            current_time_x = data.index[-1]
 
         if support_trend:
             support_price = support_trend['slope'] * current_time_x + support_trend['intercept']

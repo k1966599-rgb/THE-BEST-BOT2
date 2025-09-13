@@ -55,8 +55,8 @@ async def test_bot_full_analysis_workflow(core_components):
     )
 
     symbol = 'BTC/USDT'
-    timeframes = get_config()['trading']['TIMEFRAME_GROUPS']['medium_term']
-    analysis_type = "Medium-term Analysis"
+    timeframes = get_config()['trading']['TIMEFRAME_GROUPS']['long_term']
+    analysis_type = "Long-term Analysis"
     chat_id = 12345
 
     # --- Execute ---
@@ -81,8 +81,13 @@ async def test_bot_full_analysis_workflow(core_components):
     assert len(timeframe_messages) == len(timeframes)
     for msg in timeframe_messages:
         assert msg['type'] == 'timeframe'
+        assert 'n' not in msg['content'], "The timeframe message should not contain 'n' characters."
+        assert '🟢 الدعوم' in msg['content'] or '🔴 المقاومات' in msg['content'], "Timeframe message should contain supports or resistances."
 
     final_summary = report_messages[-1]
     assert final_summary['type'] == 'final_summary'
     assert '📌 الملخص التنفيذي والشامل' in final_summary['content']
+    assert 'نقاط المراقبة الحرجة:' in final_summary['content']
+    # Check that there is some data after the critical points label
+    assert len(final_summary['content'].split('نقاط المراقبة الحرجة:')[1].strip()) > 0
     assert 'keyboard' in final_summary
