@@ -17,14 +17,21 @@ class ReportBuilder:
         """Loads report templates from the templates directory."""
         templates = {}
         template_dir = os.path.join(os.path.dirname(__file__), 'templates')
-        for filename in os.listdir(template_dir):
-            if filename.endswith('.txt'):
-                with open(os.path.join(template_dir, filename), 'r', encoding='utf-8') as f:
-                    templates[filename.replace('.txt', '')] = f.read()
+        try:
+            for filename in os.listdir(template_dir):
+                if filename.endswith('.txt'):
+                    with open(os.path.join(template_dir, filename), 'r', encoding='utf-8') as f:
+                        templates[filename.replace('.txt', '')] = f.read()
+        except FileNotFoundError:
+            # This is expected if the user hasn't created templates yet.
+            pass
         return templates
 
     def build_report(self, ranked_results: List[Dict[str, Any]], general_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Constructs a list of messages to be sent."""
+        if not self.templates:
+            return [{"type": "error", "content": "لا يوجد قالب تحليل"}]
+
         messages = []
 
         # Message 1: Header
