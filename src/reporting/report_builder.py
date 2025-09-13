@@ -82,21 +82,21 @@ class ReportBuilder:
         resistances = analysis.get('resistances', [])
 
         if supports:
-            section += "🟢 الدعوم\n" + self._format_levels(supports, is_support=True) + "\n"
+            section += "🟢 الدعوم\n" + self._format_levels(supports, is_support=True, pattern=pattern) + "\n"
         if resistances:
-            section += "🔴 المقاومات\n" + self._format_levels(resistances, is_support=False)
+            section += "🔴 المقاومات\n" + self._format_levels(resistances, is_support=False, pattern=pattern)
 
         return section
 
-    def _format_levels(self, levels: List[Level], is_support: bool) -> str:
-        """Robustly formats levels based on the user's specific template."""
+    def _format_levels(self, levels: List[Level], is_support: bool, pattern: Optional[Pattern] = None) -> str:
+        """Robustly formats levels based on the user's specific template, including pattern context."""
         level_texts = []
         for level in levels:
             name_lower = level.name.lower()
-            display_name = level.name  # Default
+            display_name = level.name
             quality_label = f"({level.quality})" if level.quality else ""
 
-            # Determine display name based on type
+            # Default name based on level type
             if 'trend' in name_lower:
                 display_name = f"دعم ترند {'قصير' if 'short' in name_lower else 'متوسط' if 'medium' in name_lower else 'طويل'}" if is_support else "مقاومة ترند"
             elif 'channel' in name_lower:
@@ -111,25 +111,36 @@ class ReportBuilder:
                 display_name = "مقاومة رئيسية"
             elif 'target' in name_lower:
                 display_name = "مقاومة هدف النموذج"
-            elif 'neckline' in name_lower:
-                display_name = "خط عنق القاع المزدوج" if is_support else "خط عنق الرأس والكتفين"
+
+            # Context-aware naming based on the pattern
+            if pattern:
+                p_name_lower = pattern.name.lower()
+                # Use a small tolerance for float comparison
+                is_activation = abs(level.value - pattern.activation_level) < 0.001
+                is_invalidation = abs(level.value - pattern.invalidation_level) < 0.001
+
+                if not is_support and is_activation:
+                    if 'علم' in p_name_lower: # Bull or Bear Flag
+                        display_name = "مقاومة العلم"
+                    elif 'مثلث' in p_name_lower: # Ascending/Descending Triangle
+                        display_name = "مقاومة المثلث"
+                    elif 'قاع مزدوج' in p_name_lower: # Double Bottom
+                        display_name = "خط عنق القاع المزدوج"
+
+                if is_support and is_invalidation:
+                     if 'علم' in p_name_lower:
+                         display_name = "دعم قاع العلم"
+                     elif 'قناة' in p_name_lower:
+                         display_name = "دعم قاع القناة"
 
             # Determine quality label based on user template
-            if 'critical' in (level.quality or '').lower() or 'حرج' in (level.quality or ''):
-                quality_label = "(حرج)"
-            elif 'strong' in (level.quality or '').lower() or 'قوي' in (level.quality or ''):
-                quality_label = "(قوي)"
-            elif 'medium' in (level.quality or '').lower() or 'متوسط' in (level.quality or ''):
-                quality_label = "(متوسط)"
-            elif 'secondary' in (level.quality or '').lower() or 'ثانوي' in (level.quality or ''):
-                quality_label = "(ثانوي)"
-            elif 'bottom' in (level.quality or '').lower() or 'قاع' in (level.quality or ''):
-                quality_label = "(قاع)"
-            elif 'technical' in (level.quality or '').lower() or 'فني' in (level.quality or '') or 'target' in name_lower:
-                quality_label = "(فني)"
-            elif 'historical' in (level.quality or '').lower() or 'تاريخي' in (level.quality or ''):
-                 quality_label = "(تاريخي)"
-
+            if 'critical' in (level.quality or '').lower() or 'حرج' in (level.quality or ''): quality_label = "(حرج)"
+            elif 'strong' in (level.quality or '').lower() or 'قوي' in (level.quality or ''): quality_label = "(قوي)"
+            elif 'medium' in (level.quality or '').lower() or 'متوسط' in (level.quality or ''): quality_label = "(متوسط)"
+            elif 'secondary' in (level.quality or '').lower() or 'ثانوي' in (level.quality or ''): quality_label = "(ثانوي)"
+            elif 'bottom' in (level.quality or '').lower() or 'قاع' in (level.quality or ''): quality_label = "(قاع)"
+            elif 'technical' in (level.quality or '').lower() or 'فني' in (level.quality or '') or 'target' in name_lower: quality_label = "(فني)"
+            elif 'historical' in (level.quality or '').lower() or 'تاريخي' in (level.quality or ''): quality_label = "(تاريخي)"
 
             level_texts.append(f"{display_name}: ${level.value:,.0f} {quality_label}")
 
