@@ -47,7 +47,7 @@ def main():
         TrendLineAnalysis(config=config.get('analysis')),
         VolumeProfileAnalysis(config=config.get('analysis'))
     ]
-    orchestrator = AnalysisOrchestrator(analysis_modules, config=config)
+    orchestrator = AnalysisOrchestrator(analysis_modules)
     decision_engine = DecisionEngine(config)
 
     # --- Run Selected Mode ---
