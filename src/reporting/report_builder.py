@@ -127,19 +127,20 @@ class ReportBuilder:
             # More specific mapping based on user request
             name_lower = level.name.lower()
 
-            if 'trend' in name_lower:
+            # Check for keywords in both English and Arabic to handle inconsistent naming
+            if 'trend' in name_lower or 'اتجاه' in name_lower:
                 name, label = (f"دعم ترند {'متوسط' if 'medium' in name_lower else 'قصير'}", "(ترند)") if is_support else ("مقاومة ترند", "(ترند)")
-            elif 'channel' in name_lower:
+            elif 'channel' in name_lower or 'قناة' in name_lower:
                 name, label = ("دعم قناة سعرية", "(قناة)") if is_support else ("مقاومة قناة سعرية", "(قناة)")
             elif 'fibonacci' in name_lower:
                 ratio_match = re.search(r'(\d\.\d+)', name_lower)
                 ratio = f" {ratio_match.group(1)}" if ratio_match else ""
                 name, label = (f"دعم فيبو{ratio}", "(فايبو)") if is_support else (f"مقاومة فيبو امتداد", "(فيبو امتداد)")
-            elif 'previous' in name_lower:
+            elif 'previous' in name_lower or 'عام' in name_lower or 'تاريخي' in name_lower:
                 name, label = ("دعم عام سابق", "(سابق)") if is_support else ("مقاومة عامة سابقة", "(سابق)")
             elif 'poc' in name_lower:
                 name, label = ("منطقة طلب عالية (POC)", "(POC)") if is_support else ("مقاومة رئيسية", "(POC/مقاومة رئيسية)")
-            elif 'hvn' in name_lower:
+            elif 'hvn' in name_lower or 'high volume node' in name_lower:
                 name, label = ("منطقة طلب عالية (HVN)", "(HVN)") if is_support else ("منطقة عرض عالية (HVN)", "(HVN)")
             elif 'confluent' in name_lower:
                 min_val, max_val = level.raw_data.get('range_min', level.value), level.raw_data.get('range_max', level.value)
@@ -147,10 +148,11 @@ class ReportBuilder:
                 name = "دعم منطقة مدمجة" if is_support else "مقاومة منطقة مدمجة"
                 level_texts.append(f"{name}: ${min_val:,.3f} – ${max_val:,.3f} {label}")
                 continue
-
-            # Special case for pattern targets
-            if 'target' in name_lower:
+            elif 'target' in name_lower: # Changed to elif to prevent relabeling
                 name, label = "مقاومة هدف النموذج", "(هدف فني)"
+            else: # If no specific category, use a generic name but still display it
+                name, label = (f"دعم {level.name}", "(عام)") if is_support else (f"مقاومة {level.name}", "(عام)")
+
 
             level_texts.append(f"{name}: ${level.value:,.3f} {label}")
 
@@ -171,18 +173,32 @@ class ReportBuilder:
                 status = p_status_map.get(p.status, p.status)
                 summary += f"{tf}: {p.name} ({status})\n"
 
-                targets = ' → '.join([f"${t:,.0f}" for t in [getattr(p, 'target1', None), getattr(p, 'target2', None)] if t])
-                if targets:
-                    summary += f"نجاح: اختراق ${getattr(p, 'activation_level', 0):,.0f} → أهداف: {targets}\n"
+                # Add all three targets and use integer formatting for cleaner display
+                all_targets = [t for t in [getattr(p, 'target1', None), getattr(p, 'target2', None), getattr(p, 'target3', None)] if t]
+                targets_str = ' → '.join([f"${t:,.0f}" for t in all_targets])
+
+                # Use integer formatting for activation/invalidation levels
+                activation_level_str = f"${getattr(p, 'activation_level', 0):,.0f}"
+                invalidation_level_str = f"${getattr(p, 'invalidation_level', 0):,.0f}"
+
+                if targets_str:
+                    summary += f"نجاح: اختراق {activation_level_str} → أهداف: {targets_str}\n"
                 else:
-                    summary += f"نجاح: اختراق ${getattr(p, 'activation_level', 0):,.0f}\n"
+                    summary += f"نجاح: اختراق {activation_level_str}\n"
 
-                summary += f"فشل: كسر ${getattr(p, 'invalidation_level', 0):,.0f}\n\n"
+                summary += f"فشل: كسر {invalidation_level_str}\n\n"
 
-        # Critical Monitoring Points
+        # Critical Monitoring Points (safer implementation)
         summary += "نقاط المراقبة الحرجة (مجمّعة)\n"
-        res_resistances = [f"{r.get('timeframe').upper()} = ${getattr(r.get('raw_analysis', {}).get('patterns', [object()])[0], 'activation_level', 0):,.0f}" for r in ranked_results if getattr(r.get('raw_analysis', {}).get('patterns', [object()])[0], 'activation_level', 0)]
-        res_supports = [f"{r.get('timeframe').upper()} = ${getattr(r.get('raw_analysis', {}).get('patterns', [object()])[0], 'invalidation_level', 0):,.0f}" for r in ranked_results if getattr(r.get('raw_analysis', {}).get('patterns', [object()])[0], 'invalidation_level', 0)]
+        res_resistances, res_supports = [], []
+        for r in ranked_results:
+            pattern = r.get('raw_analysis', {}).get('patterns', [None])[0]
+            if pattern:
+                if getattr(pattern, 'activation_level', 0):
+                    res_resistances.append(f"{r.get('timeframe').upper()} = ${pattern.activation_level:,.0f}")
+                if getattr(pattern, 'invalidation_level', 0):
+                    res_supports.append(f"{r.get('timeframe').upper()} = ${pattern.invalidation_level:,.0f}")
+
         summary += f"اختراقات المقاومة: {' | '.join(res_resistances)}\n"
         summary += f"كسور الدعم: {' | '.join(res_supports)}\n\n"
 
