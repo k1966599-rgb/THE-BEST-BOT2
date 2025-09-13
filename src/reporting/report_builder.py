@@ -127,7 +127,7 @@ class ReportBuilder:
             p: Optional[Pattern] = res.get('raw_analysis', {}).get('patterns', [None])[0]
             if p and p.name:
                 status = p_status_map.get(p.status, p.status)
-                targets = [t for t in [getattr(p, 'target1'), getattr(p, 'target2'), getattr(p, 'target3')] if t]
+                targets = [t for t in [getattr(p, 'target1', None), getattr(p, 'target2', None), getattr(p, 'target3', None)] if t]
                 targets_str = ' → '.join([f"${t:,.0f}" for t in targets])
                 activation_str = f"${getattr(p, 'activation_level', 0):,.0f}"
                 summary += f"{tf_name} ({tf}): {p.name} → اختراق {activation_str} → أهداف: {targets_str} → حالة النموذج: {status}\n"
@@ -153,7 +153,7 @@ class ReportBuilder:
         summary += "صفقة مؤكدة:\n\n"
         entry_price_str = f"${setup.entry_price:,.0f}"
         stop_loss_str = f"${setup.stop_loss:,.0f}"
-        targets = [t for t in [setup.target1, setup.target2, setup.target3] if t]
+        targets = [t for t in [setup.target1, setup.target2] if t]
         targets_str = ' → '.join([f"${t:,.0f}" for t in targets])
 
         summary += f"سعر الدخول: عند اختراق {entry_price_str} (فريم {setup.timeframe.upper()}) مع ثبات 3 شموع ساعة فوقه\n"
