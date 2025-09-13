@@ -1,0 +1,9 @@
+{emoji} فريم {timeframe} — {symbol}
+
+{pattern_details}
+
+🟢 الدعوم
+{supports}
+
+🔴 المقاومات
+{resistances}

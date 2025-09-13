@@ -1,0 +1,30 @@
+{
+  "symbol": "BTC/USDT",
+  "last_update": "2023-10-27T10:00:00",
+  "data": [
+    {
+      "timestamp": 1672531200000,
+      "open": 16500,
+      "high": 16600,
+      "low": 16400,
+      "close": 16550,
+      "volume": 1000
+    },
+    {
+      "timestamp": 1672617600000,
+      "open": 16550,
+      "high": 16700,
+      "low": 16500,
+      "close": 16650,
+      "volume": 1200
+    },
+    {
+      "timestamp": 1672704000000,
+      "open": 16650,
+      "high": 16800,
+      "low": 16600,
+      "close": 16750,
+      "volume": 1500
+    }
+  ]
+}
