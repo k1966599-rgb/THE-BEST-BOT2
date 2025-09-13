@@ -89,72 +89,60 @@ class ReportBuilder:
         return section
 
     def _format_levels(self, levels: List[Level], is_support: bool, pattern: Optional[Pattern] = None) -> str:
-        """Formats levels using a prioritized if/elif chain for robustness."""
+        """Robustly formats levels based on the user's specific template, including pattern context."""
         level_texts = []
         for level in levels:
             name_lower = level.name.lower()
-            quality_lower = (level.quality or '').lower()
-            display_name = level.name  # Default
+            display_name = level.name
+            quality_label = f"({level.quality})" if level.quality else ""
 
-            # 1. Determine Display Name by priority
-            if 'hvn' in quality_lower or 'high volume node' in name_lower:
-                display_name = "منطقة طلب عالية" if is_support else "منطقة عرض عالية"
-            elif 'trend' in name_lower:
-                term = 'قصير' if 'short' in name_lower else 'متوسط' if 'medium' in name_lower else 'طويل'
-                prefix = "دعم ترند" if is_support else "مقاومة ترند"
-                display_name = f"{prefix} {term} المدى"
+            # Default name based on level type
+            if 'trend' in name_lower:
+                display_name = f"دعم ترند {'قصير' if 'short' in name_lower else 'متوسط' if 'medium' in name_lower else 'طويل'}" if is_support else "مقاومة ترند"
             elif 'channel' in name_lower:
-                display_name = "دعم القناة السعرية" if is_support else "مقاومة القناة السعرية"
+                display_name = "دعم قناة سعرية" if is_support else "مقاومة قناة سعرية"
             elif 'fibonacci' in name_lower:
-                fibo_number = name_lower.replace('fibonacci', '').replace('support', '').replace('resistance', '').replace('_', ' ').strip()
-                prefix = "دعم فيبو" if is_support else "مقاومة فيبو"
-                display_name = f"{prefix} {fibo_number}"
-            elif 'previous' in name_lower:
-                display_name = "دعم عام سابق"
-            elif 'historical' in name_lower:
-                display_name = "دعم تاريخي" if is_support else "مقاومة تاريخية"
+                display_name = re.sub(r'resistance|support', '', level.name, flags=re.IGNORECASE).strip()
+            elif 'high volume node' in name_lower or 'hvn' in name_lower:
+                display_name = "منطقة طلب عالية" if is_support else "منطقة عرض عالية"
+            elif 'previous' in name_lower or 'historical' in name_lower or 'عام' in name_lower:
+                display_name = "دعم عام سابق" if is_support else "منطقة عرض عالية"
             elif 'poc' in name_lower:
                 display_name = "مقاومة رئيسية"
             elif 'target' in name_lower:
                 display_name = "مقاومة هدف النموذج"
 
-            # 2. Handle Pattern-Specific Overrides
+            # Context-aware naming based on the pattern
             if pattern:
-                is_invalidation = abs(level.value - pattern.invalidation_level) < 0.001 if pattern.invalidation_level else False
-                if is_support and 'channel' in name_lower and is_invalidation:
-                    p_name_lower = pattern.name.lower()
-                    if 'علم' in p_name_lower:
-                        display_name = "دعم قناة/قاع العلم"
-                    elif 'قاع مزدوج' in p_name_lower:
-                        display_name = "دعم قناة/قاع مزدوج"
+                p_name_lower = pattern.name.lower()
+                # Use a small tolerance for float comparison
+                is_activation = abs(level.value - pattern.activation_level) < 0.001
+                is_invalidation = abs(level.value - pattern.invalidation_level) < 0.001
 
-                is_activation = abs(level.value - pattern.activation_level) < 0.001 if pattern.activation_level else False
                 if not is_support and is_activation:
-                    p_name_lower = pattern.name.lower()
-                    if 'علم' in p_name_lower:
+                    if 'علم' in p_name_lower: # Bull or Bear Flag
                         display_name = "مقاومة العلم"
-                    elif 'قاع مزدوج' in p_name_lower:
+                    elif 'مثلث' in p_name_lower: # Ascending/Descending Triangle
+                        display_name = "مقاومة المثلث"
+                    elif 'قاع مزدوج' in p_name_lower: # Double Bottom
                         display_name = "خط عنق القاع المزدوج"
 
-            # 3. Determine Quality Label
-            QUALITY_MAP = {
-                'critical': "(حرج)", 'حرج': "(حرج)",
-                'strong': "(قوي)", 'قوي': "(قوي)",
-                'medium': "(متوسط)", 'متوسط': "(متوسط)",
-                'secondary': "(ثانوي)", 'ثانوي': "(ثانوي)",
-                'bottom': "(الحد السفلي)", 'أسفل': "(الحد السفلي)",
-                'top': "(الحد العلوي)", 'أعلى': "(الحد العلوي)",
-                'technical': "(فني)", 'فني': "(فني)",
-                'historical': "(تاريخي)", 'تاريخي': "(تاريخي)",
-                'hvn': "(حجم تداول عالٍ)",
-            }
-            quality_label = ""
-            for key, label in QUALITY_MAP.items():
-                if key in quality_lower:
-                    quality_label = label
-                    break
+                if is_support and is_invalidation:
+                     if 'علم' in p_name_lower:
+                         display_name = "دعم قاع العلم"
+                     elif 'قناة' in p_name_lower:
+                         display_name = "دعم قاع القناة"
 
-            level_texts.append(f"{display_name}: ${level.value:,.0f}{' ' + quality_label if quality_label else ''}")
+            # Determine quality label based on user template
+            if 'critical' in (level.quality or '').lower() or 'حرج' in (level.quality or ''): quality_label = "(حرج)"
+            elif 'strong' in (level.quality or '').lower() or 'قوي' in (level.quality or ''): quality_label = "(قوي)"
+            elif 'medium' in (level.quality or '').lower() or 'متوسط' in (level.quality or ''): quality_label = "(متوسط)"
+            elif 'secondary' in (level.quality or '').lower() or 'ثانوي' in (level.quality or ''): quality_label = "(ثانوي)"
+            elif 'bottom' in (level.quality or '').lower() or 'قاع' in (level.quality or ''): quality_label = "(قاع)"
+            elif 'technical' in (level.quality or '').lower() or 'فني' in (level.quality or '') or 'target' in name_lower: quality_label = "(فني)"
+            elif 'historical' in (level.quality or '').lower() or 'تاريخي' in (level.quality or ''): quality_label = "(تاريخي)"
+
+            level_texts.append(f"{display_name}: ${level.value:,.0f} {quality_label}")
 
         return "\n".join(level_texts) + "\n"
 
@@ -168,7 +156,8 @@ class ReportBuilder:
         for res in ranked_results:
             tf = res.get('timeframe', 'N/A').upper()
             tf_name = timeframe_map.get(tf, tf)
-            p: Optional[Pattern] = res.get('raw_analysis', {}).get('patterns', [None])[0]
+            patterns = res.get('raw_analysis', {}).get('patterns', [])
+            p: Optional[Pattern] = patterns[0] if patterns else None
             if p and p.name:
                 status = p_status_map.get(p.status, p.status)
                 targets = [t for t in [getattr(p, 'target1', None), getattr(p, 'target2', None), getattr(p, 'target3', None)] if t]
@@ -179,7 +168,8 @@ class ReportBuilder:
         summary += "\nنقاط المراقبة الحرجة:\n"
         res_resistances, res_supports = [], []
         for r in ranked_results:
-            pattern = r.get('raw_analysis', {}).get('patterns', [None])[0]
+            patterns = r.get('raw_analysis', {}).get('patterns', [])
+            pattern: Optional[Pattern] = patterns[0] if patterns else None
             if pattern and getattr(pattern, 'activation_level', 0):
                  res_resistances.append(f"{r.get('timeframe').upper()} = ${pattern.activation_level:,.0f}")
             if pattern and getattr(pattern, 'invalidation_level', 0):
@@ -197,7 +187,7 @@ class ReportBuilder:
         summary += "صفقة مؤكدة:\n\n"
         entry_price_str = f"${setup.entry_price:,.0f}"
         stop_loss_str = f"${setup.stop_loss:,.0f}"
-        targets = [t for t in [setup.target1, setup.target2, setup.target3] if t]
+        targets = [t for t in [setup.target1, setup.target2] if t]
         targets_str = ' → '.join([f"${t:,.0f}" for t in targets])
 
         summary += f"سعر الدخول: عند اختراق {entry_price_str} (فريم {setup.timeframe.upper()}) مع ثبات 3 شموع ساعة فوقه\n"

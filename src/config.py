@@ -55,7 +55,6 @@ TELEGRAM_CONFIG = {
 ANALYSIS_CONFIG = {
     # General
     'ATR_PERIOD': 14,
-    'MERGE_CONFLUENT_LEVELS': False, # User request to disable confluent zones
 
     # Trend Analysis
     'TREND_SHORT_PERIOD': 20,

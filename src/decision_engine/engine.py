@@ -46,7 +46,6 @@ class DecisionEngine:
                         stop_loss=primary_pattern.invalidation_level,
                         target1=primary_pattern.target1,
                         target2=primary_pattern.target2,
-                        target3=primary_pattern.target3,
                         confirmation_rule='3_candle_close',
                         confirmation_conditions=confirmation_conditions,
                         optional_confirmation_conditions=optional_conditions,
