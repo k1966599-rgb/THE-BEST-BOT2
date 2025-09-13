@@ -87,13 +87,14 @@ class OKXDataFetcher(BaseDataFetcher):
             int: The equivalent number of minutes. Defaults to 1440 (1 day)
             if the format is unrecognized.
         """
+        tf = timeframe.lower()
         try:
-            if 'm' in timeframe:
-                return int(timeframe.replace('m', ''))
-            elif 'H' in timeframe:
-                return int(timeframe.replace('H', '')) * 60
-            elif 'D' in timeframe:
-                return int(timeframe.replace('D', '')) * 24 * 60
+            if 'm' in tf:
+                return int(tf.replace('m', ''))
+            elif 'h' in tf:
+                return int(tf.replace('h', '')) * 60
+            elif 'd' in tf:
+                return int(tf.replace('d', '')) * 24 * 60
         except (ValueError, TypeError):
             return 1440
         return 1440
