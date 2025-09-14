@@ -121,11 +121,21 @@ class TrendLineAnalysis(BaseAnalysis):
         if support_trend:
             support_price = support_trend['slope'] * current_time_x + support_trend['intercept']
             if support_price < current_price:
-                supports.append(Level(name="دعم الاتجاه قصير المدى", value=round(support_price, 4), level_type='support', quality='حرج'))
+                trend_name = self._get_trend_name()
+                supports.append(Level(name=f"دعم الاتجاه {trend_name}", value=round(support_price, 4), level_type='support', quality='حرج'))
 
         if resistance_trend:
             resistance_price = resistance_trend['slope'] * current_time_x + resistance_trend['intercept']
             if resistance_price > current_price:
-                resistances.append(Level(name="مقاومة الاتجاه قصير المدى", value=round(resistance_price, 4), level_type='resistance', quality='حرج'))
+                trend_name = self._get_trend_name()
+                resistances.append(Level(name=f"مقاومة الاتجاه {trend_name}", value=round(resistance_price, 4), level_type='resistance', quality='حرج'))
 
         return {'supports': supports, 'resistances': resistances}
+
+    def _get_trend_name(self) -> str:
+        """Returns the trend name based on the timeframe."""
+        if self.timeframe == '1d':
+            return "طويل المدى"
+        if self.timeframe == '4h':
+            return "متوسط المدى"
+        return "قصير المدى"
