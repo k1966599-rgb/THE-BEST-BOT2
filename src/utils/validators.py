@@ -28,7 +28,7 @@ def validate_symbol_timeframe(symbol: str, timeframe: str):
     Raises:
         ValueError: If the symbol or timeframe is not supported.
     """
-    okx_symbol = symbol.replace('/', '-')
+    okx_symbol = symbol.replace('/', '-').upper()
     if okx_symbol not in SUPPORTED_COMBINATIONS:
         raise ValueError(f"Symbol {symbol} is not supported.")
 
