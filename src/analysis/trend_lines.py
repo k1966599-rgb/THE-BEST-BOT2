@@ -49,7 +49,7 @@ class TrendLineAnalysis(BaseAnalysis):
             tuple: A tuple containing two lists: indices of high pivots and
             indices of low pivots.
         """
-        prominence = data['close'].std() * 0.75
+        prominence = data['close'].std() * 0.4 # Reduced for more sensitivity
         high_pivots_idx, _ = find_peaks(data['high'], prominence=prominence, distance=5)
         low_pivots_idx, _ = find_peaks(-data['low'], prominence=prominence, distance=5)
         return high_pivots_idx, low_pivots_idx

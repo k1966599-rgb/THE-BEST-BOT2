@@ -9,7 +9,7 @@ class FibonacciAnalysis(BaseAnalysis):
     def __init__(self, config: dict = None, timeframe: str = '1h'):
         super().__init__(config, timeframe)
         overrides = self.config.get('TIMEFRAME_OVERRIDES', {}).get(self.timeframe, {})
-        self.lookback_period = overrides.get('FIB_LOOKBACK', self.config.get('FIB_LOOKBACK', 90))
+        self.lookback_period = overrides.get('FIB_LOOKBACK', self.config.get('FIB_LOOKBACK', 180)) # Increased from 90
         self.retracement_ratios = [0.236, 0.382, 0.5, 0.618, 0.786]
         self.extension_ratios = [1.618, 2.618]
 
