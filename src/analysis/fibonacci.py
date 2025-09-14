@@ -24,12 +24,33 @@ class FibonacciAnalysis(BaseAnalysis):
         highest_high = data['high'].max()
         lowest_low = data['low'].min()
         price_range = highest_high - lowest_low
-        logger.info(f"FibonacciAnalysis for {self.timeframe}: Lookback={self.lookback_period}, High={highest_high}, Low={lowest_low}, PriceRange={price_range}")
+
         if price_range == 0:
             return {'supports': [], 'resistances': []}
 
         current_price = data['close'].iloc[-1]
-        is_uptrend = current_price > data['close'].iloc[0]
+
+        ema_short_period = self.config.get('TREND_SHORT_PERIOD', 20)
+        ema_long_period = self.config.get('TREND_LONG_PERIOD', 100)
+
+        ema_short_col = f'EMA_{ema_short_period}'
+        ema_long_col = f'EMA_{ema_long_period}'
+
+        def get_val(col_name):
+            if col_name.lower() in data.columns:
+                return data[col_name.lower()].iloc[-1]
+            if col_name.upper() in data.columns:
+                return data[col_name.upper()].iloc[-1]
+            return None
+
+        ema_short = get_val(ema_short_col)
+        ema_long = get_val(ema_long_col)
+
+        if ema_short is None or ema_long is None:
+            logger.warning(f"EMAs not found in DataFrame for {self.timeframe}. Falling back to simple trend detection.")
+            is_uptrend = current_price > data['close'].iloc[0]
+        else:
+            is_uptrend = ema_short > ema_long
 
         support_levels = []
         resistance_levels = []
@@ -50,9 +71,9 @@ class FibonacciAnalysis(BaseAnalysis):
         for ratio in self.extension_ratios:
             level_val = highest_high + (price_range * ratio) if is_uptrend else lowest_low - (price_range * ratio)
             if level_val > current_price:
-                 resistances.append(Level(name=f"Fibonacci Extension Resistance {ratio}", value=round(level_val, 4), level_type='resistance', quality='Strong'))
+                resistance_levels.append(Level(name=f"Fibonacci Extension Resistance {ratio}", value=round(level_val, 4), level_type='resistance', quality='Strong'))
             else:
-                 support_levels.append(Level(name=f"Fibonacci Extension Support {ratio}", value=round(level_val, 4), level_type='support', quality='Strong'))
+                support_levels.append(Level(name=f"Fibonacci Extension Support {ratio}", value=round(level_val, 4), level_type='support', quality='Strong'))
 
         return {
             'supports': sorted(support_levels, key=lambda x: x.value, reverse=True),
