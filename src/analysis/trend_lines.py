@@ -1,8 +1,11 @@
 import pandas as pd
+import logging
 from scipy.signal import find_peaks
 from typing import Dict, Any, Optional, List
 from .base_analysis import BaseAnalysis
 from .data_models import Level
+
+logger = logging.getLogger(__name__)
 
 def get_line_equation(p1: tuple, p2: tuple) -> Optional[Dict[str, float]]:
     """Calculates the slope and intercept of a line defined by two points.
