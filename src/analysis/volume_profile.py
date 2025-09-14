@@ -41,8 +41,10 @@ class VolumeProfileAnalysis(BaseAnalysis):
         resistances = []
         current_price = df['close'].iloc[-1]
 
+        # The Point of Control is the most significant level, map it to "main resistance/support"
+        poc_name = "دعم رئيسي" if poc_price < current_price else "مقاومة رئيسية"
         poc_level = Level(
-            name="Volume Profile POC",
+            name=poc_name,
             value=round(poc_price, 4),
             level_type='support' if poc_price < current_price else 'resistance',
             quality='POC'
@@ -55,8 +57,10 @@ class VolumeProfileAnalysis(BaseAnalysis):
         for idx in hvn_indices:
             if idx == poc_index: continue
             hvn_price = price_bins[idx]
+            # Map High Volume Nodes to demand/supply zones
+            hvn_name = "منطقة طلب عالية" if hvn_price < current_price else "منطقة عرض عالية"
             hvn_level = Level(
-                name="High Volume Node",
+                name=hvn_name,
                 value=round(hvn_price, 4),
                 level_type='support' if hvn_price < current_price else 'resistance',
                 quality='HVN'
