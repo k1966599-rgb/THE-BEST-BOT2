@@ -20,12 +20,10 @@ class ReportBuilder:
         try:
             for filename in os.listdir(template_dir):
                 if filename.endswith('.txt'):
-                    # Key will be 'long_term', 'medium_term', etc.
                     key = filename.replace('_template.txt', '')
                     with open(os.path.join(template_dir, filename), 'r', encoding='utf-8') as f:
                         templates[key] = f.read()
         except FileNotFoundError:
-            # Handle case where directory might not exist
             pass
         return templates
 
@@ -33,46 +31,41 @@ class ReportBuilder:
         """
         Constructs a list of messages by preparing data and formatting a split template.
         """
-        analysis_type = general_info.get('analysis_type')  # e.g., 'long_term'
+        analysis_type = general_info.get('analysis_type')
         template = self.templates.get(analysis_type)
 
         if not template:
             return [{"type": "error", "content": f"لم يتم العثور على قالب للتحليل من نوع: {analysis_type}"}]
 
-        # Prepare a single dictionary with all data needed for the template
         report_data, primary_trade_setup = self._prepare_report_data(ranked_results, general_info)
 
-        # Split the template into parts for separate messages
-        # Split by lines starting with 🕐, 🕓, 📅, or 📌
         parts = re.split(r'(?m)^(?:🕐|🕓|📅|📌)', template)
 
         header = parts[0].strip()
         timeframe_sections = []
         summary_section = ""
-
-        # Re-add the splitters to the beginning of each part
         delimiters = re.findall(r'(?m)^(?:🕐|🕓|📅|📌)', template)
 
         i = 0
         for part in parts[1:]:
-            if "الملخص التنفيذي" in part:
-                summary_section = (delimiters[i] + part).strip()
+            delimiter = delimiters[i] if i < len(delimiters) else ''
+            full_section = (delimiter + part).strip()
+            if "الملخص التنفيذي" in full_section:
+                summary_section = full_section
             else:
-                timeframe_sections.append((delimiters[i] + part).strip())
+                timeframe_sections.append(full_section)
             i += 1
 
         messages = []
-        # Message 1: Header
+        all_keys = set(re.findall(r'\{(\w+)\}', template))
+        for key in all_keys:
+            if key not in report_data:
+                report_data[key] = "N/A"
+
         messages.append({"type": "header", "content": header.format(**report_data)})
-
-        # Timeframe messages
         for section in timeframe_sections:
-            messages.append({
-                "type": "timeframe",
-                "content": section.format(**report_data)
-            })
+            messages.append({"type": "timeframe", "content": section.format(**report_data)})
 
-        # Final message: Summary with keyboard
         if summary_section:
             messages.append({
                 "type": "final_summary",
@@ -94,7 +87,6 @@ class ReportBuilder:
             'current_price': f"${general_info.get('current_price', 0):,.2f}",
         }
 
-        # Analysis type for header
         analysis_type_map = {
             "long_term": "استثمار طويل المدى (1D – 4H – 1H)",
             "medium_term": "متوسط المدى (30m – 15m)",
@@ -102,24 +94,20 @@ class ReportBuilder:
         }
         data['analysis_type'] = analysis_type_map.get(general_info.get('analysis_type'), "تحليل شامل")
 
-        # Process each timeframe result
         for result in ranked_results:
-            tf = result.get('timeframe', '').lower().replace(' ', '')
+            tf_raw = result.get('timeframe', '')
+            tf = tf_raw.lower().replace(' ', '')
             analysis = result.get('raw_analysis', {})
 
-            # Format levels (supports and resistances)
             levels = self._format_levels_for_timeframe(analysis.get('supports', []), analysis.get('resistances', []), tf)
             data.update(levels)
 
-            # Format pattern
             pattern: Optional[Pattern] = (analysis.get('patterns') or [None])[0]
             pattern_data = self._format_pattern_for_timeframe(pattern, tf)
             data.update(pattern_data)
 
-            # Placeholder for summaries (can be enhanced later)
-            data[f'summary_{tf}'] = self._generate_simple_summary(pattern, analysis, tf)
+            data[f'summary_{tf}'] = self._generate_simple_summary(pattern, analysis)
 
-        # Process trade setup and critical points
         primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
         trade_setup_obj = primary_rec.get('trade_setup') if primary_rec else None
 
@@ -129,41 +117,54 @@ class ReportBuilder:
         critical_points = self._get_critical_points(ranked_results)
         data.update(critical_points)
 
-        # Set default values for any missing keys to avoid errors
-        all_keys = re.findall(r'\{(\w+)\}', "".join(self.templates.values()))
-        for key in all_keys:
-            if key not in data:
-                data[key] = "N/A"
-
         return data, trade_setup_obj
 
     def _format_levels_for_timeframe(self, supports: List[Level], resistances: List[Level], tf: str) -> Dict[str, str]:
-        """Formats levels into a dictionary for a specific timeframe."""
+        """Formats levels into a dictionary for a specific timeframe using correct keywords."""
         level_data = {}
 
-        # Mapping from template placeholder to our internal keywords
+        # This map now uses the actual names/keywords found in the analysis modules.
         level_map = {
-            f'support_trend_{tf}': (["trend", "اتجاه"], supports),
-            f'support_channel_{tf}': (["channel", "قناة"], supports),
-            f'fib_support_0618_{tf}': (["fibonacci", "0.618"], supports),
-            f'fib_support_05_{tf}': (["fibonacci", "0.5"], supports),
-            f'demand_zone_{tf}': (["volume", "طلب"], supports),
-            f'previous_support_{tf}': (["previous", "historical", "عام"], supports),
-            f'main_resistance_{tf}': (["poc", "رئيسية"], resistances),
-            f'pattern_target_{tf}': (["target"], resistances),
-            f'fib_resistance_1_{tf}': (["fibonacci", "1.0"], resistances),
-            f'fib_resistance_1172_{tf}': (["fibonacci", "1.172"], resistances),
-            f'fib_resistance_1618_{tf}': (["fibonacci", "1.618"], resistances),
-            f'supply_zone_{tf}': (["volume", "عرض"], resistances),
+            # Trend Lines (from trend_lines.py)
+            f'support_trend_{tf}': ("دعم الاتجاه", supports),
+            # Channels (from channels.py)
+            f'support_channel_{tf}': ("دعم القناة السعرية", supports),
+            # Fibonacci (from fibonacci.py)
+            f'fib_support_0618_{tf}': ("Fibonacci Support 0.618", supports),
+            f'fib_support_05_{tf}': ("Fibonacci Support 0.5", supports),
+            # Volume Profile (from volume_profile.py) - Mapping HVN to demand/supply
+            f'demand_zone_{tf}': ("High Volume Node", supports),
+            # Support/Resistance (from support_resistance.py)
+            f'previous_support_{tf}': ("دعم عام سابق", supports),
+            # Volume Profile (from volume_profile.py) - Mapping POC to main resistance
+            f'main_resistance_{tf}': ("Volume Profile POC", resistances),
+            # Pattern target is handled in _format_pattern_for_timeframe
+            # Fibonacci (from fibonacci.py)
+            f'fib_resistance_1_{tf}': ("Fibonacci Resistance 1.0", resistances),
+            f'fib_resistance_1172_{tf}': ("Fibonacci Resistance 1.172", resistances),
+            f'fib_resistance_1618_{tf}': ("Fibonacci Extension Resistance 1.618", resistances),
+            # Volume Profile (from volume_profile.py)
+            f'supply_zone_{tf}': ("High Volume Node", resistances),
         }
 
-        for key, (keywords, levels) in level_map.items():
+        # Add pattern target separately
+        for r in resistances:
+            if "pattern target" in r.name.lower():
+                level_data[f'pattern_target_{tf}'] = f"${r.value:,.2f}"
+                break
+
+        for key, (keyword, levels) in level_map.items():
             found_level = "N/A"
             for level in levels:
-                if any(keyword in level.name.lower() for keyword in keywords):
+                if keyword in level.name:
                     found_level = f"${level.value:,.2f}"
                     break
             level_data[key] = found_level
+
+        # Special handling for trend support names based on timeframe from template
+        trend_support_name_map = {'1d': 'دعم ترند طويل', '4h': 'دعم ترند متوسط', '1h': 'دعم ترند قصير', '30m': 'دعم ترند قصير', '15m': 'دعم ترند قصير', '5m': 'دعم ترند قصير', '3m': 'دعم ترند قصير'}
+        if f'support_trend_{tf}' in level_data and level_data[f'support_trend_{tf}'] != "N/A":
+            level_data[f'support_trend_{tf}'] = level_data[f'support_trend_{tf}'] # The value is already correct
 
         return level_data
 
@@ -172,7 +173,7 @@ class ReportBuilder:
         if not pattern or not pattern.name:
             return {f'pattern_{tf}': 'لا يوجد', f'activation_{tf}': 'N/A', f'invalidation_{tf}': 'N/A'}
 
-        p_status_map = {"Forming": "قيد التكوين", "Active": "مفعل", "Failed": "فشل", "Completed": "مكتمل"}
+        p_status_map = {"Forming": "قيد التكوين", "Active": "نشط", "Failed": "فشل", "Completed": "مكتمل"}
 
         return {
             f'pattern_{tf}': f"{pattern.name} ({p_status_map.get(pattern.status, pattern.status)})",
@@ -180,10 +181,11 @@ class ReportBuilder:
             f'invalidation_{tf}': f"كسر ${getattr(pattern, 'invalidation_level', 0):,.2f}"
         }
 
-    def _generate_simple_summary(self, pattern: Optional[Pattern], analysis: Dict, tf: str) -> str:
+    def _generate_simple_summary(self, pattern: Optional[Pattern], analysis: Dict) -> str:
         """Generates a one-line summary for a timeframe."""
-        if pattern and pattern.name:
-            return f"يوجد نموذج {pattern.name} قيد التكوين."
+        if pattern and pattern.name and pattern.status:
+             p_status_map = {"Forming": "قيد التكوين", "Active": "نشط", "Failed": "فشل", "Completed": "مكتمل"}
+             return f"يوجد نموذج {pattern.name} {p_status_map.get(pattern.status, pattern.status)}."
 
         strongest_support = (analysis.get('supports') or [None])[0]
         if strongest_support:
