@@ -7,7 +7,7 @@ from ..analysis.data_models import Level, Pattern
 
 class ReportBuilder:
     """
-    Builds the final, comprehensive, user-specified report in a multi-message format.
+    Builds the final report from a single template, splitting it into multiple messages.
     """
     def __init__(self, config: dict):
         self.config = config
@@ -20,172 +20,200 @@ class ReportBuilder:
         try:
             for filename in os.listdir(template_dir):
                 if filename.endswith('.txt'):
+                    # Key will be 'long_term', 'medium_term', etc.
+                    key = filename.replace('_template.txt', '')
                     with open(os.path.join(template_dir, filename), 'r', encoding='utf-8') as f:
-                        templates[filename.replace('_template.txt', '')] = f.read()
+                        templates[key] = f.read()
         except FileNotFoundError:
+            # Handle case where directory might not exist
             pass
         return templates
 
     def build_report(self, ranked_results: List[Dict[str, Any]], general_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Constructs a list of messages to be sent."""
-        if not self.templates:
-            return [{"type": "error", "content": "لا يوجد قالب تحليل"}]
+        """
+        Constructs a list of messages by preparing data and formatting a split template.
+        """
+        analysis_type = general_info.get('analysis_type')  # e.g., 'long_term'
+        template = self.templates.get(analysis_type)
+
+        if not template:
+            return [{"type": "error", "content": f"لم يتم العثور على قالب للتحليل من نوع: {analysis_type}"}]
+
+        # Prepare a single dictionary with all data needed for the template
+        report_data, primary_trade_setup = self._prepare_report_data(ranked_results, general_info)
+
+        # Split the template into parts for separate messages
+        # Split by lines starting with 🕐, 🕓, 📅, or 📌
+        parts = re.split(r'(?m)^(?:🕐|🕓|📅|📌)', template)
+
+        header = parts[0].strip()
+        timeframe_sections = []
+        summary_section = ""
+
+        # Re-add the splitters to the beginning of each part
+        delimiters = re.findall(r'(?m)^(?:🕐|🕓|📅|📌)', template)
+
+        i = 0
+        for part in parts[1:]:
+            if "الملخص التنفيذي" in part:
+                summary_section = (delimiters[i] + part).strip()
+            else:
+                timeframe_sections.append((delimiters[i] + part).strip())
+            i += 1
 
         messages = []
-
         # Message 1: Header
-        messages.append({"type": "header", "content": self._format_header(general_info)})
+        messages.append({"type": "header", "content": header.format(**report_data)})
 
         # Timeframe messages
-        timeframe_emojis = {'1D': '📅', '4H': '🕓', '1H': '🕐', '30m': '🕒', '15m': '🕒', '5m': '🕔', '3m': '🕔'}
-        sorted_results = sorted(ranked_results, key=lambda x: (
-            {'1D': 0, '4H': 1, '1H': 2, '30M': 3, '15M': 4, '5M': 5, '3M': 6}.get(x.get('timeframe', '').upper(), 99)
-        ))
-
-        for result in sorted_results:
-            emoji = timeframe_emojis.get(result.get('timeframe', 'N/A').upper(), '⚙️')
+        for section in timeframe_sections:
             messages.append({
                 "type": "timeframe",
-                "content": self._format_timeframe_section(result, emoji)
+                "content": section.format(**report_data)
             })
 
-        # Summary message
-        summary_content, primary_trade_setup = self._format_summary(sorted_results)
-        messages.append({
-            "type": "final_summary",
-            "content": summary_content,
-            "keyboard": "follow_ignore" if primary_trade_setup else None,
-            "trade_setup": primary_trade_setup
-        })
+        # Final message: Summary with keyboard
+        if summary_section:
+            messages.append({
+                "type": "final_summary",
+                "content": summary_section.format(**report_data),
+                "keyboard": "follow_ignore" if primary_trade_setup else None,
+                "trade_setup": primary_trade_setup
+            })
 
         return messages
 
-    def _format_header(self, general_info: Dict) -> str:
-        """Formats the header message."""
-        template = self.templates.get('header', '')
-        return template.format(
-            symbol=general_info.get('symbol', 'N/A').replace('-', '/'),
-            exchange="OKX Exchange",
-            date_time=datetime.now().strftime('%Y-%m-%d | %H:%M:%S'),
-            current_price=f"${general_info.get('current_price', 0):,.0f}",
-            analysis_type=general_info.get('analysis_type', 'تحليل شامل'),
-            timeframes=' – '.join(general_info.get('timeframes', []))
-        )
-
-    def _format_timeframe_section(self, result: Dict, emoji: str) -> str:
-        """Formats a single timeframe section."""
-        template = self.templates.get('timeframe_section', '')
-        analysis = result.get('raw_analysis', {})
-        pattern: Optional[Pattern] = (analysis.get('patterns') or [None])[0]
-
-        pattern_details = self._format_pattern_details(pattern, result.get('timeframe')) if pattern else ""
-
-        supports = self._format_levels(analysis.get('supports', []), is_support=True)
-        resistances = self._format_levels(analysis.get('resistances', []), is_support=False)
-
-        return template.format(
-            emoji=emoji,
-            timeframe=result.get('timeframe', 'N/A'),
-            symbol=result.get('symbol', 'N/A').replace('-', '/'),
-            pattern_details=pattern_details,
-            supports=supports,
-            resistances=resistances
-        )
-
-    def _format_pattern_details(self, pattern: Pattern, timeframe: str) -> str:
-        """Formats the pattern details for a timeframe section."""
-        p_status_map = {"Forming": "قيد التكوين", "Active": "مفعل", "Failed": "فشل", "Completed": "مكتمل"}
-        timeframe_full_name_map = {'1H': 'ساعة', '4H': '4 ساعات', '1D': 'يومية', '30m': '30 دقيقة', '15m': '15 دقيقة', '5m': '5 دقائق', '3m': '3 دقائق'}
-
-        return (
-            f"النموذج الفني: {pattern.name} ({p_status_map.get(pattern.status, pattern.status)})\n"
-            f"شروط التفعيل: اختراق المقاومة ${getattr(pattern, 'activation_level', 0):,.0f} مع ثبات شمعة {timeframe_full_name_map.get(timeframe, timeframe)} فوقها\n"
-            f"شروط الإلغاء: كسر الدعم ${getattr(pattern, 'invalidation_level', 0):,.0f} مع إغلاق شمعة {timeframe_full_name_map.get(timeframe, timeframe)} تحته"
-        )
-
-    def _format_levels(self, levels: List[Level], is_support: bool) -> str:
-        """Formats a list of levels according to the user's fixed template."""
-
-        level_map = {
-            "دعم ترند": ["trend", "اتجاه"],
-            "دعم قناة سعرية": ["channel", "قناة"],
-            "دعم فيبو 0.618": ["fibonacci", "0.618"],
-            "دعم فيبو 0.5": ["fibonacci", "0.5"],
-            "منطقة طلب": ["volume", "طلب"],
-            "دعم عام سابق": ["previous", "historical", "عام"],
-            "مقاومة رئيسية": ["poc", "رئيسية"],
-            "مقاومة هدف النموذج": ["target"],
-            "مقاومة فيبو 1.0": ["fibonacci", "1.0 "],
-            "مقاومة فيبو 1.172": ["fibonacci", "1.172"],
-            "مقاومة فيبو 1.618": ["fibonacci", "1.618"],
-            "منطقة عرض عالية": ["volume", "عرض"]
+    def _prepare_report_data(self, ranked_results: List[Dict], general_info: Dict) -> (Dict[str, Any], Optional[TradeSetup]):
+        """
+        Prepares a single dictionary with all placeholders for the templates.
+        """
+        data = {
+            'symbol': general_info.get('symbol', 'N/A').replace('-', '/'),
+            'exchange': "OKX",
+            'date_time': datetime.now().strftime('%Y-%m-%d | %H:%M:%S'),
+            'current_price': f"${general_info.get('current_price', 0):,.2f}",
         }
 
-        output_levels = {}
+        # Analysis type for header
+        analysis_type_map = {
+            "long_term": "استثمار طويل المدى (1D – 4H – 1H)",
+            "medium_term": "متوسط المدى (30m – 15m)",
+            "short_term": "قصير المدى (5m – 3m)",
+        }
+        data['analysis_type'] = analysis_type_map.get(general_info.get('analysis_type'), "تحليل شامل")
 
-        for name, keywords in level_map.items():
-            if (is_support and 'دعم' not in name) and (not is_support and 'مقاومة' not in name):
-                continue
+        # Process each timeframe result
+        for result in ranked_results:
+            tf = result.get('timeframe', '').lower().replace(' ', '')
+            analysis = result.get('raw_analysis', {})
 
-            for level in levels:
-                if any(keyword in level.name.lower() for keyword in keywords):
-                    if name not in output_levels: # Take the first match
-                        quality_label = f"({level.quality})" if level.quality else ""
-                        output_levels[name] = f"- {name}: ${level.value:,.0f} {quality_label}"
-                        break # Move to the next name in the map
+            # Format levels (supports and resistances)
+            levels = self._format_levels_for_timeframe(analysis.get('supports', []), analysis.get('resistances', []), tf)
+            data.update(levels)
 
-        return "\n".join(output_levels.values())
+            # Format pattern
+            pattern: Optional[Pattern] = (analysis.get('patterns') or [None])[0]
+            pattern_data = self._format_pattern_for_timeframe(pattern, tf)
+            data.update(pattern_data)
 
-    def _format_summary(self, ranked_results: List[Dict]) -> (str, Optional[TradeSetup]):
-        """Formats the summary message."""
-        template = self.templates.get('summary', '')
+            # Placeholder for summaries (can be enhanced later)
+            data[f'summary_{tf}'] = self._generate_simple_summary(pattern, analysis, tf)
 
-        patterns_summary = self._format_patterns_summary(ranked_results)
-        resistance_points, support_points = self._get_critical_points(ranked_results)
-
+        # Process trade setup and critical points
         primary_rec = next((r for r in ranked_results if r.get('trade_setup')), None)
         trade_setup_obj = primary_rec.get('trade_setup') if primary_rec else None
-        trade_setup_str = self._format_trade_setup(trade_setup_obj) if trade_setup_obj else "لا توجد صفقة مقترحة حالياً."
 
-        return template.format(
-            patterns_summary=patterns_summary,
-            resistance_points=resistance_points,
-            support_points=support_points,
-            trade_setup=trade_setup_str
-        ), trade_setup_obj
+        trade_setup_data = self._format_trade_setup(trade_setup_obj)
+        data.update(trade_setup_data)
 
-    def _format_patterns_summary(self, ranked_results: List[Dict]) -> str:
-        """Formats the summary of all patterns."""
-        p_status_map = {"Forming": "قيد التكوين", "Active": "مفعل", "Failed": "فشل"}
-        timeframe_map = {'1H': 'قصير المدى', '4H': 'متوسط المدى', '1D': 'طويل المدى', '30m': 'متوسط المدى', '15m': 'قصير المدى', '5m': 'لحظي', '3m': 'لحظي'}
+        critical_points = self._get_critical_points(ranked_results)
+        data.update(critical_points)
 
-        lines = []
-        for res in ranked_results:
-            p: Optional[Pattern] = (res.get('raw_analysis', {}).get('patterns') or [None])[0]
-            if p and p.name:
-                tf = res.get('timeframe', 'N/A').upper()
-                targets_str = ' → '.join([f"${t:,.0f}" for t in [getattr(p, 'target1', None), getattr(p, 'target2', None), getattr(p, 'target3', None)] if t])
-                lines.append(f"- {timeframe_map.get(tf, tf)} ({tf}): {p.name} → اختراق ${getattr(p, 'activation_level', 0):,.0f} → أهداف: {targets_str} → حالة النموذج: {p_status_map.get(p.status, p.status)}")
-        return "\n".join(lines)
+        # Set default values for any missing keys to avoid errors
+        all_keys = re.findall(r'\{(\w+)\}', "".join(self.templates.values()))
+        for key in all_keys:
+            if key not in data:
+                data[key] = "N/A"
 
-    def _get_critical_points(self, ranked_results: List[Dict]) -> (str, str):
-        """Gets the critical resistance and support points."""
+        return data, trade_setup_obj
+
+    def _format_levels_for_timeframe(self, supports: List[Level], resistances: List[Level], tf: str) -> Dict[str, str]:
+        """Formats levels into a dictionary for a specific timeframe."""
+        level_data = {}
+
+        # Mapping from template placeholder to our internal keywords
+        level_map = {
+            f'support_trend_{tf}': (["trend", "اتجاه"], supports),
+            f'support_channel_{tf}': (["channel", "قناة"], supports),
+            f'fib_support_0618_{tf}': (["fibonacci", "0.618"], supports),
+            f'fib_support_05_{tf}': (["fibonacci", "0.5"], supports),
+            f'demand_zone_{tf}': (["volume", "طلب"], supports),
+            f'previous_support_{tf}': (["previous", "historical", "عام"], supports),
+            f'main_resistance_{tf}': (["poc", "رئيسية"], resistances),
+            f'pattern_target_{tf}': (["target"], resistances),
+            f'fib_resistance_1_{tf}': (["fibonacci", "1.0"], resistances),
+            f'fib_resistance_1172_{tf}': (["fibonacci", "1.172"], resistances),
+            f'fib_resistance_1618_{tf}': (["fibonacci", "1.618"], resistances),
+            f'supply_zone_{tf}': (["volume", "عرض"], resistances),
+        }
+
+        for key, (keywords, levels) in level_map.items():
+            found_level = "N/A"
+            for level in levels:
+                if any(keyword in level.name.lower() for keyword in keywords):
+                    found_level = f"${level.value:,.2f}"
+                    break
+            level_data[key] = found_level
+
+        return level_data
+
+    def _format_pattern_for_timeframe(self, pattern: Optional[Pattern], tf: str) -> Dict[str, str]:
+        """Formats pattern details into a dictionary."""
+        if not pattern or not pattern.name:
+            return {f'pattern_{tf}': 'لا يوجد', f'activation_{tf}': 'N/A', f'invalidation_{tf}': 'N/A'}
+
+        p_status_map = {"Forming": "قيد التكوين", "Active": "مفعل", "Failed": "فشل", "Completed": "مكتمل"}
+
+        return {
+            f'pattern_{tf}': f"{pattern.name} ({p_status_map.get(pattern.status, pattern.status)})",
+            f'activation_{tf}': f"اختراق ${getattr(pattern, 'activation_level', 0):,.2f}",
+            f'invalidation_{tf}': f"كسر ${getattr(pattern, 'invalidation_level', 0):,.2f}"
+        }
+
+    def _generate_simple_summary(self, pattern: Optional[Pattern], analysis: Dict, tf: str) -> str:
+        """Generates a one-line summary for a timeframe."""
+        if pattern and pattern.name:
+            return f"يوجد نموذج {pattern.name} قيد التكوين."
+
+        strongest_support = (analysis.get('supports') or [None])[0]
+        if strongest_support:
+            return f"أقرب دعم هام عند ${strongest_support.value:,.2f}."
+
+        return "لا توجد إشارات فنية واضحة."
+
+    def _get_critical_points(self, ranked_results: List[Dict]) -> Dict[str, str]:
+        """Gets the critical resistance and support points for the summary."""
         res_points, sup_points = [], []
         for r in ranked_results:
             p: Optional[Pattern] = (r.get('raw_analysis', {}).get('patterns') or [None])[0]
             if p:
                 if getattr(p, 'activation_level', 0):
-                    res_points.append(f"{r.get('timeframe').upper()} = ${p.activation_level:,.0f}")
+                    res_points.append(f"{r.get('timeframe').upper()}: ${p.activation_level:,.2f}")
                 if getattr(p, 'invalidation_level', 0):
-                    sup_points.append(f"{r.get('timeframe').upper()} = ${p.invalidation_level:,.0f}")
-        return ", ".join(res_points), ", ".join(sup_points)
+                    sup_points.append(f"{r.get('timeframe').upper()}: ${p.invalidation_level:,.2f}")
+        return {
+            'resistance_break_levels': ", ".join(res_points) if res_points else "N/A",
+            'support_break_levels': ", ".join(sup_points) if sup_points else "N/A"
+        }
 
-    def _format_trade_setup(self, setup: TradeSetup) -> str:
-        """Formats the trade setup section."""
-        return (
-            "✅ صفقة مؤكدة:\n"
-            f"- سعر الدخول: عند اختراق ${setup.entry_price:,.0f} (فريم {setup.timeframe.upper()}) مع ثبات 3 شموع ساعة فوقه\n"
-            f"- الأهداف: {' → '.join([f'${t:,.0f}' for t in [setup.target1, setup.target2] if t])}\n"
-            f"- وقف الخسارة: عند كسر ${setup.stop_loss:,.0f}\n"
-            f"- ملاحظات: تجنب الدخول على شمعة اختراق وحيدة — انتظر تأكيد الإغلاقات."
-        )
+    def _format_trade_setup(self, setup: Optional[TradeSetup]) -> Dict[str, str]:
+        """Formats the trade setup section into a dictionary."""
+        if not setup:
+            return {'entry_price': 'N/A', 'targets': 'N/A', 'stop_loss': 'N/A', 'trade_notes': 'لا توجد صفقة مقترحة حالياً.'}
+
+        return {
+            'entry_price': f"عند اختراق ${setup.entry_price:,.2f}",
+            'targets': ' → '.join([f'${t:,.2f}' for t in [setup.target1, setup.target2] if t]),
+            'stop_loss': f"عند كسر ${setup.stop_loss:,.2f}",
+            'trade_notes': f"تجنب الدخول على شمعة اختراق وحيدة. انتظر تأكيد إغلاق شمعة {setup.timeframe.upper()}."
+        }

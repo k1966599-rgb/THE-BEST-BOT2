@@ -159,20 +159,32 @@ class InteractiveTelegramBot(BaseNotifier):
         elif callback_data.startswith("analyze_"):
             parts = callback_data.split("_")
             analysis_scope, symbol = parts[1], "_".join(parts[2:])
-            analysis_map = {
-                "long": ("استثمار طويل المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['long_term']),
-                "medium": ("تداول متوسط المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['medium_term']),
-                "short": ("مضاربة سريعة", self.full_config['trading']['TIMEFRAME_GROUPS']['short_term'])
+
+            # Map for user-facing names
+            analysis_name_map = {
+                "long": "تحليل طويل المدى",
+                "medium": "تحليل متوسط المدى",
+                "short": "تحليل قصير المدى"
             }
-            analysis_name, timeframes = analysis_map.get(analysis_scope, ("غير محدد", []))
-            if not symbol or not timeframes:
+            # Map for system analysis type and timeframes
+            analysis_config_map = {
+                "long": ("long_term", self.full_config['trading']['TIMEFRAME_GROUPS']['long_term']),
+                "medium": ("medium_term", self.full_config['trading']['TIMEFRAME_GROUPS']['medium_term']),
+                "short": ("short_term", self.full_config['trading']['TIMEFRAME_GROUPS']['short_term'])
+            }
+
+            analysis_name = analysis_name_map.get(analysis_scope)
+            analysis_type, timeframes = analysis_config_map.get(analysis_scope, (None, None))
+
+            if not symbol or not timeframes or not analysis_type:
                  await query.message.reply_text("خطأ: لم يتم تحديد العملة أو نوع التحليل بشكل صحيح.")
                  return
 
             await query.edit_message_text(text=f"جاري تحضير <b>{analysis_name}</b> لـ <code>{symbol}</code>...", parse_mode='HTML')
             try:
                 chat_id = query.message.chat_id
-                report_messages, ranked_recs = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_name)
+                # Pass the system-facing analysis_type to the runner
+                report_messages, ranked_recs = await self._run_analysis_for_request(chat_id, symbol, timeframes, analysis_type)
 
                 if not report_messages or (report_messages and report_messages[0].get("error")):
                     error_message = report_messages[0].get("error") if report_messages else "حدث خطأ غير معروف."

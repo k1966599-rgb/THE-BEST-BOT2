@@ -56,7 +56,7 @@ async def test_bot_full_analysis_workflow(core_components):
 
     symbol = 'BTC/USDT'
     timeframes = get_config()['trading']['TIMEFRAME_GROUPS']['long_term']
-    analysis_type = "Long-term Analysis"
+    analysis_type = "long_term"
     chat_id = 12345
 
     # --- Execute ---
@@ -81,9 +81,11 @@ async def test_bot_full_analysis_workflow(core_components):
     assert len(timeframe_messages) == len(timeframes)
 
     expected_level_names = {
-        "دعم ترند", "دعم قناة سعرية", "دعم فيبو 0.618", "دعم فيبو 0.5",
-        "منطقة طلب", "دعم عام سابق", "مقاومة رئيسية", "مقاومة هدف النموذج",
-        "مقاومة فيبو 1.0", "مقاومة فيبو 1.172", "مقاومة فيبو 1.618", "منطقة عرض عالية"
+            "دعم ترند قصير", "دعم ترند متوسط", "دعم ترند طويل",
+            "دعم قناة سعرية", "دعم فيبو 0.618", "دعم فيبو 0.5",
+            "منطقة طلب عالية", "دعم عام سابق", "مقاومة رئيسية",
+            "مقاومة هدف النموذج", "مقاومة فيبو 1.0", "مقاومة فيبو 1.172",
+            "مقاومة فيبو 1.618", "منطقة عرض عالية"
     }
 
     for msg in timeframe_messages:
