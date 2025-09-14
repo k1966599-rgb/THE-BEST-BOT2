@@ -1,7 +1,7 @@
 import pytest
 from src.reporting.report_builder import ReportBuilder
-from src.decision_engine.trade_setup import TradeSetup
 from src.config import get_config
+from src.analysis.data_models import Level
 
 @pytest.fixture
 def config():
@@ -13,27 +13,44 @@ def report_builder(config):
     """Provides a ReportBuilder instance."""
     return ReportBuilder(config)
 
-@pytest.fixture
-def sample_trade_setup():
-    """Provides a sample TradeSetup object."""
-    return TradeSetup(
-        chat_id=123,
-        symbol="BTC/USDT",
-        timeframe="1h",
-        pattern_name="Bull Flag",
-        pattern_status="Active",
-        entry_price=50000.0,
-        stop_loss=48000.0,
-        target1=55000.0,
-        target2=58000.0,
-        confirmation_conditions=[
-            "✅ High breakout volume confirms momentum.",
-            "✅ Price is trading above key moving averages (20, 50)."
-        ]
-    )
+def test_build_report_fills_placeholders(report_builder):
+    """
+    Tests that the build_report function correctly fills the template
+    placeholders with data, and that the new keyword-based matching works.
+    """
+    # This data simulates a result from the analysis orchestrator
+    ranked_results = [
+        {
+            'timeframe': '1h',
+            'raw_analysis': {
+                'supports': [
+                    Level(name='Fibonacci Support 0.618', value=60000.0, level_type='support', quality='Strong'),
+                ],
+                'resistances': [
+                    Level(name='Some other Fibonacci Resistance 1.618', value=70000.0, level_type='resistance', quality='Strong'),
+                    Level(name='A pattern target level', value=72000.0, level_type='resistance', quality='Medium')
+                ],
+                'patterns': []
+            }
+        }
+    ]
+    general_info = {
+        'symbol': 'BTC/USDT',
+        'current_price': 65000.0,
+        'analysis_type': 'long_term'
+    }
 
-# The tests below were removed as they are no longer valid after the
-# major refactoring of the report building logic. They would need to
-# be rewritten from scratch to test the new format.
-# def test_format_trade_setup(report_builder, sample_trade_setup):
-# def test_build_report_with_trade_setup(report_builder, sample_trade_setup):
+    messages = report_builder.build_report(ranked_results, general_info)
+
+    # Convert messages to a single string to check for content
+    full_report = " ".join([msg['content'] for msg in messages])
+
+    # Check that the placeholder for a matched level is filled
+    assert '- دعم فيبو 0.618: $60,000.00' in full_report
+
+    # Check that a level matched by keywords is filled
+    assert '- مقاومة فيبو 1.618: $70,000.00' in full_report
+    assert '- مقاومة هدف النموذج: $72,000.00' in full_report
+
+    # Check that an unmatched placeholder is filled with "N/A"
+    assert '- دعم فيبو 0.5: N/A' in full_report
