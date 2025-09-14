@@ -221,3 +221,26 @@ class BasePattern(ABC):
         final_confidence = (base_confidence * 0.4) + (normalized_score * 0.6)
 
         return min(95.0, max(30.0, final_confidence))
+
+    def _calculate_atr_stop_loss(self, price_level: float, atr_multiplier: float = 2.0, is_long: bool = True) -> float:
+        """Calculates a stop-loss level based on ATR.
+
+        Args:
+            price_level (float): The price level to base the stop-loss on (e.g., a pivot low).
+            atr_multiplier (float, optional): The multiplier for the ATR value. Defaults to 2.0.
+            is_long (bool, optional): True for a long position (stop below price), False for short. Defaults to True.
+
+        Returns:
+            float: The calculated stop-loss price.
+        """
+        atr_col = f"ATRr_{self.config.get('ATR_PERIOD', 14)}"
+        if atr_col.lower() not in self.df.columns and atr_col.upper() not in self.df.columns:
+            # Fallback to a fixed percentage if ATR is not available
+            return price_level * 0.99 if is_long else price_level * 1.01
+
+        atr_value = self.df.iloc[-1].get(atr_col.upper(), self.df.iloc[-1].get(atr_col.lower()))
+
+        if is_long:
+            return price_level - (atr_value * atr_multiplier)
+        else:
+            return price_level + (atr_value * atr_multiplier)

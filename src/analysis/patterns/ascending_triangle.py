@@ -79,7 +79,7 @@ class AscendingTriangle(BasePattern):
 
         target1 = best_res_price + height
         target2 = best_res_price + height * 1.618
-        stop_loss = support_lows[-1]['price'] * 0.99
+        stop_loss = self._calculate_atr_stop_loss(support_lows[-1]['price'])
         status = 'قيد التكون' if self.current_price < best_res_price else 'نشط'
 
         # Calculate confidence
