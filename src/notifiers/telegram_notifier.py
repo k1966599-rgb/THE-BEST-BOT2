@@ -98,7 +98,7 @@ class InteractiveTelegramBot(BaseNotifier):
                 okx_symbol = symbol.replace('/', '-')
                 api_timeframe = tf.replace('d', 'D').replace('h', 'H')
                 historical_data_wrapper = await anyio.to_thread.run_sync(
-                    self.fetcher.fetch_historical_data, okx_symbol, api_timeframe, use_cache=False
+                    self.fetcher.fetch_historical_data, okx_symbol, api_timeframe, 730, False
                 )
                 if not historical_data_wrapper or not historical_data_wrapper.get('data'):
                     raise ConnectionError(f"Failed to fetch data for {symbol} on {tf}")
