@@ -1,8 +1,11 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, List
+import logging
 from .base_analysis import BaseAnalysis
 from .data_models import Level
+
+logger = logging.getLogger(__name__)
 
 class FibonacciAnalysis(BaseAnalysis):
     """Performs Fibonacci analysis to find support and resistance levels."""
