@@ -21,6 +21,7 @@ class FibonacciAnalysis(BaseAnalysis):
         highest_high = data['high'].max()
         lowest_low = data['low'].min()
         price_range = highest_high - lowest_low
+        logger.info(f"FibonacciAnalysis for {self.timeframe}: Lookback={self.lookback_period}, High={highest_high}, Low={lowest_low}, PriceRange={price_range}")
         if price_range == 0:
             return {'supports': [], 'resistances': []}
 

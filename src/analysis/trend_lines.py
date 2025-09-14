@@ -116,6 +116,7 @@ class TrendLineAnalysis(BaseAnalysis):
             return {'supports': [], 'resistances': []}
 
         high_pivots_idx, low_pivots_idx = self._get_pivots(data)
+        logger.info(f"TrendLineAnalysis for {self.timeframe}: Found {len(low_pivots_idx)} low pivots and {len(high_pivots_idx)} high pivots. Need at least 2 of each to draw a line.")
         support_trend, resistance_trend = self._get_trend_lines(data, high_pivots_idx, low_pivots_idx)
 
         supports = []

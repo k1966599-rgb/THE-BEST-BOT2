@@ -295,35 +295,36 @@ class OKXDataFetcher(BaseDataFetcher):
             'data': historical_data
         }
 
-    def fetch_historical_data(self, symbol: str = 'BTC-USDT', timeframe: str = '1D', days_to_fetch: int = 730, use_cache: bool = True) -> Dict[str, Any]:
+    def fetch_historical_data(self, symbol: str = 'BTC-USDT', timeframe: str = '1D', days_to_fetch: int = 730) -> Dict[str, Any]:
         """Fetches historical data, utilizing a multi-level cache.
 
-        This method orchestrates the fetching process. It can be forced to
-        ignore the cache and fetch fresh data from the network.
+        This method orchestrates the fetching process, following a
+        cache-then-network strategy:
+        1. Check the in-memory cache.
+        2. Check the file system cache.
+        3. Fetch from the network API if not found in any cache.
+        The result is then stored in both caches for future requests.
 
         Args:
             symbol (str, optional): The trading symbol. Defaults to 'BTC-USDT'.
             timeframe (str, optional): The timeframe string. Defaults to '1D'.
             days_to_fetch (int, optional): The number of days to fetch.
                 Defaults to 730.
-            use_cache (bool, optional): If False, forces a fetch from the
-                network, ignoring any cached data. Defaults to True.
 
         Returns:
             Dict[str, Any]: The processed historical data, or an empty dict
             if fetching fails.
         """
-        cache_key = (symbol, timeframe, days_to_fetch) # Define cache_key at the start
+        cache_key = (symbol, timeframe, days_to_fetch)
 
-        if use_cache:
-            cached_data = self._read_from_cache(cache_key)
-            if cached_data:
-                return cached_data
+        cached_data = self._read_from_cache(cache_key)
+        if cached_data:
+            return cached_data
 
-            file_data = self._read_from_file(symbol, timeframe)
-            if file_data:
-                self.historical_cache[cache_key] = file_data
-                return file_data
+        file_data = self._read_from_file(symbol, timeframe)
+        if file_data:
+            self.historical_cache[cache_key] = file_data
+            return file_data
 
         raw_candles = self._fetch_from_network(symbol, timeframe, days_to_fetch)
         if not raw_candles:
