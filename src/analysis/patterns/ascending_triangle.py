@@ -4,6 +4,7 @@ from typing import List, Dict
 from sklearn.linear_model import LinearRegression
 
 from .base_pattern import BasePattern
+from .pattern_utils import cluster_levels
 from ..data_models import Pattern
 
 class AscendingTriangle(BasePattern):
@@ -45,16 +46,24 @@ class AscendingTriangle(BasePattern):
         if len(self.highs) < 2 or len(self.lows) < 2:
             return []
 
-        # Find horizontal resistance line candidates
-        resistance_candidates = []
-        for i in range(len(self.highs) - 1):
-            for j in range(i + 1, len(self.highs)):
-                if abs(self.highs[j]['price'] - self.highs[i]['price']) / self.highs[i]['price'] <= self.price_tolerance:
-                    resistance_candidates.append((self.highs[i], self.highs[j]))
+        # Cluster the pivot highs to find the horizontal resistance line
+        high_prices = [h['price'] for h in self.highs]
+        resistance_clusters = cluster_levels(high_prices, self.price_tolerance * 100)
 
-        if not resistance_candidates: return []
+        if not resistance_clusters:
+            return []
 
-        best_res_price = max([np.mean([p['price'] for p in r_pair]) for r_pair in resistance_candidates])
+        # Find the cluster with the most touches, as it's the most significant
+        best_res_price = 0
+        max_touches = 0
+        for cluster_mean in resistance_clusters:
+            touches = sum(1 for price in high_prices if abs(price - cluster_mean) / cluster_mean <= self.price_tolerance)
+            if touches > max_touches:
+                max_touches = touches
+                best_res_price = cluster_mean
+
+        if max_touches < 2: # A resistance line needs at least 2 touches
+            return []
 
         # Find rising support line
         support_lows = [l for l in self.lows if l['price'] < best_res_price]
