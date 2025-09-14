@@ -159,12 +159,9 @@ class InteractiveTelegramBot(BaseNotifier):
         elif callback_data.startswith("analyze_"):
             parts = callback_data.split("_")
             analysis_scope, symbol = parts[1], "_".join(parts[2:])
-            analysis_map = {
-                "long": ("استثمار طويل المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['long_term']),
-                "medium": ("تداول متوسط المدى", self.full_config['trading']['TIMEFRAME_GROUPS']['medium_term']),
-                "short": ("مضاربة سريعة", self.full_config['trading']['TIMEFRAME_GROUPS']['short_term'])
-            }
-            analysis_name, timeframes = analysis_map.get(analysis_scope, ("غير محدد", []))
+            # Use the centralized map from the report builder
+            analysis_name = self.report_builder.analysis_type_map.get(f"{analysis_scope}_term")
+            timeframes = self.full_config['trading']['TIMEFRAME_GROUPS'].get(f"{analysis_scope}_term", [])
             if not symbol or not timeframes:
                  await query.message.reply_text("خطأ: لم يتم تحديد العملة أو نوع التحليل بشكل صحيح.")
                  return
