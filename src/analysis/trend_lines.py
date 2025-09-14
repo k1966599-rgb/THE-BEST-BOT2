@@ -89,6 +89,14 @@ class TrendLineAnalysis(BaseAnalysis):
             resistance_trend = get_line_equation((p1_x, data['high'].iloc[p1_idx]), (p2_x, data['high'].iloc[p2_idx]))
         return support_trend, resistance_trend
 
+    def _get_trend_name(self) -> str:
+        """Returns the trend name based on the timeframe."""
+        if self.timeframe == '1d':
+            return "طويل المدى"
+        if self.timeframe == '4h':
+            return "متوسط المدى"
+        return "قصير المدى"
+
     def analyze(self, df: pd.DataFrame) -> Dict[str, List[Level]]:
         """Identifies dynamic support and resistance levels from trend lines.
 
@@ -131,11 +139,3 @@ class TrendLineAnalysis(BaseAnalysis):
                 resistances.append(Level(name=f"مقاومة الاتجاه {trend_name}", value=round(resistance_price, 4), level_type='resistance', quality='حرج'))
 
         return {'supports': supports, 'resistances': resistances}
-
-    def _get_trend_name(self) -> str:
-        """Returns the trend name based on the timeframe."""
-        if self.timeframe == '1d':
-            return "طويل المدى"
-        if self.timeframe == '4h':
-            return "متوسط المدى"
-        return "قصير المدى"

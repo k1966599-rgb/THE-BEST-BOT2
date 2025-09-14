@@ -313,8 +313,9 @@ class OKXDataFetcher(BaseDataFetcher):
             Dict[str, Any]: The processed historical data, or an empty dict
             if fetching fails.
         """
+        cache_key = (symbol, timeframe, days_to_fetch) # Define cache_key at the start
+
         if use_cache:
-            cache_key = (symbol, timeframe, days_to_fetch)
             cached_data = self._read_from_cache(cache_key)
             if cached_data:
                 return cached_data
