@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Any
 from .base_analysis import BaseAnalysis
-from .indicators import apply_all_indicators
+from src.indicators.indicators import apply_all_indicators
 from .data_models import Level, Pattern
 
 class AnalysisOrchestrator:

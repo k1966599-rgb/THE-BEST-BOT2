@@ -25,15 +25,16 @@ def main():
     args, unknown_args = parser.parse_known_args()
 
     # --- Initialize Components ---
-    from src.data.okx_fetcher import OKXDataFetcher
+    from src.data_retrieval.okx_fetcher import OKXDataFetcher
     from src.analysis.orchestrator import AnalysisOrchestrator
     from src.decision_engine.engine import DecisionEngine
     from src.analysis import (
-        TechnicalIndicators, TrendAnalysis, PriceChannels,
-        FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis,
-        VolumeProfileAnalysis
+        TrendAnalysis, PriceChannels,
+        FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
     )
     from src.analysis.new_support_resistance import NewSupportResistanceAnalysis
+    from src.indicators.technical_score import TechnicalIndicators
+    from src.indicators.volume_profile import VolumeProfileAnalysis
 
     config = get_config()
     fetcher = OKXDataFetcher(config)

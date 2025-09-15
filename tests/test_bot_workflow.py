@@ -7,14 +7,15 @@ import anyio
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.config import get_config
-from src.data.okx_fetcher import OKXDataFetcher
+from src.data_retrieval.okx_fetcher import OKXDataFetcher
 from src.analysis.orchestrator import AnalysisOrchestrator
 from src.decision_engine.engine import DecisionEngine
 from src.notifiers.telegram_notifier import InteractiveTelegramBot
 from src.analysis import (
-    TechnicalIndicators, TrendAnalysis, PriceChannels,
+    TrendAnalysis, PriceChannels,
     NewSupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
 )
+from src.indicators.technical_score import TechnicalIndicators
 
 @pytest.fixture(scope="module")
 def core_components():

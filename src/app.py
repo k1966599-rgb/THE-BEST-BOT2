@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any
 import pandas as pd
 
-from .data.okx_fetcher import OKXDataFetcher
+from .data_retrieval.okx_fetcher import OKXDataFetcher
 from .analysis.orchestrator import AnalysisOrchestrator
 from .decision_engine.engine import DecisionEngine
 from .notifiers.telegram_sender import SimpleTelegramNotifier
@@ -119,8 +119,7 @@ def main(config, fetcher, orchestrator, decision_engine):
     service_manager = ServiceManager(fetcher)
 
     logger.info("🚀 Starting background data services for CLI mode...")
-    okx_symbols = [s.replace('/', '-') for s in symbols_to_analyze]
-    service_manager.start_services(okx_symbols)
+    service_manager.start_services(symbols_to_analyze)
     logger.info("⏳ Waiting 10 seconds for initial data...")
     time.sleep(10)
     try:

@@ -5,12 +5,10 @@ top-level `analysis` package, simplifying imports in other parts of the applicat
 """
 
 from .base_analysis import BaseAnalysis
-from .technical_score import TechnicalIndicators
 from .trends import TrendAnalysis
 from .trend_lines import TrendLineAnalysis
 from .channels import PriceChannels
 from .new_support_resistance import NewSupportResistanceAnalysis
 from .fibonacci import FibonacciAnalysis
-from .volume_profile import VolumeProfileAnalysis
 from .classic_patterns import ClassicPatterns
 from .orchestrator import AnalysisOrchestrator

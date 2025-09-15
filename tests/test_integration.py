@@ -3,8 +3,9 @@ from unittest.mock import patch
 import pandas as pd
 
 from src.config import get_config
-from src.data.okx_fetcher import OKXDataFetcher
-from src.analysis import AnalysisOrchestrator, TechnicalIndicators, TrendAnalysis # etc.
+from src.data_retrieval.okx_fetcher import OKXDataFetcher
+from src.analysis import AnalysisOrchestrator, TrendAnalysis # etc.
+from src.indicators.technical_score import TechnicalIndicators
 from src.decision_engine.engine import DecisionEngine
 from src.app import main as cli_main
 

@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, List
-from .base_analysis import BaseAnalysis
-from .data_models import Level
+from ..analysis.base_analysis import BaseAnalysis
+from ..analysis.data_models import Level
 
 class VolumeProfileAnalysis(BaseAnalysis):
     """

@@ -11,9 +11,10 @@ from src.config import get_config
 from src.analysis.orchestrator import AnalysisOrchestrator
 from src.analysis.data_models import Level, Pattern
 from src.analysis import (
-    TechnicalIndicators, TrendAnalysis, PriceChannels,
+    TrendAnalysis, PriceChannels,
     NewSupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
 )
+from src.indicators.technical_score import TechnicalIndicators
 from src.utils.data_preprocessor import standardize_dataframe_columns
 
 @pytest.fixture(scope="module")

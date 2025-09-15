@@ -1,6 +1,6 @@
 import logging
 from typing import List
-from .data.okx_fetcher import OKXDataFetcher
+from .data_retrieval.okx_fetcher import OKXDataFetcher
 
 logger = logging.getLogger(__name__)
 

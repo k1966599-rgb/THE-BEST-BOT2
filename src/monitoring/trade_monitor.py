@@ -3,7 +3,7 @@ import logging
 from typing import Dict, Any, List
 import pandas as pd
 import anyio
-from ..data.base_fetcher import BaseDataFetcher
+from ..data_retrieval.base_fetcher import BaseDataFetcher
 from ..analysis.orchestrator import AnalysisOrchestrator
 from ..notifiers.telegram_sender import SimpleTelegramNotifier
 from ..utils.data_preprocessor import standardize_dataframe_columns

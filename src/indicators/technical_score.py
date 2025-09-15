@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import Dict, Any
-from .base_analysis import BaseAnalysis
+from ..analysis.base_analysis import BaseAnalysis
 
 class TechnicalIndicators(BaseAnalysis):
     """Calculates a technical score based on common indicators.

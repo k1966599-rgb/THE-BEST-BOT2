@@ -2,7 +2,7 @@ import logging
 import time
 import argparse
 from src.config import get_config
-from src.data.okx_fetcher import OKXDataFetcher
+from src.data_retrieval.okx_fetcher import OKXDataFetcher
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
