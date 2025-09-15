@@ -37,12 +37,11 @@ logger = logging.getLogger(__name__)
 
 class InteractiveTelegramBot(BaseNotifier):
     """The main interactive Telegram bot class."""
-    def __init__(self, config: Dict, fetcher: BaseDataFetcher, orchestrator: AnalysisOrchestrator, decision_engine: DecisionEngine):
+    def __init__(self, config: Dict, fetcher: BaseDataFetcher):
         self.full_config = config
         super().__init__(config.get('telegram', {}))
         self.fetcher = fetcher
-        self.orchestrator = orchestrator
-        self.decision_engine = decision_engine
+        self.decision_engine = DecisionEngine(config)
         self.report_builder = ReportBuilder(config)
         self.bot_state = {"is_active": True}
         self.pending_analyses: Dict[str, List[Dict]] = {}
@@ -53,7 +52,6 @@ class InteractiveTelegramBot(BaseNotifier):
         self.trade_monitor = TradeMonitor(
             config=config,
             fetcher=fetcher,
-            orchestrator=orchestrator,
             notifier=alert_notifier
         )
 
@@ -110,7 +108,26 @@ class InteractiveTelegramBot(BaseNotifier):
                 if not df.empty:
                     current_price = df['close'].iloc[-1]
 
-                analysis_results = self.orchestrator.run(df)
+                # Initialize analysis modules for the current timeframe
+                from ..analysis import (
+                    TrendAnalysis, PriceChannels,
+                    NewSupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
+                )
+                from ..indicators.technical_score import TechnicalIndicators
+                from ..indicators.volume_profile import VolumeProfileAnalysis
+
+                analysis_modules = [
+                    TechnicalIndicators(config=self.full_config.get('analysis'), timeframe=tf),
+                    TrendAnalysis(config=self.full_config.get('analysis'), timeframe=tf),
+                    PriceChannels(config=self.full_config.get('analysis'), timeframe=tf),
+                    NewSupportResistanceAnalysis(config=self.full_config.get('analysis'), timeframe=tf),
+                    FibonacciAnalysis(config=self.full_config.get('analysis'), timeframe=tf),
+                    ClassicPatterns(config=self.full_config.get('analysis'), timeframe=tf),
+                    TrendLineAnalysis(config=self.full_config.get('analysis'), timeframe=tf),
+                    VolumeProfileAnalysis(config=self.full_config.get('analysis'), timeframe=tf)
+                ]
+                orchestrator = AnalysisOrchestrator(analysis_modules)
+                analysis_results = orchestrator.run(df)
                 recommendation = self.decision_engine.make_recommendation(analysis_results, df, symbol, tf, chat_id)
                 recommendation['current_price'] = current_price
                 all_results.append(recommendation)

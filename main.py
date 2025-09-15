@@ -39,21 +39,21 @@ def main():
     config = get_config()
     fetcher = OKXDataFetcher(config)
 
-    analysis_modules = [
-        TechnicalIndicators(config=config.get('analysis')),
-        TrendAnalysis(config=config.get('analysis')),
-        PriceChannels(config=config.get('analysis')),
-        NewSupportResistanceAnalysis(config=config.get('analysis')),
-        FibonacciAnalysis(config=config.get('analysis')),
-        ClassicPatterns(config=config.get('analysis')),
-        TrendLineAnalysis(config=config.get('analysis')),
-        VolumeProfileAnalysis(config=config.get('analysis'))
-    ]
-    orchestrator = AnalysisOrchestrator(analysis_modules)
-    decision_engine = DecisionEngine(config)
-
     # --- Run Selected Mode ---
     if args.mode == 'cli':
+        decision_engine = DecisionEngine(config)
+        from src.analysis.orchestrator import AnalysisOrchestrator
+        analysis_modules = [
+            TechnicalIndicators(config=config.get('analysis')),
+            TrendAnalysis(config=config.get('analysis')),
+            PriceChannels(config=config.get('analysis')),
+            NewSupportResistanceAnalysis(config=config.get('analysis')),
+            FibonacciAnalysis(config=config.get('analysis')),
+            ClassicPatterns(config=config.get('analysis')),
+            TrendLineAnalysis(config=config.get('analysis')),
+            VolumeProfileAnalysis(config=config.get('analysis'))
+        ]
+        orchestrator = AnalysisOrchestrator(analysis_modules)
         logger.info("Starting in CLI mode...")
         # We need to pass the unknown args back to the app
         sys.argv = [sys.argv[0]] + unknown_args
@@ -68,9 +68,7 @@ def main():
         # The interactive bot needs access to all the core components
         interactive_bot = InteractiveTelegramBot(
             config=config,
-            fetcher=fetcher,
-            orchestrator=orchestrator,
-            decision_engine=decision_engine
+            fetcher=fetcher
         )
 
         service_manager = ServiceManager(fetcher)

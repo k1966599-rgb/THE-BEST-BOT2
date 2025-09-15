@@ -1,9 +1,13 @@
 import re
 import os
+import json
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from ..decision_engine.trade_setup import TradeSetup
 from ..analysis.data_models import Level, Pattern
+
+logger = logging.getLogger(__name__)
 
 class ReportBuilder:
     """
@@ -46,6 +50,14 @@ class ReportBuilder:
             return [{"type": "error", "content": f"لم يتم العثور على قالب للتحليل من نوع: {analysis_type_display}"}]
 
         report_data, primary_trade_setup = self._prepare_report_data(ranked_results, general_info)
+
+        # Log the report data for debugging
+        try:
+            with open('report_data.log', 'w', encoding='utf-8') as f:
+                json.dump(report_data, f, indent=4, ensure_ascii=False, default=str)
+            logger.info("Successfully logged report_data.log")
+        except Exception as e:
+            logger.error(f"Failed to log report data: {e}")
 
         # Use a regex that won't capture the emojis themselves in the split
         parts = re.split(r'(?m)(?=🕐|🕓|📅|📌)', template)

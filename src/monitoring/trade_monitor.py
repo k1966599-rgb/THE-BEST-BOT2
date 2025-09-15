@@ -22,7 +22,6 @@ class TradeMonitor:
         self,
         config: Dict[str, Any],
         fetcher: BaseDataFetcher,
-        orchestrator: AnalysisOrchestrator,
         notifier: SimpleTelegramNotifier
     ):
         """Initializes the TradeMonitor.
@@ -31,14 +30,11 @@ class TradeMonitor:
             config (Dict[str, Any]): The main configuration dictionary.
             fetcher (BaseDataFetcher): An instance of a data fetcher to get
                 updated market data.
-            orchestrator (AnalysisOrchestrator): An instance of the analysis
-                orchestrator to re-evaluate the market state.
             notifier (SimpleTelegramNotifier): An instance of a notifier to
                 send alerts.
         """
         self.config = config
         self.fetcher = fetcher
-        self.orchestrator = orchestrator
         self.notifier = notifier
         self.followed_trades: Dict[str, Dict[str, Any]] = {}  # key: f"{chat_id}_{symbol}_{timeframe}"
         self.monitoring_interval_seconds = 60  # Check every 60 seconds
@@ -120,7 +116,26 @@ class TradeMonitor:
                 else:
                     continue
 
-                new_analysis_results = self.orchestrator.run(df.copy())
+                # Initialize analysis modules for the current timeframe
+                from ..analysis import (
+                    TrendAnalysis, PriceChannels,
+                    NewSupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
+                )
+                from ..indicators.technical_score import TechnicalIndicators
+                from ..indicators.volume_profile import VolumeProfileAnalysis
+
+                analysis_modules = [
+                    TechnicalIndicators(config=self.config.get('analysis'), timeframe=timeframe),
+                    TrendAnalysis(config=self.config.get('analysis'), timeframe=timeframe),
+                    PriceChannels(config=self.config.get('analysis'), timeframe=timeframe),
+                    NewSupportResistanceAnalysis(config=self.config.get('analysis'), timeframe=timeframe),
+                    FibonacciAnalysis(config=self.config.get('analysis'), timeframe=timeframe),
+                    ClassicPatterns(config=self.config.get('analysis'), timeframe=timeframe),
+                    TrendLineAnalysis(config=self.config.get('analysis'), timeframe=timeframe),
+                    VolumeProfileAnalysis(config=self.config.get('analysis'), timeframe=timeframe)
+                ]
+                orchestrator = AnalysisOrchestrator(analysis_modules)
+                new_analysis_results = orchestrator.run(df.copy())
 
                 await self._check_for_alerts(current_price, new_analysis_results, trade_data, key)
 
