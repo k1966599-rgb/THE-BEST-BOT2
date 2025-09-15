@@ -85,9 +85,9 @@ class AnalysisOrchestrator:
                     min_val = min(l.value for l in cluster)
                     max_val = max(l.value for l in cluster)
 
-                    base_names = set(l.name.split(' ')[0] for l in cluster)
-                    name_str = ', '.join(sorted(list(base_names)))
-                    new_name = f"Confluent Zone ({name_str})"
+                    # Prioritize the name of the level with the highest quality in the cluster
+                    cluster.sort(key=lambda x: x.quality or '', reverse=True)
+                    new_name = f"Confluent Zone: {cluster[0].name}"
 
                     merged.append(Level(
                         name=new_name,
@@ -106,9 +106,9 @@ class AnalysisOrchestrator:
             min_val = min(l.value for l in cluster)
             max_val = max(l.value for l in cluster)
 
-            base_names = set(l.name.split(' ')[0] for l in cluster)
-            name_str = ', '.join(sorted(list(base_names)))
-            new_name = f"Confluent Zone ({name_str})"
+            # Prioritize the name of the level with the highest quality in the cluster
+            cluster.sort(key=lambda x: x.quality or '', reverse=True)
+            new_name = f"Confluent Zone: {cluster[0].name}"
 
             merged.append(Level(
                 name=new_name,
