@@ -39,9 +39,9 @@ def apply_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
         df_with_indicators.ta.obv(append=True)
         df_with_indicators.ta.adx(length=14, append=True)
         df_with_indicators.ta.stoch(k=14, d=3, smooth_k=3, append=True)
-        df_with_indicators.ta.sma(length=20, append=True)
-        df_with_indicators.ta.sma(length=50, append=True)
-        df_with_indicators.ta.ema(length=200, append=True)
+        df_with_indicators.ta.ema(length=20, append=True)
+        df_with_indicators.ta.ema(length=50, append=True)
+        df_with_indicators.ta.ema(length=100, append=True)
 
         # Clean up column names for better readability
         df_with_indicators.columns = [col.lower() for col in df_with_indicators.columns]
