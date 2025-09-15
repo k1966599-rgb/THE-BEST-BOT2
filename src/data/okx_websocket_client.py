@@ -31,7 +31,6 @@ class OKXWebSocketClient:
         self.reconnect_interval = 5
         self.ws_connection = None
         self.ws_thread = None
-        self.default_symbols = self.config.get('trading', {}).get('DEFAULT_SYMBOLS', [])
 
     async def _start_websocket(self, symbols: List[str] = None):
         """Starts and manages the WebSocket connection loop.
@@ -41,11 +40,11 @@ class OKXWebSocketClient:
         automatic reconnection on failure.
 
         Args:
-            symbols (List[str], optional): A list of symbols to subscribe to.
-                If None, uses default symbols from config. Defaults to None.
+            symbols (List[str]): A list of symbols to subscribe to.
         """
-        if symbols is None:
-            symbols = self.default_symbols
+        if not symbols:
+            logger.warning("No symbols provided to WebSocket client. It will not subscribe to any channels.")
+            return
 
         while not self._stop_event.is_set():
             try:

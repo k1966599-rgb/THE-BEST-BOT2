@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
 import numpy as np
-from src.analysis.new_support_resistance import find_new_support_resistance
+from src.analysis.new_support_resistance import NewSupportResistanceAnalysis
 from src.analysis.data_models import Level
 
 class TestNewSupportResistance(unittest.TestCase):
@@ -14,9 +14,10 @@ class TestNewSupportResistance(unittest.TestCase):
             'close': [95, 102, 98, 108, 105, 112, 110, 118, 115, 122, 120, 128, 125, 118, 105]
         }
         self.df = pd.DataFrame(data)
+        self.analysis = NewSupportResistanceAnalysis(config={})
 
     def test_find_new_support_resistance_valid_data(self):
-        result = find_new_support_resistance(self.df)
+        result = self.analysis.analyze(self.df)
         self.assertIn('supports', result)
         self.assertIn('resistances', result)
         self.assertIsInstance(result['supports'], list)
@@ -28,7 +29,7 @@ class TestNewSupportResistance(unittest.TestCase):
 
     def test_find_new_support_resistance_empty_df(self):
         df = pd.DataFrame()
-        result = find_new_support_resistance(df)
+        result = self.analysis.analyze(df)
         self.assertEqual(result, {'supports': [], 'resistances': []})
 
     def test_find_new_support_resistance_zero_price_range(self):
@@ -38,7 +39,7 @@ class TestNewSupportResistance(unittest.TestCase):
             'close': [100, 100, 100, 100]
         }
         df = pd.DataFrame(data)
-        result = find_new_support_resistance(df)
+        result = self.analysis.analyze(df)
         self.assertEqual(result, {'supports': [], 'resistances': []})
 
     def test_find_new_support_resistance_no_peaks(self):
@@ -49,7 +50,7 @@ class TestNewSupportResistance(unittest.TestCase):
             'close': np.arange(95, 115)
         }
         df = pd.DataFrame(data)
-        result = find_new_support_resistance(df)
+        result = self.analysis.analyze(df)
         # Should still have historical high/low
         self.assertEqual(len(result['supports']), 1)
         self.assertEqual(len(result['resistances']), 1)

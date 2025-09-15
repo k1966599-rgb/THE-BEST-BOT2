@@ -19,14 +19,7 @@ TRADING_CONFIG = {
 
     # List of currencies to be monitored and analyzed
     'WATCHLIST': [
-        'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'LINK/USDT', 'DOGE/USDT'
-    ],
-
-    # Default list of currencies if a custom list is not specified
-    'DEFAULT_SYMBOLS': [
-        'BTC-USDT', 'ETH-USDT', 'BNB-USDT', 'XRP-USDT',
-        'ADA-USDT', 'SOL-USDT', 'DOT-USDT', 'DOGE-USDT',
-        'MATIC-USDT', 'LTC-USDT', 'LINK-USDT', 'UNI-USDT'
+        'BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'LINK-USDT', 'DOGE-USDT'
     ],
 
     # Timeframes to be analyzed in order
