@@ -13,7 +13,7 @@ from src.decision_engine.engine import DecisionEngine
 from src.notifiers.telegram_notifier import InteractiveTelegramBot
 from src.analysis import (
     TechnicalIndicators, TrendAnalysis, PriceChannels,
-    SupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
+    NewSupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
 )
 
 @pytest.fixture(scope="module")
@@ -26,7 +26,7 @@ def core_components():
         TechnicalIndicators(config=config.get('analysis')),
         TrendAnalysis(config=config.get('analysis')),
         PriceChannels(config=config.get('analysis')),
-        SupportResistanceAnalysis(config=config.get('analysis')),
+        NewSupportResistanceAnalysis(config=config.get('analysis')),
         FibonacciAnalysis(config=config.get('analysis')),
         ClassicPatterns(config=config.get('analysis')),
         TrendLineAnalysis(config=config.get('analysis'))

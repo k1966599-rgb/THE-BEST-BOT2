@@ -51,7 +51,6 @@ class OKXDataFetcher(BaseDataFetcher):
             config=self.config,
             price_cache=self.price_cache
         )
-        self.default_symbols = self.config.get('trading', {}).get('DEFAULT_SYMBOLS', [])
         self._ensure_data_directory()
         logger.info(f"📁 OKX Data Fetcher initialized - Data Dir: {self.data_dir}")
 
@@ -350,15 +349,12 @@ class OKXDataFetcher(BaseDataFetcher):
         """
         return self.price_cache.get(symbol)
 
-    def start_data_services(self, symbols: List[str] = None):
+    def start_data_services(self, symbols: List[str]):
         """Starts the WebSocket client for live data collection.
 
         Args:
-            symbols (List[str], optional): A list of symbols to subscribe to.
-                If None, uses default symbols from config. Defaults to None.
+            symbols (List[str]): A list of symbols to subscribe to.
         """
-        if symbols is None:
-            symbols = self.default_symbols
         logger.info("🚀 Starting all data services...")
         self.websocket_client.start(symbols)
         logger.info("✅ WebSocket client started.")

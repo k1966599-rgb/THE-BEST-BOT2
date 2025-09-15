@@ -30,9 +30,10 @@ def main():
     from src.decision_engine.engine import DecisionEngine
     from src.analysis import (
         TechnicalIndicators, TrendAnalysis, PriceChannels,
-        SupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis,
+        FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis,
         VolumeProfileAnalysis
     )
+    from src.analysis.new_support_resistance import NewSupportResistanceAnalysis
 
     config = get_config()
     fetcher = OKXDataFetcher(config)
@@ -41,7 +42,7 @@ def main():
         TechnicalIndicators(config=config.get('analysis')),
         TrendAnalysis(config=config.get('analysis')),
         PriceChannels(config=config.get('analysis')),
-        SupportResistanceAnalysis(config=config.get('analysis')),
+        NewSupportResistanceAnalysis(config=config.get('analysis')),
         FibonacciAnalysis(config=config.get('analysis')),
         ClassicPatterns(config=config.get('analysis')),
         TrendLineAnalysis(config=config.get('analysis')),
@@ -76,8 +77,7 @@ def main():
         # Start background data services before running the bot
         logger.info("🚀 Starting background data services for interactive bot...")
         watchlist = config.get('trading', {}).get('WATCHLIST', [])
-        okx_symbols = [s.replace('/', '-') for s in watchlist]
-        service_manager.start_services(okx_symbols)
+        service_manager.start_services(watchlist)
         logger.info("⏳ Waiting 10 seconds for initial data...")
         import time
         time.sleep(10)

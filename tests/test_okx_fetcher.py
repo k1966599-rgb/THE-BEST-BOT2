@@ -17,7 +17,7 @@ def fetcher(config):
 def test_fetcher_initialization(fetcher, config):
     """Test that the fetcher initializes correctly."""
     assert fetcher.config == config
-    assert fetcher.default_symbols == config['trading']['DEFAULT_SYMBOLS']
+    # The default_symbols attribute has been removed, so this assertion is no longer needed.
 
 def test_read_from_cache(fetcher):
     """Test reading from in-memory cache."""

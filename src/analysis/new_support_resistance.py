@@ -1,10 +1,27 @@
 import pandas as pd
 import numpy as np
 from scipy.signal import find_peaks
-from typing import Dict, List
+from typing import Dict, List, Any
 from .data_models import Level
+from .base_analysis import BaseAnalysis
 
-def find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, width: int = 10) -> Dict[str, List[Level]]:
+class NewSupportResistanceAnalysis(BaseAnalysis):
+    """
+    Adapter class to integrate the new S/R function into the analysis orchestrator.
+    """
+    def __init__(self, config: dict = None, timeframe: str = '1h'):
+        super().__init__(config, timeframe)
+        # You can add any specific configurations here if needed
+        self.prominence = self.config.get('SR_PROMINENCE', 0.02)
+        self.width = self.config.get('SR_WIDTH', 10)
+
+    def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Runs the support and resistance analysis using the new peak-finding function.
+        """
+        return _find_new_support_resistance(df, prominence=self.prominence, width=self.width)
+
+def _find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, width: int = 10) -> Dict[str, List[Level]]:
     """Identifies support and resistance levels from price data.
 
     This function uses peak finding on high and low prices to identify
