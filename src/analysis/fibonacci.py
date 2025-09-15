@@ -13,8 +13,8 @@ class FibonacciAnalysis(BaseAnalysis):
         super().__init__(config, timeframe)
         overrides = self.config.get('TIMEFRAME_OVERRIDES', {}).get(self.timeframe, {})
         self.lookback_period = overrides.get('FIB_LOOKBACK', self.config.get('FIB_LOOKBACK', 180)) # Increased from 90
-        self.retracement_ratios = [0.236, 0.382, 0.5, 0.618, 0.786]
-        self.extension_ratios = [1.618, 2.618]
+        self.retracement_ratios = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
+        self.extension_ratios = [1.172, 1.618, 2.618]
 
     def analyze(self, df: pd.DataFrame) -> Dict[str, List[Level]]:
         if len(df) < self.lookback_period:

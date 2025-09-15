@@ -85,12 +85,13 @@ def _find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, wid
     support_levels = []
     for i, sup in enumerate(final_supports):
         quality = "حرج" if i == 0 else ("قوي" if sup['strength'] >= 3 else "ثانوي")
-        support_levels.append(Level(name=f"دعم عام ({quality})", value=sup['value'], level_type='support', quality=quality))
+        support_levels.append(Level(name=f"دعم عام سابق ({quality})", value=sup['value'], level_type='support', quality=quality))
 
     resistance_levels = []
     for i, res in enumerate(final_resistances):
         quality = "حرج" if i == 0 else ("قوي" if res['strength'] >= 3 else "ثانوي")
-        resistance_levels.append(Level(name=f"مقاومة عامة ({quality})", value=res['value'], level_type='resistance', quality=quality))
+        name = f"مقاومة رئيسية ({quality})" if i == 0 else f"مقاومة عامة ({quality})"
+        resistance_levels.append(Level(name=name, value=res['value'], level_type='resistance', quality=quality))
 
     # Add historical levels
     historical_low = df['low'].min()

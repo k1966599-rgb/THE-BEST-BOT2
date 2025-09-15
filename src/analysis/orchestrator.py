@@ -42,6 +42,15 @@ class AnalysisOrchestrator:
             else:
                 other_results[module_name] = result
 
+        for pattern in master_patterns:
+            if pattern.target1:
+                master_resistances.append(Level(
+                    name="pattern target",
+                    value=pattern.target1,
+                    level_type='resistance',
+                    quality='Target'
+                ))
+
         master_supports.sort(key=lambda x: x.value, reverse=True)
         master_resistances.sort(key=lambda x: x.value)
 
