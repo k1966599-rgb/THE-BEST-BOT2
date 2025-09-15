@@ -102,7 +102,7 @@ def test_orchestrator_level_confluence(orchestrator):
     # Check for the merged level
     merged_level_found = False
     for s in supports:
-        if "Confluent" in s.name:
+        if "منطقة التقاء" in s.name:
             merged_level_found = True
             assert s.quality == "Very Strong"
             assert abs(s.value - 100.35) < 0.01 # Check if the value is the average

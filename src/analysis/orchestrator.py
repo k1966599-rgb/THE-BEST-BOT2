@@ -45,7 +45,7 @@ class AnalysisOrchestrator:
         for pattern in master_patterns:
             if pattern.target1:
                 master_resistances.append(Level(
-                    name="pattern target",
+                    name="هدف النموذج",
                     value=pattern.target1,
                     level_type='resistance',
                     quality='Target'
@@ -87,7 +87,7 @@ class AnalysisOrchestrator:
 
                     # Prioritize the name of the level with the highest quality in the cluster
                     cluster.sort(key=lambda x: x.quality or '', reverse=True)
-                    new_name = f"Confluent Zone: {cluster[0].name}"
+                    new_name = f"منطقة التقاء: {cluster[0].name}"
 
                     merged.append(Level(
                         name=new_name,
@@ -108,7 +108,7 @@ class AnalysisOrchestrator:
 
             # Prioritize the name of the level with the highest quality in the cluster
             cluster.sort(key=lambda x: x.quality or '', reverse=True)
-            new_name = f"Confluent Zone: {cluster[0].name}"
+            new_name = f"منطقة التقاء: {cluster[0].name}"
 
             merged.append(Level(
                 name=new_name,
