@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from src.service_manager import ServiceManager
-from src.data.okx_fetcher import OKXDataFetcher
+from src.data_retrieval.okx_fetcher import OKXDataFetcher
 
 @pytest.fixture
 def mock_fetcher():

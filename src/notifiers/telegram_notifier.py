@@ -11,7 +11,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 from .base_notifier import BaseNotifier
-from ..data.base_fetcher import BaseDataFetcher
+from ..data_retrieval.base_fetcher import BaseDataFetcher
 from ..analysis.orchestrator import AnalysisOrchestrator
 from ..decision_engine.engine import DecisionEngine
 from ..reporting.report_builder import ReportBuilder

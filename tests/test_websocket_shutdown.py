@@ -5,7 +5,7 @@ import time
 import unittest
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from src.data.okx_fetcher import OKXDataFetcher
+from src.data_retrieval.okx_fetcher import OKXDataFetcher
 from src.config import get_config
 
 class TestWebSocketShutdown(unittest.TestCase):

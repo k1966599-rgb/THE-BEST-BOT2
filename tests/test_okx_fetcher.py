@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from src.data.okx_fetcher import OKXDataFetcher
+from src.data_retrieval.okx_fetcher import OKXDataFetcher
 from src.config import get_config
 
 @pytest.fixture
@@ -11,7 +11,7 @@ def config():
 @pytest.fixture
 def fetcher(config):
     """Fixture to create an OKXDataFetcher instance."""
-    with patch('src.data.okx_fetcher.OKXWebSocketClient'):
+    with patch('src.data_retrieval.okx_fetcher.OKXWebSocketClient'):
         return OKXDataFetcher(config=config)
 
 def test_fetcher_initialization(fetcher, config):
@@ -36,7 +36,7 @@ def test_get_file_path(fetcher):
     path = fetcher._get_file_path('ETH-USDT', '5m')
     assert str(path) == 'data/ETH-USDT/short_term/5m.json'
 
-@patch('src.data.okx_fetcher.Path.exists', return_value=True)
+@patch('src.data_retrieval.okx_fetcher.Path.exists', return_value=True)
 @patch('builtins.open')
 @patch('json.load', return_value={"data": "file_data"})
 def test_read_from_file_exists(mock_json_load, mock_open, mock_path_exists, fetcher):
@@ -44,7 +44,7 @@ def test_read_from_file_exists(mock_json_load, mock_open, mock_path_exists, fetc
     result = fetcher._read_from_file('BTC-USDT', '1D')
     assert result == {"data": "file_data"}
 
-@patch('src.data.okx_fetcher.Path.exists', return_value=False)
+@patch('src.data_retrieval.okx_fetcher.Path.exists', return_value=False)
 def test_read_from_file_not_exists(mock_path_exists, fetcher):
     """Test reading from a non-existent file."""
     result = fetcher._read_from_file('BTC-USDT', '1D')
