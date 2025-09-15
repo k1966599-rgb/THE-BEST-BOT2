@@ -47,7 +47,8 @@ class VolumeProfileAnalysis(BaseAnalysis):
             name=poc_name,
             value=round(poc_price, 4),
             level_type='support' if poc_price < current_price else 'resistance',
-            quality='POC'
+            quality='POC',
+            template_key='main_support' if poc_price < current_price else 'main_resistance'
         )
         if poc_price < current_price:
             supports.append(poc_level)
@@ -59,11 +60,13 @@ class VolumeProfileAnalysis(BaseAnalysis):
             hvn_price = price_bins[idx]
             # Map High Volume Nodes to demand/supply zones
             hvn_name = "منطقة طلب عالية" if hvn_price < current_price else "منطقة عرض عالية"
+            template_key = 'demand_zone' if hvn_price < current_price else 'supply_zone'
             hvn_level = Level(
                 name=hvn_name,
                 value=round(hvn_price, 4),
                 level_type='support' if hvn_price < current_price else 'resistance',
-                quality='HVN'
+                quality='HVN',
+                template_key=template_key
             )
             if hvn_price < current_price:
                 supports.append(hvn_level)

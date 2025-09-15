@@ -12,7 +12,7 @@ class FibonacciAnalysis(BaseAnalysis):
     def __init__(self, config: dict = None, timeframe: str = '1h'):
         super().__init__(config, timeframe)
         overrides = self.config.get('TIMEFRAME_OVERRIDES', {}).get(self.timeframe, {})
-        self.lookback_period = overrides.get('FIB_LOOKBACK', self.config.get('FIB_LOOKBACK', 180)) # Increased from 90
+        self.lookback_period = overrides.get('FIB_LOOKBACK', self.config.get('FIB_LOOKBACK', 180))
         self.retracement_ratios = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
         self.extension_ratios = [1.172, 1.618, 2.618]
 
@@ -33,8 +33,8 @@ class FibonacciAnalysis(BaseAnalysis):
         ema_short_period = self.config.get('TREND_SHORT_PERIOD', 20)
         ema_long_period = self.config.get('TREND_LONG_PERIOD', 100)
 
-        ema_short_col = f'EMA_{ema_short_period}'
-        ema_long_col = f'EMA_{ema_long_period}'
+        ema_short_col = f'ema_{ema_short_period}'
+        ema_long_col = f'ema_{ema_long_period}'
 
         def get_val(col_name):
             if col_name.lower() in data.columns:
@@ -60,8 +60,17 @@ class FibonacciAnalysis(BaseAnalysis):
             quality = "Strong" if ratio == 0.618 else "Medium"
             name_suffix = f" Support {ratio}" if level_val < current_price else f" Resistance {ratio}"
 
+            template_key = None
+            if ratio == 0.618:
+                template_key = 'fib_support_0_618'
+            elif ratio == 0.5:
+                template_key = 'fib_support_0_5'
+            elif ratio == 1.0:
+                template_key = 'fib_resistance_1_0'
+
             level = Level(name=f"Fibonacci{name_suffix}", value=round(level_val, 4),
-                          level_type='support' if level_val < current_price else 'resistance', quality=quality)
+                          level_type='support' if level_val < current_price else 'resistance', quality=quality,
+                          template_key=template_key)
 
             if level_val < current_price:
                 support_levels.append(level)
@@ -70,10 +79,17 @@ class FibonacciAnalysis(BaseAnalysis):
 
         for ratio in self.extension_ratios:
             level_val = highest_high + (price_range * ratio) if is_uptrend else lowest_low - (price_range * ratio)
+
+            template_key = None
+            if ratio == 1.618:
+                template_key = 'fib_resistance_1_618'
+            elif ratio == 1.172:
+                template_key = 'fib_resistance_1_172'
+
             if level_val > current_price:
-                resistance_levels.append(Level(name=f"Fibonacci Extension Resistance {ratio}", value=round(level_val, 4), level_type='resistance', quality='Strong'))
+                resistance_levels.append(Level(name=f"Fibonacci Extension Resistance {ratio}", value=round(level_val, 4), level_type='resistance', quality='Strong', template_key=template_key))
             else:
-                support_levels.append(Level(name=f"Fibonacci Extension Support {ratio}", value=round(level_val, 4), level_type='support', quality='Strong'))
+                support_levels.append(Level(name=f"Fibonacci Extension Support {ratio}", value=round(level_val, 4), level_type='support', quality='Strong', template_key=template_key))
 
         return {
             'supports': sorted(support_levels, key=lambda x: x.value, reverse=True),

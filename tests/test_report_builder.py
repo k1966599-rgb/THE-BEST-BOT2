@@ -27,12 +27,12 @@ def test_build_report_fills_all_placeholders(report_builder):
             'timeframe': '1h',
             'raw_analysis': {
                 'supports': [
-                    Level(name='Fibonacci Support 0.618', value=60000.0, level_type='support', quality='Strong'),
-                    Level(name='دعم القناة السعرية', value=61000.0, level_type='support', quality='Medium'),
+                    Level(name='Fibonacci Support 0.618', value=60000.0, level_type='support', quality='Strong', template_key='fib_support_0_618'),
+                    Level(name='دعم القناة السعرية', value=61000.0, level_type='support', quality='Medium', template_key='support_channel'),
                 ],
                 'resistances': [
-                    Level(name='Fibonacci Resistance 1.618', value=70000.0, level_type='resistance', quality='Strong'),
-                    Level(name='هدف النموذج', value=72000.0, level_type='resistance', quality='Target')
+                    Level(name='Fibonacci Resistance 1.618', value=70000.0, level_type='resistance', quality='Strong', template_key='fib_resistance_1_618'),
+                    Level(name='هدف النموذج', value=72000.0, level_type='resistance', quality='Target', template_key='pattern_target')
                 ],
                 'patterns': []
             }

@@ -85,19 +85,21 @@ def _find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, wid
     support_levels = []
     for i, sup in enumerate(final_supports):
         quality = "حرج" if i == 0 else ("قوي" if sup['strength'] >= 3 else "ثانوي")
-        support_levels.append(Level(name=f"دعم عام سابق ({quality})", value=sup['value'], level_type='support', quality=quality))
+        template_key = 'previous_support_critical' if quality == "حرج" else 'previous_support_secondary'
+        support_levels.append(Level(name=f"دعم عام سابق ({quality})", value=sup['value'], level_type='support', quality=quality, template_key=template_key))
 
     resistance_levels = []
     for i, res in enumerate(final_resistances):
         quality = "حرج" if i == 0 else ("قوي" if res['strength'] >= 3 else "ثانوي")
         name = f"مقاومة رئيسية ({quality})" if i == 0 else f"مقاومة عامة ({quality})"
-        resistance_levels.append(Level(name=name, value=res['value'], level_type='resistance', quality=quality))
+        template_key = 'main_resistance' if i == 0 else 'secondary_resistance'
+        resistance_levels.append(Level(name=name, value=res['value'], level_type='resistance', quality=quality, template_key=template_key))
 
     # Add historical levels
     historical_low = df['low'].min()
     historical_high = df['high'].max()
-    support_levels.append(Level(name="قاع تاريخي", value=historical_low, level_type='support', quality='تاريخي'))
-    resistance_levels.append(Level(name="قمة تاريخية", value=historical_high, level_type='resistance', quality='تاريخي'))
+    support_levels.append(Level(name="قاع تاريخي", value=historical_low, level_type='support', quality='تاريخي', template_key='historical_bottom'))
+    resistance_levels.append(Level(name="قمة تاريخية", value=historical_high, level_type='resistance', quality='تاريخي', template_key='historical_top'))
 
     return {
         'supports': sorted(support_levels, key=lambda x: x.value, reverse=True)[:5],

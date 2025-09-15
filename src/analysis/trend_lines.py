@@ -134,12 +134,14 @@ class TrendLineAnalysis(BaseAnalysis):
             support_price = support_trend['slope'] * current_time_x + support_trend['intercept']
             if support_price < current_price:
                 trend_name = self._get_trend_name()
-                supports.append(Level(name=f"دعم الاتجاه {trend_name}", value=round(support_price, 4), level_type='support', quality='حرج'))
+                template_key = f"confluence_{trend_name.replace(' ', '_')}_trend_support"
+                supports.append(Level(name=f"دعم الاتجاه {trend_name}", value=round(support_price, 4), level_type='support', quality='حرج', template_key=template_key))
 
         if resistance_trend:
             resistance_price = resistance_trend['slope'] * current_time_x + resistance_trend['intercept']
             if resistance_price > current_price:
                 trend_name = self._get_trend_name()
-                resistances.append(Level(name=f"مقاومة الاتجاه {trend_name}", value=round(resistance_price, 4), level_type='resistance', quality='حرج'))
+                template_key = f"confluence_{trend_name.replace(' ', '_')}_trend_resistance"
+                resistances.append(Level(name=f"مقاومة الاتجاه {trend_name}", value=round(resistance_price, 4), level_type='resistance', quality='حرج', template_key=template_key))
 
         return {'supports': supports, 'resistances': resistances}
