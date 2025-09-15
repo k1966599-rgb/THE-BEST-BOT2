@@ -72,7 +72,8 @@ class PriceChannels(BaseAnalysis):
                     name="دعم القناة السعرية",
                     value=latest_lower_band,
                     level_type='support',
-                    quality='أسفل'
+                    quality='أسفل',
+                    template_key='support_channel'
                 )
             ]
             resistances = [
@@ -80,7 +81,8 @@ class PriceChannels(BaseAnalysis):
                     name="مقاومة القناة السعرية",
                     value=latest_upper_band,
                     level_type='resistance',
-                    quality='أعلى'
+                    quality='أعلى',
+                    template_key='resistance_channel'
                 )
             ]
 

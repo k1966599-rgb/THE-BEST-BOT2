@@ -127,71 +127,11 @@ class ReportBuilder:
     def _format_levels_for_timeframe(self, supports: List[Level], resistances: List[Level], tf: str) -> Dict[str, str]:
         level_data = {}
 
-        # Initialize all possible placeholders to N/A
-        placeholders = [
-            'support_channel', 'previous_support_secondary', 'previous_support_critical',
-            'historical_bottom', 'confluence_short_trend_support', 'confluence_mid_trend_support',
-            'confluence_long_trend_support', 'confluence_main_support',
-            'confluence_previous_secondary_support', 'confluence_previous_critical_support',
-            'demand_zone', 'fib_support_0_618', 'fib_support_0_5',
-            'resistance_channel', 'confluence_short_trend_resistance', 'confluence_main_resistance',
-            'confluence_secondary_resistance', 'confluence_pattern_target', 'pattern_target',
-            'fib_resistance_1_618'
-        ]
-        for p in placeholders:
-            level_data[f"{p}_{tf}"] = "N/A"
+        all_levels = supports + resistances
 
-        # Process supports
-        for level in supports:
-            name = level.name
-            value_str = f"${level.value:,.2f}"
-
-            if "دعم القناة السعرية" in name:
-                level_data[f'support_channel_{tf}'] = value_str
-            elif "دعم عام سابق (ثانوي)" in name:
-                level_data[f'previous_support_secondary_{tf}'] = value_str
-            elif "دعم عام سابق (حرج)" in name:
-                level_data[f'previous_support_critical_{tf}'] = value_str
-            elif "قاع تاريخي" in name:
-                level_data[f'historical_bottom_{tf}'] = value_str
-            elif "منطقة التقاء: دعم الاتجاه قصير المدى" in name:
-                level_data[f'confluence_short_trend_support_{tf}'] = value_str
-            elif "منطقة التقاء: دعم الاتجاه متوسط المدى" in name:
-                level_data[f'confluence_mid_trend_support_{tf}'] = value_str
-            elif "منطقة التقاء: دعم الاتجاه طويل المدى" in name:
-                level_data[f'confluence_long_trend_support_{tf}'] = value_str
-            elif "منطقة التقاء: دعم رئيسي" in name:
-                level_data[f'confluence_main_support_{tf}'] = value_str
-            elif "منطقة التقاء: دعم عام سابق (ثانوي)" in name:
-                level_data[f'confluence_previous_secondary_support_{tf}'] = value_str
-            elif "منطقة التقاء: دعم عام سابق (حرج)" in name:
-                level_data[f'confluence_previous_critical_support_{tf}'] = value_str
-            elif "منطقة طلب عالية" in name:
-                level_data[f'demand_zone_{tf}'] = value_str
-            elif "0.618" in name:
-                level_data[f'fib_support_0_618_{tf}'] = value_str
-            elif "0.5" in name:
-                level_data[f'fib_support_0_5_{tf}'] = value_str
-
-        # Process resistances
-        for level in resistances:
-            name = level.name
-            value_str = f"${level.value:,.2f}"
-
-            if "مقاومة القناة السعرية" in name:
-                level_data[f'resistance_channel_{tf}'] = value_str
-            elif "منطقة التقاء: مقاومة الاتجاه قصير المدى" in name:
-                level_data[f'confluence_short_trend_resistance_{tf}'] = value_str
-            elif "منطقة التقاء: مقاومة رئيسية (حرج)" in name:
-                level_data[f'confluence_main_resistance_{tf}'] = value_str
-            elif "منطقة التقاء: مقاومة عامة (ثانوي)" in name:
-                level_data[f'confluence_secondary_resistance_{tf}'] = value_str
-            elif "منطقة التقاء: هدف النموذج" in name:
-                level_data[f'confluence_pattern_target_{tf}'] = value_str
-            elif "هدف النموذج" in name:
-                level_data[f'pattern_target_{tf}'] = value_str
-            elif "1.618" in name:
-                level_data[f'fib_resistance_1_618_{tf}'] = value_str
+        for level in all_levels:
+            if level.template_key:
+                level_data[f"{level.template_key}_{tf}"] = f"${level.value:,.2f}"
 
         return level_data
 
