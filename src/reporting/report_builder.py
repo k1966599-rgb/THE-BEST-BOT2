@@ -22,11 +22,11 @@ class ReportBuilder:
     def _load_templates(self) -> Dict[str, str]:
         """Loads report templates from the templates directory."""
         templates = {}
-        template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        template_dir = os.path.join(os.path.dirname(__file__), 'new_templates')
         try:
             for filename in os.listdir(template_dir):
                 if filename.endswith('.txt'):
-                    key = filename.replace('_template.txt', '')
+                    key = filename.replace('.txt', '')
                     with open(os.path.join(template_dir, filename), 'r', encoding='utf-8') as f:
                         templates[key] = f.read()
         except FileNotFoundError:
@@ -62,7 +62,7 @@ class ReportBuilder:
 
         messages = []
         # Ensure all keys have a default value to prevent format errors
-        all_keys = set(re.findall(r'\{(\w+)\}', template))
+        all_keys = set(re.findall(r'\{([\w_]+)\}', template))
         for key in all_keys:
             if key not in report_data:
                 report_data[key] = "N/A"
@@ -125,39 +125,73 @@ class ReportBuilder:
         return data, trade_setup_obj
 
     def _format_levels_for_timeframe(self, supports: List[Level], resistances: List[Level], tf: str) -> Dict[str, str]:
-        """Formats levels into a dictionary by matching on keywords, making it more robust."""
         level_data = {}
 
-        trend_name_map = {'1d': 'طويل المدى', '4h': 'متوسط المدى'}
-        trend_name = trend_name_map.get(tf, 'قصير المدى')
+        # Initialize all possible placeholders to N/A
+        placeholders = [
+            'support_channel', 'previous_support_secondary', 'previous_support_critical',
+            'historical_bottom', 'confluence_short_trend_support', 'confluence_mid_trend_support',
+            'confluence_long_trend_support', 'confluence_main_support',
+            'confluence_previous_secondary_support', 'confluence_previous_critical_support',
+            'demand_zone', 'fib_support_0_618', 'fib_support_0_5',
+            'resistance_channel', 'confluence_short_trend_resistance', 'confluence_main_resistance',
+            'confluence_secondary_resistance', 'confluence_pattern_target', 'pattern_target',
+            'fib_resistance_1_618'
+        ]
+        for p in placeholders:
+            level_data[f"{p}_{tf}"] = "N/A"
 
-        # The keywords to search for in the level names.
-        # This is more robust than exact matching.
-        level_keyword_map = {
-            f'support_trend_{tf}': (["اتجاه", trend_name], supports),
-            f'support_channel_{tf}': (["قناة"], supports),
-            f'fib_support_0618_{tf}': (["Fibonacci", "0.618"], supports),
-            f'fib_support_05_{tf}': (["Fibonacci", "0.5"], supports),
-            f'demand_zone_{tf}': (["طلب"], supports),
-            f'previous_support_{tf}': (["سابق"], supports),
+        # Process supports
+        for level in supports:
+            name = level.name
+            value_str = f"${level.value:,.2f}"
 
-            f'main_resistance_{tf}': (["مقاومة رئيسية"], resistances),
-            f'supply_zone_{tf}': (["عرض"], resistances),
-            f'fib_resistance_1_{tf}': (["Fibonacci", "1.0"], resistances),
-            f'fib_resistance_1172_{tf}': (["Fibonacci", "1.172"], resistances),
-            f'fib_resistance_1618_{tf}': (["Fibonacci", "1.618"], resistances),
-            f'pattern_target_{tf}': (["pattern target"], resistances),
-        }
+            if "دعم القناة السعرية" in name:
+                level_data[f'support_channel_{tf}'] = value_str
+            elif "دعم عام سابق (ثانوي)" in name:
+                level_data[f'previous_support_secondary_{tf}'] = value_str
+            elif "دعم عام سابق (حرج)" in name:
+                level_data[f'previous_support_critical_{tf}'] = value_str
+            elif "قاع تاريخي" in name:
+                level_data[f'historical_bottom_{tf}'] = value_str
+            elif "منطقة التقاء: دعم الاتجاه قصير المدى" in name:
+                level_data[f'confluence_short_trend_support_{tf}'] = value_str
+            elif "منطقة التقاء: دعم الاتجاه متوسط المدى" in name:
+                level_data[f'confluence_mid_trend_support_{tf}'] = value_str
+            elif "منطقة التقاء: دعم الاتجاه طويل المدى" in name:
+                level_data[f'confluence_long_trend_support_{tf}'] = value_str
+            elif "منطقة التقاء: دعم رئيسي" in name:
+                level_data[f'confluence_main_support_{tf}'] = value_str
+            elif "منطقة التقاء: دعم عام سابق (ثانوي)" in name:
+                level_data[f'confluence_previous_secondary_support_{tf}'] = value_str
+            elif "منطقة التقاء: دعم عام سابق (حرج)" in name:
+                level_data[f'confluence_previous_critical_support_{tf}'] = value_str
+            elif "منطقة طلب عالية" in name:
+                level_data[f'demand_zone_{tf}'] = value_str
+            elif "0.618" in name:
+                level_data[f'fib_support_0_618_{tf}'] = value_str
+            elif "0.5" in name:
+                level_data[f'fib_support_0_5_{tf}'] = value_str
 
-        # Iterate through the map and find the first level that contains all keywords
-        for key, (keywords, levels) in level_keyword_map.items():
-            found_level = "N/A"
-            for level in levels:
-                # Check if all keywords are present in the level name (case-insensitive)
-                if all(keyword.lower() in level.name.lower() for keyword in keywords):
-                    found_level = f"${level.value:,.2f}"
-                    break
-            level_data[key] = found_level
+        # Process resistances
+        for level in resistances:
+            name = level.name
+            value_str = f"${level.value:,.2f}"
+
+            if "مقاومة القناة السعرية" in name:
+                level_data[f'resistance_channel_{tf}'] = value_str
+            elif "منطقة التقاء: مقاومة الاتجاه قصير المدى" in name:
+                level_data[f'confluence_short_trend_resistance_{tf}'] = value_str
+            elif "منطقة التقاء: مقاومة رئيسية (حرج)" in name:
+                level_data[f'confluence_main_resistance_{tf}'] = value_str
+            elif "منطقة التقاء: مقاومة عامة (ثانوي)" in name:
+                level_data[f'confluence_secondary_resistance_{tf}'] = value_str
+            elif "منطقة التقاء: هدف النموذج" in name:
+                level_data[f'confluence_pattern_target_{tf}'] = value_str
+            elif "هدف النموذج" in name:
+                level_data[f'pattern_target_{tf}'] = value_str
+            elif "1.618" in name:
+                level_data[f'fib_resistance_1_618_{tf}'] = value_str
 
         return level_data
 
