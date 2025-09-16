@@ -1,45 +1,54 @@
 import pandas as pd
 import numpy as np
 from scipy.signal import find_peaks
-from typing import Dict, List
+from typing import Dict, List, Any
 
-def find_swing_points(data: pd.DataFrame, lookback: int, prominence: float = 0.1) -> Dict[str, float]:
+def find_swing_points(data: pd.DataFrame, lookback: int, prominence: float = 0.1) -> Dict[str, Dict[str, Any]]:
     """
     Finds the most recent significant swing high and swing low.
 
     Args:
-        data (pd.DataFrame): DataFrame with 'high' and 'low' columns.
+        data (pd.DataFrame): DataFrame with 'high', 'low', and 'timestamp' columns.
         lookback (int): The number of recent candles to consider.
         prominence (float): The required prominence of the peaks. This helps filter out minor fluctuations.
 
     Returns:
-        Dict[str, float]: A dictionary containing the 'swing_high' and 'swing_low' prices.
+        A dictionary containing info about the swing high and low.
+        e.g. {'swing_high': {'price': 123.45, 'timestamp': 1678886400000}, ...}
     """
-    recent_data = data.iloc[-lookback:]
+    recent_data = data.iloc[-lookback:].copy()
+    # Ensure timestamp is in a usable format
+    recent_data['datetime'] = pd.to_datetime(recent_data['timestamp'], unit='ms')
 
-    # Find peaks (swing highs) in the 'high' series
     high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=prominence)
-
-    # Find peaks in the inverted 'low' series to find troughs (swing lows)
     low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=prominence)
 
+    result = {
+        'swing_high': {'price': None, 'timestamp': None},
+        'swing_low': {'price': None, 'timestamp': None}
+    }
+
     if high_peaks_indices.size > 0:
-        # Get the price of the most recent swing high
         most_recent_high_index = high_peaks_indices[-1]
-        swing_high = recent_data['high'].iloc[most_recent_high_index]
+        result['swing_high']['price'] = recent_data['high'].iloc[most_recent_high_index]
+        result['swing_high']['timestamp'] = recent_data['timestamp'].iloc[most_recent_high_index]
     else:
-        # Fallback to simple max if no prominent peak is found
-        swing_high = recent_data['high'].max()
+        # Fallback to simple max
+        idx = recent_data['high'].idxmax()
+        result['swing_high']['price'] = recent_data['high'].loc[idx]
+        result['swing_high']['timestamp'] = recent_data['timestamp'].loc[idx]
 
     if low_peaks_indices.size > 0:
-        # Get the price of the most recent swing low
         most_recent_low_index = low_peaks_indices[-1]
-        swing_low = recent_data['low'].iloc[most_recent_low_index]
+        result['swing_low']['price'] = recent_data['low'].iloc[most_recent_low_index]
+        result['swing_low']['timestamp'] = recent_data['timestamp'].iloc[most_recent_low_index]
     else:
-        # Fallback to simple min if no prominent peak is found
-        swing_low = recent_data['low'].min()
+        # Fallback to simple min
+        idx = recent_data['low'].idxmin()
+        result['swing_low']['price'] = recent_data['low'].loc[idx]
+        result['swing_low']['timestamp'] = recent_data['timestamp'].loc[idx]
 
-    return {'swing_high': swing_high, 'swing_low': swing_low}
+    return result
 
 
 def calculate_sma(data: pd.DataFrame, window: int) -> pd.Series:
