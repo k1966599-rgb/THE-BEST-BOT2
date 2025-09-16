@@ -4,3 +4,4 @@ pandas
 pytest
 python-telegram-bot
 apscheduler
+scipy

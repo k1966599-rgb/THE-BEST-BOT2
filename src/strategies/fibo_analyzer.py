@@ -2,17 +2,23 @@ import pandas as pd
 from typing import Dict, Any
 
 from .base_strategy import BaseStrategy
-from ..utils.indicators import calculate_rsi, calculate_sma, calculate_bollinger_bands
+from ..utils.indicators import (
+    calculate_rsi,
+    calculate_sma,
+    calculate_bollinger_bands,
+    find_swing_points,
+    calculate_fib_extensions
+)
+from ..utils.patterns import get_candlestick_pattern
 
 class FiboAnalyzer(BaseStrategy):
     """
-    An analyzer based on Fibonacci retracement levels, with confirmations
-    from other technical indicators and candlestick patterns.
+    An enhanced analyzer based on Fibonacci retracement levels, with confirmations
+    from technical indicators and candlestick patterns.
     """
 
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
-        # Strategy-specific parameters are now loaded from the centralized config
         try:
             strategy_params = self.config['strategy_params']['fibo_strategy']
             self.rsi_period = strategy_params.get('rsi_period', 14)
@@ -21,8 +27,6 @@ class FiboAnalyzer(BaseStrategy):
             self.fib_lookback = strategy_params.get('fib_lookback', 50)
             self.bb_window = strategy_params.get('bb_window', 20)
         except KeyError:
-            # Handle cases where the strategy config might be missing
-            # You could log a warning and use default values
             print("Warning: FiboStrategy params not found in config. Using default values.")
             self.rsi_period = 14
             self.sma_period_fast = 50
@@ -30,9 +34,10 @@ class FiboAnalyzer(BaseStrategy):
             self.fib_lookback = 50
             self.bb_window = 20
 
-    def get_analysis(self, data: pd.DataFrame) -> Dict[str, str]:
+    def get_analysis(self, data: pd.DataFrame) -> Dict[str, Any]:
         """
-        Generates analysis based on Fibonacci levels and confirmations.
+        Generates a professional analysis based on Fibonacci levels,
+        indicator confirmations, and candlestick patterns.
         """
         if data.empty or len(data) < self.fib_lookback:
             return {'signal': 'HOLD', 'reason': 'Not enough data for analysis.'}
@@ -42,26 +47,24 @@ class FiboAnalyzer(BaseStrategy):
         data['sma_fast'] = calculate_sma(data, self.sma_period_fast)
         data['sma_slow'] = calculate_sma(data, self.sma_period_slow)
         bb_df = calculate_bollinger_bands(data, window=self.bb_window)
-        data['bb_lower'] = bb_df['lower_band']
-        data['bb_upper'] = bb_df['upper_band']
+        data = data.join(bb_df)
 
+        # --- 2. Identify Swing Points and Candlestick Patterns ---
+        swing_points = find_swing_points(data, lookback=self.fib_lookback)
+        swing_high = swing_points['swing_high']
+        swing_low = swing_points['swing_low']
 
-        # --- 2. Identify Swing Highs and Lows ---
-        # TODO: Implement more robust logic to find significant swing points.
-        # For now, we use a simple lookback period. A better approach would be
-        # to use algorithms like Zig Zag or peak/trough detection.
-        recent_data = data.iloc[-self.fib_lookback:]
-        swing_high = recent_data['high'].max()
-        swing_low = recent_data['low'].min()
+        pattern = get_candlestick_pattern(data.iloc[-2:]) # Check last two candles
 
-        if swing_high == swing_low:
-             return {'signal': 'HOLD', 'reason': 'Market is flat, cannot calculate Fibonacci levels.'}
+        if swing_high <= swing_low:
+            return {'signal': 'HOLD', 'reason': 'Market is flat, cannot calculate Fibonacci levels.'}
 
-        # --- 3. Calculate Fibonacci Retracement Levels ---
+        # --- 3. Calculate Fibonacci Levels ---
         fib_level_618 = swing_high - 0.618 * (swing_high - swing_low)
+        fib_level_500 = swing_high - 0.500 * (swing_high - swing_low)
         fib_level_382 = swing_high - 0.382 * (swing_high - swing_low)
 
-        # --- 4. Get the latest candle data ---
+        # --- 4. Get Latest Data ---
         latest = data.iloc[-1]
 
         # --- 5. Define Trend and Signal Conditions ---
@@ -69,33 +72,41 @@ class FiboAnalyzer(BaseStrategy):
         is_downtrend = latest['sma_fast'] < latest['sma_slow']
 
         # --- BUY Condition ---
-        # 1. Must be in an uptrend.
-        # 2. Price must pull back to a key Fibonacci level (e.g., 61.8%).
-        # 3. RSI should be oversold or neutral (e.g., < 40), suggesting the pullback is losing steam.
-        # 4. Price should be near or below the lower Bollinger Band, indicating a potential bounce.
-        buy_pullback_to_fib = latest['low'] <= fib_level_618 <= latest['high']
-        buy_rsi_confirm = latest['rsi'] < 40
-        buy_bb_confirm = latest['close'] < latest['bb_lower']
+        # Price pulls back to a key Fib level in an uptrend, confirmed by a bullish pattern.
+        buy_pullback_to_fib = latest['low'] <= fib_level_618 <= latest['high'] or \
+                              latest['low'] <= fib_level_500 <= latest['high']
+        buy_rsi_confirm = latest['rsi'] < 45 # RSI below 45 shows pullback is not over-extended
+        buy_pattern_confirm = pattern in ["Bullish Engulfing", "Hammer"]
 
-        if is_uptrend and buy_pullback_to_fib and buy_rsi_confirm and buy_bb_confirm:
+        if is_uptrend and buy_pullback_to_fib and buy_rsi_confirm and buy_pattern_confirm:
+            targets = calculate_fib_extensions(swing_high, swing_low)
             return {
                 'signal': 'BUY',
-                'reason': f'Uptrend pullback to {fib_level_618:.2f} (61.8% Fib). RSI: {latest["rsi"]:.2f}. Price below lower BB.'
+                'reason': f'Uptrend pullback to Fib level confirmed by {pattern}. RSI at {latest["rsi"]:.2f}.',
+                'pattern': pattern,
+                'swing_high': swing_high,
+                'swing_low': swing_low,
+                'targets': [f"{t:.2f}" for t in targets]
             }
 
-        # --- SELL Condition (to close a position) ---
-        # 1. Must be in a downtrend.
-        # 2. Price breaks below a key support level (e.g., the fast SMA).
-        # 3. RSI is trending down.
+        # --- SELL Condition ---
+        # Price breaks below a key support (fast SMA) in a downtrend, confirmed by a bearish pattern.
         sell_price_break = latest['close'] < latest['sma_fast']
-        sell_rsi_confirm = latest['rsi'] < 50 # Example: RSI showing bearish momentum
+        sell_pattern_confirm = pattern == "Bearish Engulfing"
 
-        if is_downtrend and sell_price_break and sell_rsi_confirm:
-             return {
-                 'signal': 'SELL',
-                 'reason': f'Downtrend with price below SMA({self.sma_period_fast}). RSI: {latest["rsi"]:.2f}.'
-             }
+        if is_downtrend and sell_price_break and sell_pattern_confirm:
+            return {
+                'signal': 'SELL',
+                'reason': f'Downtrend price break below SMA({self.sma_period_fast}) confirmed by {pattern}.',
+                'pattern': pattern,
+                'swing_high': swing_high,
+                'swing_low': swing_low
+            }
 
-        # TODO: Add more advanced candlestick pattern recognition (e.g., bullish/bearish engulfing).
-
-        return {'signal': 'HOLD', 'reason': 'No clear signal met conditions.'}
+        return {
+            'signal': 'HOLD',
+            'reason': 'No clear signal met conditions.',
+            'pattern': pattern,
+            'rsi': f'{latest["rsi"]:.2f}',
+            'trend': 'Uptrend' if is_uptrend else 'Downtrend' if is_downtrend else 'Sideways'
+        }
