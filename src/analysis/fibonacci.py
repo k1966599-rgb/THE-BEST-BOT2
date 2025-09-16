@@ -8,88 +8,100 @@ from .data_models import Level
 logger = logging.getLogger(__name__)
 
 class FibonacciAnalysis(BaseAnalysis):
-    """Performs Fibonacci analysis to find support and resistance levels."""
+    """
+    Performs Fibonacci analysis by identifying the most recent significant swing
+    and calculating retracement levels.
+    """
     def __init__(self, config: dict = None, timeframe: str = '1h'):
         super().__init__(config, timeframe)
-        overrides = self.config.get('TIMEFRAME_OVERRIDES', {}).get(self.timeframe, {})
-        self.lookback_period = overrides.get('FIB_LOOKBACK', self.config.get('FIB_LOOKBACK', 180))
-        self.retracement_ratios = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
-        self.extension_ratios = [1.172, 1.618, 2.618]
+        self.retracement_ratios = [0.236, 0.382, 0.5, 0.618, 0.786]
+        self.extension_ratios = [1.618, 2.618]
 
-    def analyze(self, df: pd.DataFrame) -> Dict[str, List[Level]]:
-        if len(df) < self.lookback_period:
+    def analyze(self, df: pd.DataFrame, highs: List[Dict], lows: List[Dict]) -> Dict[str, List[Level]]:
+        if len(highs) < 1 or len(lows) < 1:
             return {'supports': [], 'resistances': []}
 
-        data = df.tail(self.lookback_period)
-        highest_high = data['high'].max()
-        lowest_low = data['low'].min()
-        price_range = highest_high - lowest_low
+        current_price = df['close'].iloc[-1]
 
-        if price_range == 0:
+        # Determine trend using EMAs from the indicators applied in the orchestrator
+        ema_short_col = f'ema_{self.config.get("TREND_SHORT_PERIOD", 20)}'
+        ema_long_col = f'ema_{self.config.get("TREND_LONG_PERIOD", 100)}'
+        is_uptrend = df[ema_short_col].iloc[-1] > df[ema_long_col].iloc[-1]
+
+        swing_high = None
+        swing_low = None
+
+        # Find the most recent, significant swing
+        if is_uptrend:
+            # In an uptrend, we look for a swing from a low to a high.
+            # The most recent high is our swing high.
+            last_high = max(highs, key=lambda x: x['index'])
+            # The swing low is the lowest point before that high.
+            relevant_lows = [l for l in lows if l['index'] < last_high['index']]
+            if not relevant_lows: return {'supports': [], 'resistances': []}
+            swing_low = min(relevant_lows, key=lambda x: x['price'])
+            swing_high = last_high
+        else: # Downtrend
+            # In a downtrend, we look for a swing from a high to a low.
+            # The most recent low is our swing low.
+            last_low = min(lows, key=lambda x: x['index'])
+            # The swing high is the highest point before that low.
+            relevant_highs = [h for h in highs if h['index'] < last_low['index']]
+            if not relevant_highs: return {'supports': [], 'resistances': []}
+            swing_high = max(relevant_highs, key=lambda x: x['price'])
+            swing_low = last_low
+
+        if not swing_high or not swing_low:
             return {'supports': [], 'resistances': []}
 
-        current_price = data['close'].iloc[-1]
-
-        ema_short_period = self.config.get('TREND_SHORT_PERIOD', 20)
-        ema_long_period = self.config.get('TREND_LONG_PERIOD', 100)
-
-        ema_short_col = f'ema_{ema_short_period}'
-        ema_long_col = f'ema_{ema_long_period}'
-
-        def get_val(col_name):
-            if col_name.lower() in data.columns:
-                return data[col_name.lower()].iloc[-1]
-            if col_name.upper() in data.columns:
-                return data[col_name.upper()].iloc[-1]
-            return None
-
-        ema_short = get_val(ema_short_col)
-        ema_long = get_val(ema_long_col)
-
-        if ema_short is None or ema_long is None:
-            logger.warning(f"EMAs not found in DataFrame for {self.timeframe}. Falling back to simple trend detection.")
-            is_uptrend = current_price > data['close'].iloc[0]
-        else:
-            is_uptrend = ema_short > ema_long
+        price_range = swing_high['price'] - swing_low['price']
+        if price_range <= 0:
+            return {'supports': [], 'resistances': []}
 
         support_levels = []
         resistance_levels = []
 
+        # Calculate Retracement Levels
         for ratio in self.retracement_ratios:
-            level_val = highest_high - (price_range * ratio) if is_uptrend else lowest_low + (price_range * ratio)
-            quality = "Strong" if ratio == 0.618 else "Medium"
-            name_suffix = f" Support {ratio}" if level_val < current_price else f" Resistance {ratio}"
+            if is_uptrend:
+                level_val = swing_high['price'] - (price_range * ratio)
+            else:
+                level_val = swing_low['price'] + (price_range * ratio)
+
+            level_type = 'support' if level_val < current_price else 'resistance'
+            quality = "Strong" if ratio == 0.618 else ("Medium" if ratio == 0.5 else "Weak")
 
             template_key = None
-            if ratio == 0.618:
-                template_key = 'fib_support_0_618'
-            elif ratio == 0.5:
-                template_key = 'fib_support_0_5'
-            elif ratio == 1.0:
-                template_key = 'fib_resistance_1_0'
+            if ratio == 0.618: template_key = 'fib_support_0_618'
+            elif ratio == 0.5: template_key = 'fib_support_0_5'
 
-            level = Level(name=f"Fibonacci{name_suffix}", value=round(level_val, 4),
-                          level_type='support' if level_val < current_price else 'resistance', quality=quality,
-                          template_key=template_key)
+            level = Level(
+                name=f"Fibonacci Retracement {ratio}", value=round(level_val, 4),
+                level_type=level_type, quality=quality, template_key=template_key
+            )
 
-            if level_val < current_price:
+            if level_type == 'support':
                 support_levels.append(level)
             else:
                 resistance_levels.append(level)
 
+        # Calculate Extension Levels
         for ratio in self.extension_ratios:
-            level_val = highest_high + (price_range * ratio) if is_uptrend else lowest_low - (price_range * ratio)
-
-            template_key = None
-            if ratio == 1.618:
-                template_key = 'fib_resistance_1_618'
-            elif ratio == 1.172:
-                template_key = 'fib_resistance_1_172'
-
-            if level_val > current_price:
-                resistance_levels.append(Level(name=f"Fibonacci Extension Resistance {ratio}", value=round(level_val, 4), level_type='resistance', quality='Strong', template_key=template_key))
+            if is_uptrend:
+                level_val = swing_high['price'] + (price_range * (ratio - 1))
             else:
-                support_levels.append(Level(name=f"Fibonacci Extension Support {ratio}", value=round(level_val, 4), level_type='support', quality='Strong', template_key=template_key))
+                level_val = swing_low['price'] - (price_range * (ratio - 1))
+
+            template_key = 'fib_resistance_1_618' if ratio == 1.618 else None
+            level = Level(
+                name=f"Fibonacci Extension {ratio}", value=round(level_val, 4),
+                level_type='resistance' if is_uptrend else 'support', quality="Target",
+                template_key=template_key
+            )
+            if level.level_type == 'resistance':
+                resistance_levels.append(level)
+            else:
+                support_levels.append(level)
 
         return {
             'supports': sorted(support_levels, key=lambda x: x.value, reverse=True),

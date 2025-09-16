@@ -33,7 +33,7 @@ class AnalysisOrchestrator:
                 break
 
         # 3. Run all other modules
-        pivot_dependent_modules = ['ClassicPatterns', 'NewSupportResistanceAnalysis', 'TrendLineAnalysis']
+        pivot_dependent_modules = ['ClassicPatterns', 'NewSupportResistanceAnalysis', 'TrendLineAnalysis', 'FibonacciAnalysis']
 
         for module in self.analysis_modules:
             module_name = module.__class__.__name__
