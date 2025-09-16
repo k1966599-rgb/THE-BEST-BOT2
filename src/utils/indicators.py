@@ -1,4 +1,46 @@
 import pandas as pd
+import numpy as np
+from scipy.signal import find_peaks
+from typing import Dict, List
+
+def find_swing_points(data: pd.DataFrame, lookback: int, prominence: float = 0.1) -> Dict[str, float]:
+    """
+    Finds the most recent significant swing high and swing low.
+
+    Args:
+        data (pd.DataFrame): DataFrame with 'high' and 'low' columns.
+        lookback (int): The number of recent candles to consider.
+        prominence (float): The required prominence of the peaks. This helps filter out minor fluctuations.
+
+    Returns:
+        Dict[str, float]: A dictionary containing the 'swing_high' and 'swing_low' prices.
+    """
+    recent_data = data.iloc[-lookback:]
+
+    # Find peaks (swing highs) in the 'high' series
+    high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=prominence)
+
+    # Find peaks in the inverted 'low' series to find troughs (swing lows)
+    low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=prominence)
+
+    if high_peaks_indices.size > 0:
+        # Get the price of the most recent swing high
+        most_recent_high_index = high_peaks_indices[-1]
+        swing_high = recent_data['high'].iloc[most_recent_high_index]
+    else:
+        # Fallback to simple max if no prominent peak is found
+        swing_high = recent_data['high'].max()
+
+    if low_peaks_indices.size > 0:
+        # Get the price of the most recent swing low
+        most_recent_low_index = low_peaks_indices[-1]
+        swing_low = recent_data['low'].iloc[most_recent_low_index]
+    else:
+        # Fallback to simple min if no prominent peak is found
+        swing_low = recent_data['low'].min()
+
+    return {'swing_high': swing_high, 'swing_low': swing_low}
+
 
 def calculate_sma(data: pd.DataFrame, window: int) -> pd.Series:
     """
@@ -132,3 +174,29 @@ def calculate_atr(data: pd.DataFrame, window: int = 14) -> pd.Series:
     atr = tr.ewm(alpha=1/window, adjust=False).mean()
 
     return atr
+
+def calculate_fib_extensions(swing_high: float, swing_low: float) -> List[float]:
+    """
+    Calculates Fibonacci extension levels for take-profit targets.
+
+    Args:
+        swing_high (float): The price of the swing high.
+        swing_low (float): The price of the swing low.
+
+    Returns:
+        List[float]: A list of potential take-profit target prices.
+    """
+    if swing_high <= swing_low:
+        return []
+
+    swing_range = swing_high - swing_low
+
+    # Common Fibonacci extension levels
+    # For an uptrend, targets are above the swing high
+    target1 = swing_high + swing_range * 1.618
+    target2 = swing_high + swing_range * 2.618
+
+    # For a downtrend, targets would be below the swing low, but we'll focus on uptrend targets for now.
+    # The logic in the strategy will determine when to use these.
+
+    return [target1, target2]
