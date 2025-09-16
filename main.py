@@ -1,10 +1,11 @@
+import questionary
+import time
 import logging
 from src.config import get_config
 from src.core.engine import TradingEngine
 from src.strategies.fibo_strategy import FiboStrategy
-# To add a new strategy, you would import it here and instantiate it below.
 
-def main():
+def run_trading_bot():
     """
     The main entry point for the trading bot.
     """
@@ -49,5 +50,78 @@ def main():
     finally:
         logger.info("--- Trading Bot Shutdown ---")
 
+
+def analysis_menu():
+    while True:
+        currency = questionary.select(
+            "Select a currency for analysis:",
+            choices=["BTC", "ETH", "SOL", "LINK", "DOGE", "Back"]
+        ).ask()
+
+        if currency == "Back":
+            break
+
+        term = questionary.select(
+            f"Select analysis term for {currency}:",
+            choices=["Long Term", "Medium Term", "Short Term", "Back"]
+        ).ask()
+
+        if term == "Back":
+            continue
+
+        timeframe_map = {
+            "Long Term": ["1D", "4H", "1H"],
+            "Medium Term": ["30m", "15m"],
+            "Short Term": ["5m", "3m"]
+        }
+
+        timeframe = questionary.select(
+            f"Select timeframe for {term} analysis of {currency}:",
+            choices=timeframe_map[term] + ["Back"]
+        ).ask()
+
+        if timeframe == "Back":
+            continue
+
+        questionary.print(f"Analysis for {currency} on {timeframe} timeframe.")
+        # Here you would call the analysis function
+        time.sleep(2)
+
+
+def main_menu():
+    """
+    The main menu of the application.
+    """
+    status = "متوقف"
+    questionary.print("مرحباً THE BEST BOT")
+
+    while True:
+        questionary.print(f"الحالة: {status}")
+        choice = questionary.select(
+            "Main Menu:",
+            choices=["تشغيل", "تحليل", "متابعة الصفقات", "Exit"]
+        ).ask()
+
+        if choice == "تشغيل":
+            if status == "متوقف":
+                questionary.print("Starting the trading bot...")
+                status = "يعمل"
+                # In a real application, you'd run this in a separate thread.
+                # For this environment, we will just call it directly.
+                # run_trading_bot()
+                questionary.print("Trading bot is now running.")
+                questionary.print("NOTE: Bot logic is commented out to prevent blocking the UI.", style="bold italic")
+                time.sleep(2)
+            else:
+                questionary.print("Bot is already running.", style="bold italic")
+        elif choice == "تحليل":
+            analysis_menu()
+        elif choice == "متابعة الصفقات":
+            questionary.print("Feature not implemented yet.")
+            time.sleep(2)
+        elif choice == "Exit":
+            break
+
+
 if __name__ == '__main__':
-    main()
+    main_menu()
