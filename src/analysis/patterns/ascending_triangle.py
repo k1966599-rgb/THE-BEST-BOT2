@@ -84,13 +84,17 @@ class AscendingTriangle(BasePattern):
 
         # Calculate confidence
         touch_count = len([h for h in self.highs if abs(h['price'] - best_res_price) / best_res_price <= self.price_tolerance]) + len(support_lows)
-        volume_analysis = self._analyze_volume(self.highs, support_lows, support_lows[0]['index'])
+
+        # Get volume analysis, including the new boundary strength
+        boundary_levels_for_volume = [best_res_price] + [p['price'] for p in support_lows]
+        volume_analysis = self._analyze_volume(support_lows[0]['index'], boundary_levels_for_volume)
 
         confidence = self._calculate_confidence(
             r_squared_upper=1.0, # Horizontal line has perfect R-squared
             r_squared_lower=support_trend['r_squared'],
             touch_count=touch_count,
             volume_confirmation=volume_analysis.get('volume_decline', False),
+            boundary_strength=volume_analysis.get('boundary_strength', 0),
             pattern_is_bullish=True
         )
 

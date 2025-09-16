@@ -42,39 +42,72 @@ class TrendLineAnalysis(BaseAnalysis):
         super().__init__(config, timeframe)
         self.long_period = self.config.get('TREND_LONG_PERIOD', 100)
 
-    def _get_trend_lines(self, data: pd.DataFrame, high_pivots_idx: list, low_pivots_idx: list) -> (dict, dict):
-        """Constructs trend lines from the last two pivot points.
-
-        Args:
-            data (pd.DataFrame): The input price data.
-            high_pivots_idx (list): Indices of high pivots.
-            low_pivots_idx (list): Indices of low pivots.
-
-        Returns:
-            tuple: A tuple containing two dictionaries: one for the support
-            trend line equation and one for the resistance trend line equation.
-            Can be None if not enough pivots are found.
+    def _get_trend_lines(self, data: pd.DataFrame, highs: List[Dict], lows: List[Dict]) -> (dict, dict):
         """
-        support_trend, resistance_trend = None, None
-        if len(low_pivots_idx) >= 2:
-            p1_idx, p2_idx = low_pivots_idx[-2], low_pivots_idx[-1]
-            p1_x_val = data.index[p1_idx]
-            if pd.api.types.is_datetime64_any_dtype(data.index):
-                p1_x = data.index[p1_idx].value
-                p2_x = data.index[p2_idx].value
-            else:
-                p1_x = data.index[p1_idx]
-                p2_x = data.index[p2_idx]
-            support_trend = get_line_equation((p1_x, data['low'].iloc[p1_idx]), (p2_x, data['low'].iloc[p2_idx]))
-        if len(high_pivots_idx) >= 2:
-            p1_idx, p2_idx = high_pivots_idx[-2], high_pivots_idx[-1]
-            if pd.api.types.is_datetime64_any_dtype(data.index):
-                p1_x = data.index[p1_idx].value
-                p2_x = data.index[p2_idx].value
-            else:
-                p1_x = data.index[p1_idx]
-                p2_x = data.index[p2_idx]
-            resistance_trend = get_line_equation((p1_x, data['high'].iloc[p1_idx]), (p2_x, data['high'].iloc[p2_idx]))
+        Finds the best-fit support and resistance trend lines using multi-touch validation.
+        """
+
+        def find_best_line(pivots: List[Dict], is_support: bool):
+            best_line = None
+            max_touches = 0
+
+            # Ensure pivots are sorted by index
+            pivots = sorted(pivots, key=lambda p: p['index'])
+
+            if len(pivots) < 2:
+                return None
+
+            # Create numeric index for regression
+            x_numeric = list(range(len(data)))
+            data['x_numeric'] = x_numeric
+
+            for i in range(len(pivots)):
+                for j in range(i + 1, len(pivots)):
+                    p1 = pivots[i]
+                    p2 = pivots[j]
+
+                    # Get numeric x-coordinates for p1 and p2
+                    p1_x_numeric = data.loc[p1['index']]['x_numeric']
+                    p2_x_numeric = data.loc[p2['index']]['x_numeric']
+
+                    equation = get_line_equation((p1_x_numeric, p1['price']), (p2_x_numeric, p2['price']))
+                    if not equation: continue
+
+                    touches = 2
+                    for k in range(len(pivots)):
+                        if k == i or k == j: continue
+                        pk = pivots[k]
+                        pk_x_numeric = data.loc[pk['index']]['x_numeric']
+
+                        projected_price = equation['slope'] * pk_x_numeric + equation['intercept']
+
+                        # Validate with a tolerance
+                        if abs(projected_price - pk['price']) / pk['price'] < 0.015: # 1.5% tolerance
+                            touches += 1
+
+                    if touches > max_touches:
+                        # Further validation: ensure price doesn't cross the line
+                        line_is_valid = True
+                        sliced_df = data.loc[p1['index']:p2['index']]
+                        for index, row in sliced_df.iterrows():
+                            projected_price = equation['slope'] * row['x_numeric'] + equation['intercept']
+                            if is_support and row['low'] < projected_price:
+                                line_is_valid = False
+                                break
+                            if not is_support and row['high'] > projected_price:
+                                line_is_valid = False
+                                break
+
+                        if line_is_valid:
+                            max_touches = touches
+                            best_line = equation
+
+            data.drop(columns=['x_numeric'], inplace=True)
+            return best_line
+
+        support_trend = find_best_line(lows, is_support=True)
+        resistance_trend = find_best_line(highs, is_support=False)
+
         return support_trend, resistance_trend
 
     def _get_trend_name(self) -> str:
@@ -105,12 +138,12 @@ class TrendLineAnalysis(BaseAnalysis):
         if len(data) < 20:
             return {'supports': [], 'resistances': []}
 
-        # Extract local indices from the pivot data relative to the data slice
-        high_pivots_idx = [h['index'] for h in highs if h['index'] in data.index]
-        low_pivots_idx = [l['index'] for l in lows if l['index'] in data.index]
+        # Filter pivots to be within the current data slice
+        highs_in_slice = [h for h in highs if h['index'] in data.index]
+        lows_in_slice = [l for l in lows if l['index'] in data.index]
 
-        logger.info(f"TrendLineAnalysis for {self.timeframe}: Received {len(low_pivots_idx)} low pivots and {len(high_pivots_idx)} high pivots.")
-        support_trend, resistance_trend = self._get_trend_lines(data, high_pivots_idx, low_pivots_idx)
+        logger.info(f"TrendLineAnalysis for {self.timeframe}: Analyzing {len(lows_in_slice)} low pivots and {len(highs_in_slice)} high pivots.")
+        support_trend, resistance_trend = self._get_trend_lines(data, highs_in_slice, lows_in_slice)
 
         supports = []
         resistances = []
