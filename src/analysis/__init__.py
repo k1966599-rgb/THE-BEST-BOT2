@@ -5,9 +5,10 @@ top-level `analysis` package, simplifying imports in other parts of the applicat
 """
 
 from .base_analysis import BaseAnalysis
-from .trends import TrendAnalysis
-from .quantile_channel_analysis import QuantileChannelAnalysis
-from .new_support_resistance import NewSupportResistanceAnalysis
-from .fibonacci import FibonacciAnalysis
 from .classic_patterns import ClassicPatterns
+from .fibonacci import FibonacciAnalysis
+from .new_support_resistance import NewSupportResistanceAnalysis
 from .orchestrator import AnalysisOrchestrator
+from .pivot_detector import PivotDetector
+from .quantile_channel_analysis import QuantileChannelAnalysis
+from .trends import TrendAnalysis
