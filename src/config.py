@@ -6,9 +6,22 @@ notifications, and analysis modules. It also loads sensitive information
 from a .env file.
 """
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
+
+def _load_analysis_config():
+    """Loads the timeframe-specific analysis configuration from the JSON file."""
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), 'analysis', 'analysis_config.json')
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        # Return an empty dict with empty fallbacks if the file is missing or invalid
+        return {"long_term": {}, "medium_term": {}, "short_term": {}}
+
+ANALYSIS_SETTINGS_BY_GROUP = _load_analysis_config()
 
 TRADING_CONFIG = {
     'EXCHANGE_ID': 'okx',
@@ -68,33 +81,7 @@ ANALYSIS_CONFIG = {
     'PATTERN_LOOKBACK': 90,
     'PATTERN_PRICE_TOLERANCE': 0.03,
 
-    # Timeframe-specific overrides for analysis parameters
-    'TIMEFRAME_OVERRIDES': {
-        '1d': {
-            'SR_LOOKBACK': 365,
-            'FIB_LOOKBACK': 365,
-            'PATTERN_LOOKBACK': 365,
-            'CHANNEL_LOOKBACK': 180,
-        },
-        '4h': {
-            'SR_LOOKBACK': 1080, # 180 days
-            'FIB_LOOKBACK': 1080,
-            'PATTERN_LOOKBACK': 1080,
-            'CHANNEL_LOOKBACK': 360, # 60 days
-        },
-        '1h': {
-            'SR_LOOKBACK': 720, # 30 days
-            'FIB_LOOKBACK': 720,
-            'PATTERN_LOOKBACK': 720,
-            'CHANNEL_LOOKBACK': 240, # 10 days
-        },
-        '15m': {
-            'SR_LOOKBACK': 960, # 10 days
-            'FIB_LOOKBACK': 960,
-            'PATTERN_LOOKBACK': 960,
-            'CHANNEL_LOOKBACK': 288, # 3 days
-        }
-    }
+    # This will now be handled by the JSON config
 }
 
 OUTPUT_CONFIG = {
@@ -144,7 +131,7 @@ def get_config():
     Returns:
         Dict: A dictionary containing all configuration settings.
     """
-    return {
+    config = {
         'trading': TRADING_CONFIG,
         'exchange': EXCHANGE_CONFIG,
         'telegram': TELEGRAM_CONFIG,
@@ -152,6 +139,9 @@ def get_config():
         'output': OUTPUT_CONFIG,
         'recommendation': RECOMMENDATION_CONFIG
     }
+    # Merge the new group-specific settings into the main analysis config
+    config['analysis']['groups'] = ANALYSIS_SETTINGS_BY_GROUP
+    return config
 
 def print_current_config():
     """Prints the current configuration to the console.

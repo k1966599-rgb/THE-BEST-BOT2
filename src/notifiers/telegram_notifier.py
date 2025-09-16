@@ -111,23 +111,29 @@ class InteractiveTelegramBot(BaseNotifier):
                 # Initialize analysis modules for the current timeframe
                 from ..analysis import (
                     TrendAnalysis, PriceChannels,
-                    NewSupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
+                    NewSupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis,
+                    PivotDetector
                 )
                 from ..indicators.technical_score import TechnicalIndicators
                 from ..indicators.volume_profile import VolumeProfileAnalysis
 
+                # 1. Get timeframe-specific pivots first
+                pivot_detector = PivotDetector(config=self.full_config, timeframe=tf)
+                pivots = pivot_detector.analyze(df)
+                highs, lows = pivots['highs'], pivots['lows']
+
                 analysis_modules = [
-                    TechnicalIndicators(config=self.full_config.get('analysis'), timeframe=tf),
-                    TrendAnalysis(config=self.full_config.get('analysis'), timeframe=tf),
-                    PriceChannels(config=self.full_config.get('analysis'), timeframe=tf),
-                    NewSupportResistanceAnalysis(config=self.full_config.get('analysis'), timeframe=tf),
-                    FibonacciAnalysis(config=self.full_config.get('analysis'), timeframe=tf),
-                    ClassicPatterns(config=self.full_config.get('analysis'), timeframe=tf),
-                    TrendLineAnalysis(config=self.full_config.get('analysis'), timeframe=tf),
-                    VolumeProfileAnalysis(config=self.full_config.get('analysis'), timeframe=tf)
+                    TechnicalIndicators(config=self.full_config, timeframe=tf),
+                    TrendAnalysis(config=self.full_config, timeframe=tf),
+                    PriceChannels(config=self.full_config, timeframe=tf),
+                    NewSupportResistanceAnalysis(config=self.full_config, timeframe=tf),
+                    FibonacciAnalysis(config=self.full_config, timeframe=tf),
+                    ClassicPatterns(config=self.full_config, timeframe=tf),
+                    TrendLineAnalysis(config=self.full_config, timeframe=tf),
+                    VolumeProfileAnalysis(config=self.full_config, timeframe=tf)
                 ]
                 orchestrator = AnalysisOrchestrator(analysis_modules)
-                analysis_results = orchestrator.run(df)
+                analysis_results = orchestrator.run(df, highs=highs, lows=lows)
                 recommendation = self.decision_engine.make_recommendation(analysis_results, df, symbol, tf, chat_id)
                 recommendation['current_price'] = current_price
                 all_results.append(recommendation)
