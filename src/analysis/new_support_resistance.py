@@ -7,21 +7,16 @@ from .base_analysis import BaseAnalysis
 
 class NewSupportResistanceAnalysis(BaseAnalysis):
     """
-    Adapter class to integrate the new S/R function into the analysis orchestrator.
+    Adapter class to integrate the S/R function into the analysis orchestrator.
+    This class now receives pre-calculated pivots and passes them to the analysis function.
     """
-    def __init__(self, config: dict = None, timeframe: str = '1h'):
-        super().__init__(config, timeframe)
-        # You can add any specific configurations here if needed
-        self.prominence = self.config.get('SR_PROMINENCE', 0.02)
-        self.width = self.config.get('SR_WIDTH', 10)
-
-    def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def analyze(self, df: pd.DataFrame, highs: List[Dict], lows: List[Dict]) -> Dict[str, Any]:
         """
-        Runs the support and resistance analysis using the new peak-finding function.
+        Runs the support and resistance analysis using pre-calculated pivots.
         """
-        return _find_new_support_resistance(df, prominence=self.prominence, width=self.width)
+        return _find_new_support_resistance(df, highs, lows)
 
-def _find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, width: int = 10) -> Dict[str, List[Level]]:
+def _find_new_support_resistance(df: pd.DataFrame, highs: List[Dict], lows: List[Dict]) -> Dict[str, List[Level]]:
     """Identifies support and resistance levels from price data.
 
     This function uses peak finding on high and low prices to identify
@@ -43,17 +38,9 @@ def _find_new_support_resistance(df: pd.DataFrame, prominence: float = 0.02, wid
     if df.empty or not all(col in df.columns for col in ['high', 'low', 'close']):
         return {'supports': [], 'resistances': []}
 
-    price_range = df['high'].max() - df['low'].min()
-    if price_range == 0:
-        return {'supports': [], 'resistances': []}
-
-    prominence_value = price_range * prominence
-
-    resistance_indices, _ = find_peaks(df['high'], prominence=prominence_value, width=width)
-    resistances = df['high'].iloc[resistance_indices].to_list()
-
-    support_indices, _ = find_peaks(-df['low'], prominence=prominence_value, width=width)
-    supports = df['low'].iloc[support_indices].to_list()
+    # Use the prices from the pre-calculated pivots
+    resistances = [h['price'] for h in highs]
+    supports = [l['price'] for l in lows]
 
     all_levels = sorted(list(set(supports + resistances)))
     clustered_levels = []

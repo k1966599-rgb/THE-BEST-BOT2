@@ -1,8 +1,7 @@
 import pandas as pd
-from typing import List
+from typing import List, Dict
 import logging
 from .base_analysis import BaseAnalysis
-from .patterns.pattern_utils import get_pivots
 from .data_models import Pattern
 
 # Import all pattern classes
@@ -40,15 +39,16 @@ class ClassicPatterns(BaseAnalysis):
             BearFlag, FallingWedge, RisingWedge,
         ]
 
-    def analyze(self, df: pd.DataFrame, trend_context: dict = None) -> List[Pattern]:
-        """Orchestrates the detection of all classic patterns.
+    def analyze(self, df: pd.DataFrame, highs: List[Dict], lows: List[Dict], trend_context: dict = None) -> List[Pattern]:
+        """Orchestrates the detection of all classic patterns using pre-calculated pivots.
 
-        This method slices the data, finds pivot points, and then iterates
-        through a list of pattern checker classes to identify any matching
-        patterns.
+        This method slices the data and then iterates through a list of pattern
+        checker classes to identify any matching patterns.
 
         Args:
             df (pd.DataFrame): The DataFrame containing market data.
+            highs (List[Dict]): A list of pivot high points.
+            lows (List[Dict]): A list of pivot low points.
             trend_context (dict, optional): A dictionary containing trend
                 analysis context. Defaults to None.
 
@@ -61,7 +61,6 @@ class ClassicPatterns(BaseAnalysis):
         if len(data_slice) < 20:
             return []
 
-        highs, lows = get_pivots(data_slice)
         if not highs or not lows:
             return []
 
