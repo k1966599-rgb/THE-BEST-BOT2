@@ -45,8 +45,24 @@ EXCHANGE_CONFIG = {
 # These are example values. Tune them based on your risk tolerance.
 RISK_MANAGEMENT_CONFIG = {
     'max_drawdown': 150.5,       # Maximum unrealized loss in quote currency (e.g., USDT) before closing
-    'stop_loss_percentage': 5.0 # A fallback stop-loss percentage if not otherwise defined
+    'stop_loss_percentage': 5.0, # A fallback stop-loss percentage if not otherwise defined
+    'atr_multiplier_sl': 2.0,    # Multiplier for ATR to set stop-loss
+    'atr_multiplier_tp': 4.0     # Multiplier for ATR to set take-profit
 }
+
+# --- Strategy-Specific Parameters ---
+# This makes it easy to tune strategies without changing the code.
+STRATEGY_PARAMS = {
+    'fibo_strategy': {
+        'rsi_period': 14,
+        'sma_period_fast': 50,
+        'sma_period_slow': 200,
+        'fib_lookback': 50
+    }
+    # Future strategies can be added here
+    # 'another_strategy': { ... }
+}
+
 
 # --- Main Configuration Getter ---
 def get_config():
@@ -57,6 +73,7 @@ def get_config():
         'trading': TRADING_CONFIG,
         'exchange': EXCHANGE_CONFIG,
         'risk_management': RISK_MANAGEMENT_CONFIG,
+        'strategy_params': STRATEGY_PARAMS
     }
 
 if __name__ == '__main__':

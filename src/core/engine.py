@@ -7,6 +7,7 @@ from ..data_retrieval.data_fetcher import DataFetcher
 from ..strategies.base_strategy import BaseStrategy
 from ..execution.exchange_trader import ExchangeTrader, AuthenticationError
 from ..risk_management.risk_manager import RiskManager
+from ..utils.indicators import calculate_atr
 
 logger = logging.getLogger(__name__)
 
@@ -87,14 +88,22 @@ class TradingEngine:
         signal = signal_info.get('signal')
         logger.info(f"Strategy generated signal: {signal} | Reason: {signal_info.get('reason')}")
 
-        # 4. Execute trade based on signal and current position
+        # 4. Calculate ATR for risk management
+        df['atr'] = calculate_atr(df, 14) # Assuming ATR period of 14
+        latest_atr = df['atr'].iloc[-1]
+        latest_price = df['close'].iloc[-1]
+
+        # 5. Execute trade based on signal and current position
         if signal == 'BUY' and not open_position:
-            logger.info(f"BUY signal received. Attempting to place market order for {self.trade_amount} {self.symbol}.")
+            logger.info(f"BUY signal received. Calculating SL/TP levels.")
+            sl_tp_levels = self.risk_manager.calculate_sl_tp(latest_price, latest_atr, 'BUY')
+            logger.info(f"Attempting to place market order for {self.trade_amount} {self.symbol} with SL/TP.")
             order_result = self.trader.place_order(
                 symbol=self.symbol,
                 side='buy',
                 order_type='market',
-                amount=self.trade_amount
+                amount=self.trade_amount,
+                sl_tp=sl_tp_levels
             )
             if order_result:
                 logger.info(f"Successfully placed BUY order. Details: {order_result}")
@@ -110,6 +119,7 @@ class TradingEngine:
                 side='sell',
                 order_type='market',
                 amount=position_size
+                # SL/TP is not typically attached to a closing market order
             )
             if order_result:
                 logger.info(f"Successfully placed SELL order. Details: {order_result}")
