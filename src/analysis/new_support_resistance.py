@@ -43,16 +43,42 @@ def _find_new_support_resistance(df: pd.DataFrame, highs: List[Dict], lows: List
     supports = [l['price'] for l in lows]
 
     all_levels = sorted(list(set(supports + resistances)))
+
+    # New clustering logic with volume calculation
     clustered_levels = []
     if all_levels:
+        clusters = []
         current_cluster = [all_levels[0]]
         for level in all_levels[1:]:
             if level <= np.mean(current_cluster) * 1.01:
                 current_cluster.append(level)
             else:
-                clustered_levels.append({'level': np.mean(current_cluster), 'strength': len(current_cluster)})
+                clusters.append(current_cluster)
                 current_cluster = [level]
-        clustered_levels.append({'level': np.mean(current_cluster), 'strength': len(current_cluster)})
+        clusters.append(current_cluster)
+
+        for cluster in clusters:
+            level_mean = np.mean(cluster)
+            level_min = min(cluster)
+            level_max = max(cluster)
+
+            # Calculate volume for the zone
+            zone_df = df[(df['low'] <= level_max) & (df['high'] >= level_min)]
+            total_volume = zone_df['volume'].sum()
+
+            clustered_levels.append({
+                'level': level_mean,
+                'strength': total_volume, # Using raw volume for now, will normalize later
+                'min_val': level_min,
+                'max_val': level_max
+            })
+
+    # Normalize strength (volume) to a 0-100 scale for easier comparison
+    if clustered_levels:
+        max_strength = max(c['strength'] for c in clustered_levels)
+        if max_strength > 0:
+            for c in clustered_levels:
+                c['strength'] = (c['strength'] / max_strength) * 100
 
     final_supports = []
     final_resistances = []
@@ -71,16 +97,32 @@ def _find_new_support_resistance(df: pd.DataFrame, highs: List[Dict], lows: List
 
     support_levels = []
     for i, sup in enumerate(final_supports):
-        quality = "حرج" if i == 0 else ("قوي" if sup['strength'] >= 3 else "ثانوي")
+        quality = "حرج" if i == 0 else ("قوي" if sup['strength'] >= 70 else "ثانوي")
         template_key = 'previous_support_critical' if quality == "حرج" else 'previous_support_secondary'
-        support_levels.append(Level(name=f"دعم عام سابق ({quality})", value=sup['value'], level_type='support', quality=quality, template_key=template_key))
+        zone_data = {'min_val': sup['min_val'], 'max_val': sup['max_val'], 'volume_strength': sup['strength']}
+        support_levels.append(Level(
+            name=f"دعم عام سابق ({quality})",
+            value=sup['value'],
+            level_type='support',
+            quality=quality,
+            template_key=template_key,
+            raw_data=zone_data
+        ))
 
     resistance_levels = []
     for i, res in enumerate(final_resistances):
-        quality = "حرج" if i == 0 else ("قوي" if res['strength'] >= 3 else "ثانوي")
+        quality = "حرج" if i == 0 else ("قوي" if res['strength'] >= 70 else "ثانوي")
         name = f"مقاومة رئيسية ({quality})" if i == 0 else f"مقاومة عامة ({quality})"
         template_key = 'main_resistance' if i == 0 else 'secondary_resistance'
-        resistance_levels.append(Level(name=name, value=res['value'], level_type='resistance', quality=quality, template_key=template_key))
+        zone_data = {'min_val': res['min_val'], 'max_val': res['max_val'], 'volume_strength': res['strength']}
+        resistance_levels.append(Level(
+            name=name,
+            value=res['value'],
+            level_type='resistance',
+            quality=quality,
+            template_key=template_key,
+            raw_data=zone_data
+        ))
 
     # Add historical levels
     historical_low = df['low'].min()
