@@ -6,8 +6,7 @@ top-level `analysis` package, simplifying imports in other parts of the applicat
 
 from .base_analysis import BaseAnalysis
 from .trends import TrendAnalysis
-from .trend_lines import TrendLineAnalysis
-from .channels import PriceChannels
+from .quantile_channel_analysis import QuantileChannelAnalysis
 from .new_support_resistance import NewSupportResistanceAnalysis
 from .fibonacci import FibonacciAnalysis
 from .classic_patterns import ClassicPatterns
