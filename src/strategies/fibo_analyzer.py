@@ -4,9 +4,9 @@ from typing import Dict, Any
 from .base_strategy import BaseStrategy
 from ..utils.indicators import calculate_rsi, calculate_sma, calculate_bollinger_bands
 
-class FiboStrategy(BaseStrategy):
+class FiboAnalyzer(BaseStrategy):
     """
-    A strategy based on Fibonacci retracement levels, with confirmations
+    An analyzer based on Fibonacci retracement levels, with confirmations
     from other technical indicators and candlestick patterns.
     """
 
@@ -30,9 +30,9 @@ class FiboStrategy(BaseStrategy):
             self.fib_lookback = 50
             self.bb_window = 20
 
-    def generate_signals(self, data: pd.DataFrame) -> Dict[str, str]:
+    def get_analysis(self, data: pd.DataFrame) -> Dict[str, str]:
         """
-        Generates trading signals based on Fibonacci levels and confirmations.
+        Generates analysis based on Fibonacci levels and confirmations.
         """
         if data.empty or len(data) < self.fib_lookback:
             return {'signal': 'HOLD', 'reason': 'Not enough data for analysis.'}
