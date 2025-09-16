@@ -29,10 +29,9 @@ def main():
     from src.analysis.orchestrator import AnalysisOrchestrator
     from src.decision_engine.engine import DecisionEngine
     from src.analysis import (
-        TrendAnalysis, PriceChannels,
-        FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis
+        TrendAnalysis, FibonacciAnalysis, ClassicPatterns,
+        NewSupportResistanceAnalysis, QuantileChannelAnalysis
     )
-    from src.analysis.new_support_resistance import NewSupportResistanceAnalysis
     from src.indicators.technical_score import TechnicalIndicators
     from src.indicators.volume_profile import VolumeProfileAnalysis
 
@@ -46,11 +45,10 @@ def main():
         analysis_modules = [
             TechnicalIndicators(config=config.get('analysis')),
             TrendAnalysis(config=config.get('analysis')),
-            PriceChannels(config=config.get('analysis')),
+            QuantileChannelAnalysis(config=config.get('analysis')),
             NewSupportResistanceAnalysis(config=config.get('analysis')),
             FibonacciAnalysis(config=config.get('analysis')),
             ClassicPatterns(config=config.get('analysis')),
-            TrendLineAnalysis(config=config.get('analysis')),
             VolumeProfileAnalysis(config=config.get('analysis'))
         ]
         orchestrator = AnalysisOrchestrator(analysis_modules)
