@@ -150,7 +150,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     try:
         config = get_config()
         fetcher = DataFetcher(config)
-        analyzer = FiboAnalyzer(config)
+        analyzer = FiboAnalyzer(config, fetcher)
 
         data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=300)
         if not data_dict or 'data' not in data_dict or not data_dict['data']:
@@ -164,7 +164,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             df[col] = pd.to_numeric(df[col], errors='coerce')
         df.dropna(inplace=True)
 
-        analysis_info = analyzer.get_analysis(df)
+        analysis_info = analyzer.get_analysis(df, symbol, timeframe)
         formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
 
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
@@ -184,7 +184,7 @@ async def run_periodic_analysis(application: Application):
     """Runs analysis periodically and sends formatted alerts."""
     config = get_config()
     fetcher = DataFetcher(config)
-    analyzer = FiboAnalyzer(config)
+    analyzer = FiboAnalyzer(config, fetcher)
     admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
 
     if not admin_chat_id:
@@ -208,7 +208,7 @@ async def run_periodic_analysis(application: Application):
                     df[col] = pd.to_numeric(df[col], errors='coerce')
                 df.dropna(inplace=True)
 
-                analysis_info = analyzer.get_analysis(df)
+                analysis_info = analyzer.get_analysis(df, symbol, timeframe)
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
                     report = format_analysis_from_template(analysis_info, symbol, timeframe)
                     await application.bot.send_message(chat_id=admin_chat_id, text=report, parse_mode='Markdown')
