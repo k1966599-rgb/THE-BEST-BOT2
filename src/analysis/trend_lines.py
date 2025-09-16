@@ -42,21 +42,6 @@ class TrendLineAnalysis(BaseAnalysis):
         super().__init__(config, timeframe)
         self.long_period = self.config.get('TREND_LONG_PERIOD', 100)
 
-    def _get_pivots(self, data: pd.DataFrame) -> (list, list):
-        """Identifies pivot high and low points in the data.
-
-        Args:
-            data (pd.DataFrame): The input price data.
-
-        Returns:
-            tuple: A tuple containing two lists: indices of high pivots and
-            indices of low pivots.
-        """
-        prominence = data['close'].std() * 0.4 # Reduced for more sensitivity
-        high_pivots_idx, _ = find_peaks(data['high'], prominence=prominence, distance=5)
-        low_pivots_idx, _ = find_peaks(-data['low'], prominence=prominence, distance=5)
-        return high_pivots_idx, low_pivots_idx
-
     def _get_trend_lines(self, data: pd.DataFrame, high_pivots_idx: list, low_pivots_idx: list) -> (dict, dict):
         """Constructs trend lines from the last two pivot points.
 
@@ -100,15 +85,17 @@ class TrendLineAnalysis(BaseAnalysis):
             return "متوسط المدى"
         return "قصير المدى"
 
-    def analyze(self, df: pd.DataFrame) -> Dict[str, List[Level]]:
+    def analyze(self, df: pd.DataFrame, highs: List[Dict], lows: List[Dict]) -> Dict[str, List[Level]]:
         """Identifies dynamic support and resistance levels from trend lines.
 
-        This method orchestrates the process of finding pivots, creating trend
-        lines, and then calculating the current price levels of these lines to
-        serve as dynamic support and resistance.
+        This method uses pre-calculated pivots to create trend lines and then
+        calculates the current price levels of these lines to serve as dynamic
+        support and resistance.
 
         Args:
             df (pd.DataFrame): The DataFrame containing market data.
+            highs (List[Dict]): A list of pivot high points.
+            lows (List[Dict]): A list of pivot low points.
 
         Returns:
             Dict[str, List[Level]]: A dictionary containing lists of support
@@ -118,8 +105,11 @@ class TrendLineAnalysis(BaseAnalysis):
         if len(data) < 20:
             return {'supports': [], 'resistances': []}
 
-        high_pivots_idx, low_pivots_idx = self._get_pivots(data)
-        logger.info(f"TrendLineAnalysis for {self.timeframe}: Found {len(low_pivots_idx)} low pivots and {len(high_pivots_idx)} high pivots. Need at least 2 of each to draw a line.")
+        # Extract local indices from the pivot data relative to the data slice
+        high_pivots_idx = [h['index'] for h in highs if h['index'] in data.index]
+        low_pivots_idx = [l['index'] for l in lows if l['index'] in data.index]
+
+        logger.info(f"TrendLineAnalysis for {self.timeframe}: Received {len(low_pivots_idx)} low pivots and {len(high_pivots_idx)} high pivots.")
         support_trend, resistance_trend = self._get_trend_lines(data, high_pivots_idx, low_pivots_idx)
 
         supports = []

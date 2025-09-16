@@ -4,6 +4,7 @@ from typing import Dict, List, Any
 from .base_analysis import BaseAnalysis
 from src.indicators.indicators import apply_all_indicators
 from .data_models import Level, Pattern
+from .pivot_detector import PivotDetector
 
 class AnalysisOrchestrator:
     """Coordinates and runs all analysis modules."""
@@ -19,19 +20,36 @@ class AnalysisOrchestrator:
         other_results: Dict[str, Any] = {}
         trend_results = {}
 
+        # 1. Centralized Pivot Detection
+        pivot_detector = PivotDetector(config={}) # Assuming default config is fine for now
+        pivots = pivot_detector.analyze(df_with_indicators)
+        highs, lows = pivots['highs'], pivots['lows']
+
+        # 2. Run TrendAnalysis first to get context (it does not use pivots yet)
         for module in self.analysis_modules:
             if module.__class__.__name__ == 'TrendAnalysis':
                 trend_results = module.analyze(df_with_indicators)
                 other_results['TrendAnalysis'] = trend_results
                 break
 
+        # 3. Run all other modules
+        pivot_dependent_modules = ['ClassicPatterns', 'NewSupportResistanceAnalysis', 'TrendLineAnalysis']
+
         for module in self.analysis_modules:
             module_name = module.__class__.__name__
+
             if module_name == 'TrendAnalysis':
                 continue
-            if module_name == 'ClassicPatterns':
-                result = module.analyze(df_with_indicators, trend_context=trend_results)
+
+            # Pass pivots to the refactored modules
+            if module_name in pivot_dependent_modules:
+                # ClassicPatterns also needs trend_context
+                if module_name == 'ClassicPatterns':
+                     result = module.analyze(df_with_indicators, highs=highs, lows=lows, trend_context=trend_results)
+                else:
+                     result = module.analyze(df_with_indicators, highs=highs, lows=lows)
             else:
+                # Run other modules as normal (e.g., Fibonacci, Channels)
                 result = module.analyze(df_with_indicators)
 
             if isinstance(result, dict) and 'supports' in result and 'resistances' in result:
