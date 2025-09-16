@@ -1,12 +1,19 @@
 import okx.Trade as Trade
+import okx.Account as Account
 import logging
 from typing import Dict, Optional, Any
 
+
 logger = logging.getLogger(__name__)
+
+class AuthenticationError(Exception):
+    """Custom exception for API authentication errors."""
+    pass
+
 
 class ExchangeTrader:
     """
-    Handles order execution on the OKX exchange.
+    Handles order execution and position checking on the OKX exchange.
     """
     def __init__(self, config: Dict[str, Any]):
         """
@@ -19,14 +26,29 @@ class ExchangeTrader:
         self.debug = self.config.get('SANDBOX_MODE', True)
         flag = "1" if self.debug else "0"  # 0 for live, 1 for demo
 
+        api_key = self.config.get('API_KEY')
+        api_secret = self.config.get('API_SECRET')
+        password = self.config.get('PASSWORD')
+
+        # When initializing the APIs, it's crucial to use keyword arguments for clarity
+        # and to avoid position-related errors, especially for the 'debug' flag.
         self.trade_api = Trade.TradeAPI(
-            api_key=self.config.get('API_KEY'),
-            api_secret_key=self.config.get('API_SECRET'),
-            passphrase=self.config.get('PASSWORD'),
+            api_key=api_key,
+            api_secret_key=api_secret,
+            passphrase=password,
             use_server_time=False,
             flag=flag,
             debug=self.debug
         )
+        self.account_api = Account.AccountAPI(
+            api_key=api_key,
+            api_secret_key=api_secret,
+            passphrase=password,
+            use_server_time=False,
+            flag=flag,
+            debug=self.debug
+        )
+
 
     def place_order(self, symbol: str, side: str, order_type: str, amount: str, price: Optional[str] = None) -> Optional[Dict]:
         """
@@ -71,6 +93,53 @@ class ExchangeTrader:
         except Exception as e:
             logger.exception(f"An exception occurred while placing order for {symbol}: {e}")
             return None
+
+    def get_position(self, symbol: str) -> Optional[Dict]:
+        """
+        Retrieves the current position for a given symbol.
+
+        Args:
+            symbol (str): The instrument ID (e.g., 'BTC-USDT').
+
+        Returns:
+            Optional[Dict]: A dictionary with position details if a position exists,
+                            otherwise None.
+
+        Raises:
+            AuthenticationError: If the API keys are invalid.
+        """
+        logger.debug(f"Checking for open position in {symbol}...")
+        try:
+            # For SPOT trading, we check the account balance for the base currency.
+            # For MARGIN/FUTURES, we would use get_positions. This is a simplification.
+            # We will use the 'positions' endpoint as it's more direct for derivatives.
+            result = self.account_api.get_positions(instId=symbol)
+
+            if result.get('code') == '0':
+                positions = result.get('data', [])
+                if positions:
+                    # Assuming we are not in hedging mode and only have one position per symbol
+                    position_details = positions[0]
+                    # Check if position size is non-zero
+                    if float(position_details.get('pos', '0')) != 0:
+                        logger.info(f"Found active position for {symbol}: {position_details}")
+                        return position_details
+                logger.info(f"No active position found for {symbol}.")
+                return None
+            else:
+                error_msg = result.get('msg', '')
+                logger.error(f"Error fetching position for {symbol}: {error_msg}")
+                # Specific check for authentication failure
+                if "invalid" in error_msg.lower() and "key" in error_msg.lower():
+                    raise AuthenticationError(error_msg)
+                return None
+        except AuthenticationError:
+            # Re-raise the caught authentication error to be handled by the engine
+            raise
+        except Exception as e:
+            logger.exception(f"An exception occurred while fetching position for {symbol}: {e}")
+            return None
+
 
 if __name__ == '__main__':
     from src.config import get_config
