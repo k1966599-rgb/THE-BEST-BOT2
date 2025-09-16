@@ -1,19 +1,20 @@
 import logging
 import asyncio
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from datetime import datetime
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
-    MessageHandler,
-    filters,
+    CallbackQueryHandler,
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import get_config
 from src.data_retrieval.data_fetcher import DataFetcher
 from src.strategies.fibo_analyzer import FiboAnalyzer
+from src.utils.formatter import format_analysis_from_template
 import pandas as pd
 
 # --- Basic Logging ---
@@ -26,200 +27,230 @@ logger = logging.getLogger(__name__)
 # --- Conversation States ---
 SYMBOL, TERM, TIMEFRAME = range(3)
 
-# --- Command Handlers ---
-
+# --- Main Menu ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Sends a welcome message when the /start command is issued."""
-    welcome_text = "مرحباً بك في بوت التحليل الفني للعملات الرقمية!\n\n"
-    welcome_text += "استخدم الأمر /analyze لبدء تحليل عملة جديدة.\n"
-    welcome_text += "استخدم الأمر /myid لمعرفة Chat ID الخاص بك.\n\n"
-    welcome_text += "يقوم البوت بإرسال تنبيهات تلقائية للـ Chat ID المحدد في الإعدادات."
-    await update.message.reply_text(welcome_text)
+    """Sends or edits the main menu message."""
+    now = datetime.now()
+    text = (
+        f"**THE BEST BOT**\n\n"
+        f"الحالة: يعمل ✅\n"
+        f"__{now.strftime('%Y-%m-%d %H:%M:%S')}__"
+    )
 
-async def show_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Shows the user their chat ID."""
-    chat_id = update.message.chat_id
-    await update.message.reply_text(f"Your Chat ID is: `{chat_id}`", parse_mode='Markdown')
+    keyboard = [
+        [InlineKeyboardButton("📊 تحليل", callback_data='analyze_start')],
+        [InlineKeyboardButton("ℹ️ حالة البوت", callback_data='bot_status')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-async def analyze_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Starts the conversation and asks for a symbol."""
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode='Markdown')
+    else:
+        await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode='Markdown')
+
+async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Shows the bot status and provides a back button."""
+    query = update.callback_query
+    await query.answer()
+
+    keyboard = [[InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data='main_menu')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        text="حالة البوت: يعمل بشكل طبيعي والتحليل الدوري مفعل.",
+        reply_markup=reply_markup
+    )
+
+# --- Analysis Conversation ---
+async def analyze_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Entry point for the analysis conversation. Asks for a symbol."""
+    query = update.callback_query
+    await query.answer()
+
     config = get_config()
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
-    reply_keyboard = [watchlist[i:i + 2] for i in range(0, len(watchlist), 2)]
-    reply_keyboard.append(['/cancel'])
 
-    await update.message.reply_text(
-        "من فضلك اختر العملة التي تريد تحليلها من القائمة، أو اكتب الرمز (e.g., BTC-USDT).",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True),
+    keyboard = [
+        [InlineKeyboardButton(symbol, callback_data=f'symbol_{symbol}') for symbol in watchlist[i:i+2]]
+        for i in range(0, len(watchlist), 2)
+    ]
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='main_menu')])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        text="اختر العملة التي تريد تحليلها:",
+        reply_markup=reply_markup
     )
     return SYMBOL
 
-async def received_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the selected symbol and asks for the analysis term."""
-    context.user_data['symbol'] = update.message.text
-    reply_keyboard = [["Long Term", "Medium Term", "Short Term"], ['/cancel']]
-    await update.message.reply_text(
-        f"تم اختيار {update.message.text}. الآن، من فضلك اختر مدة التحليل.",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True),
+async def select_term(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Asks for the analysis term (long, medium, short)."""
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data['symbol'] = query.data.split('_', 1)[1]
+
+    keyboard = [
+        [
+            InlineKeyboardButton("مدى طويل", callback_data='term_long_term'),
+            InlineKeyboardButton("مدى متوسط", callback_data='term_medium_term'),
+            InlineKeyboardButton("مدى قصير", callback_data='term_short_term'),
+        ],
+        [InlineKeyboardButton("🔙 رجوع", callback_data='analyze_start')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        text=f"تم اختيار {context.user_data['symbol']}. الآن، اختر مدة التحليل:",
+        reply_markup=reply_markup
     )
     return TERM
 
-async def received_term(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the analysis term and asks for the timeframe."""
-    term = update.message.text
-    context.user_data['term'] = term
+async def select_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Asks for the specific timeframe (e.g., 1H, 4H)."""
+    query = update.callback_query
+    await query.answer()
+
+    term_key = query.data.split('_', 1)[1]
+    context.user_data['term'] = term_key
+
     config = get_config()
     timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
-    timeframes = timeframe_groups.get(term.lower().replace(" ", "_"), [])
+    timeframes = timeframe_groups.get(term_key, [])
+
     if not timeframes:
-        await update.message.reply_text("خيار غير صالح. تم إلغاء العملية.")
+        await query.edit_message_text(text="خطأ في الإعدادات: لم يتم العثور على أطر زمنية لهذا الاختيار.")
         return ConversationHandler.END
-    reply_keyboard = [timeframes[i:i + 3] for i in range(0, len(timeframes), 3)]
-    reply_keyboard.append(['/cancel'])
-    await update.message.reply_text(
-        f"اخترت {term}. الآن، من فضلك اختر الإطار الزمني (Timeframe).",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True),
+
+    keyboard = [
+        [InlineKeyboardButton(tf, callback_data=f'timeframe_{tf}') for tf in timeframes[i:i+3]]
+        for i in range(0, len(timeframes), 3)
+    ]
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data=f'symbol_{context.user_data["symbol"]}')])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        text=f"اخترت {term_key.replace('_', ' ')}. الآن، اختر الإطار الزمني:",
+        reply_markup=reply_markup
     )
     return TIMEFRAME
 
-async def received_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the timeframe, runs the analysis, and sends the result."""
-    context.user_data['timeframe'] = update.message.text
+async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Runs the analysis and sends the formatted result."""
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data['timeframe'] = query.data.split('_', 1)[1]
     symbol = context.user_data['symbol']
     timeframe = context.user_data['timeframe']
 
-    await update.message.reply_text(
-        f"شكراً لك! جاري تحليل {symbol} على إطار {timeframe}...",
-        reply_markup=ReplyKeyboardRemove(),
-    )
+    await query.edit_message_text(text=f"✅ شكراً لك! جاري تحليل {symbol} على إطار {timeframe}...")
+
     try:
         config = get_config()
         fetcher = DataFetcher(config)
         analyzer = FiboAnalyzer(config)
+
         data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=300)
         if not data_dict or 'data' not in data_dict or not data_dict['data']:
-            await update.message.reply_text("عذراً، لم أتمكن من جلب البيانات لهذه العملة. يرجى المحاولة مرة أخرى.")
+            await query.message.reply_text("عذراً، لم أتمكن من جلب البيانات لهذه العملة. يرجى المحاولة مرة أخرى.")
+            await start(update, context)
             return ConversationHandler.END
+
         df = pd.DataFrame(data_dict['data'])
-        numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+        numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')
+        df.dropna(inplace=True)
+
         analysis_info = analyzer.get_analysis(df)
-        signal = analysis_info.get('signal', 'N/A')
-        reason = analysis_info.get('reason', 'No reason provided.')
-        analysis_result = f"--- تحليل {symbol} | {timeframe} ---\n\n"
-        analysis_result += f"الإشارة الحالية: **{signal}**\n"
-        analysis_result += f"السبب: {reason}\n"
-        await update.message.reply_text(analysis_result, parse_mode='Markdown')
+        formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
+
+        await query.message.reply_text(formatted_report, parse_mode='Markdown')
+
     except Exception as e:
-        logger.error(f"An error occurred during analysis for {symbol} on {timeframe}: {e}")
-        await update.message.reply_text("حدث خطأ أثناء محاولة التحليل. يرجى مراجعة السجلات.")
+        logger.error(f"An error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
+        await query.message.reply_text("حدث خطأ فني أثناء محاولة التحليل. يرجى مراجعة السجلات.")
+
+    await start(update, context)
     return ConversationHandler.END
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Cancels and ends the conversation."""
-    await update.message.reply_text("تم إلغاء العملية.", reply_markup=ReplyKeyboardRemove())
-    return ConversationHandler.END
-
+# --- Periodic & Error Handlers ---
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"', update, context.error)
+    logger.error("Exception while handling an update:", exc_info=context.error)
 
-# --- Periodic Analysis Job ---
 async def run_periodic_analysis(application: Application):
-    """
-    This function is the core of the continuous analysis loop.
-    It runs analysis periodically for all symbols and timeframes from the config
-    and sends a notification to the admin chat ID if a BUY or SELL signal is found.
-    """
+    """Runs analysis periodically and sends formatted alerts."""
     config = get_config()
     fetcher = DataFetcher(config)
     analyzer = FiboAnalyzer(config)
     admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
 
     if not admin_chat_id:
-        logger.warning("TELEGRAM_ADMIN_CHAT_ID is not set. Periodic analysis alerts will be skipped.")
+        logger.warning("TELEGRAM_ADMIN_CHAT_ID not set. Periodic alerts will be skipped.")
         return
 
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
     timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
-
     logger.info(f"--- Starting Periodic Analysis for {len(watchlist)} symbols ---")
 
     for symbol in watchlist:
         for timeframe in timeframes:
-            logger.info(f"Analyzing {symbol} on {timeframe}...")
             try:
                 data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=300)
                 if not data_dict or 'data' not in data_dict or not data_dict['data']:
-                    logger.warning(f"Could not fetch data for {symbol} on {timeframe}. Skipping.")
                     continue
 
                 df = pd.DataFrame(data_dict['data'])
-                numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+                numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
                 for col in numeric_cols:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
+                df.dropna(inplace=True)
 
                 analysis_info = analyzer.get_analysis(df)
-                signal = analysis_info.get('signal', 'N/A')
-
-                if signal in ['BUY', 'SELL']:
-                    reason = analysis_info.get('reason', 'No reason provided.')
-                    message = f"🚨 **Automatic Alert** 🚨\n\n"
-                    message += f"**Symbol:** {symbol}\n"
-                    message += f"**Timeframe:** {timeframe}\n"
-                    message += f"**Signal:** {signal}\n"
-                    message += f"**Reason:** {reason}"
-                    await application.bot.send_message(chat_id=admin_chat_id, text=message, parse_mode='Markdown')
-                    logger.info(f"Sent '{signal}' alert for {symbol} on {timeframe} to admin.")
-
+                if analysis_info.get('signal') in ['BUY', 'SELL']:
+                    report = format_analysis_from_template(analysis_info, symbol, timeframe)
+                    await application.bot.send_message(chat_id=admin_chat_id, text=report, parse_mode='Markdown')
+                    logger.info(f"Sent '{analysis_info['signal']}' alert for {symbol} on {timeframe} to admin.")
             except Exception as e:
-                logger.error(f"Error during periodic analysis of {symbol} on {timeframe}: {e}")
-
-            await asyncio.sleep(2) # Be respectful of API limits
-
+                logger.error(f"Error in periodic analysis for {symbol} on {timeframe}: {e}")
+            await asyncio.sleep(2)
     logger.info("--- Periodic Analysis Complete ---")
 
 async def post_init(application: Application) -> None:
-    """
-    This coroutine is executed by the Application after it has been initialized,
-    but before it starts polling. It's the ideal place to set up background tasks
-    like the scheduler, ensuring they run within the same asyncio event loop.
-    """
+    """Initializes the background scheduler."""
     config = get_config()
-    interval_minutes = config.get('trading', {}).get('ANALYSIS_INTERVAL_MINUTES', 15)
-
+    interval = config.get('trading', {}).get('ANALYSIS_INTERVAL_MINUTES', 15)
     scheduler = AsyncIOScheduler(timezone="UTC")
-    scheduler.add_job(run_periodic_analysis, 'interval', minutes=interval_minutes, args=[application])
+    scheduler.add_job(run_periodic_analysis, 'interval', minutes=interval, args=[application])
     scheduler.start()
-    logger.info(f"Scheduler started. Analysis will run every {interval_minutes} minutes.")
+    logger.info(f"Scheduler started. Analysis will run every {interval} minutes.")
 
 def main() -> None:
     """Start the bot."""
     config = get_config()
     token = config.get('telegram', {}).get('TOKEN')
-
     if not token:
-        logger.error("Telegram BOT_TOKEN not found in .env file. The bot cannot start.")
+        logger.error("Telegram BOT_TOKEN not found in .env file.")
         return
 
-    # Using post_init ensures the scheduler runs in the same asyncio loop as the bot.
     application = Application.builder().token(token).post_init(post_init).build()
 
-    # --- Conversation Handler for /analyze ---
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("analyze", analyze_start)],
+        entry_points=[CallbackQueryHandler(analyze_entry, pattern='^analyze_start$')],
         states={
-            SYMBOL: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_symbol)],
-            TERM: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_term)],
-            TIMEFRAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_timeframe)],
+            SYMBOL: [CallbackQueryHandler(select_term, pattern='^symbol_')],
+            TERM: [CallbackQueryHandler(select_timeframe, pattern='^term_')],
+            TIMEFRAME: [CallbackQueryHandler(run_analysis, pattern='^timeframe_')],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CallbackQueryHandler(start, pattern='^main_menu$')],
+        per_message=False
     )
 
-    # --- Register Command Handlers ---
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("myid", show_chat_id))
+    application.add_handler(CallbackQueryHandler(start, pattern='^main_menu$'))
+    application.add_handler(CallbackQueryHandler(bot_status, pattern='^bot_status$'))
     application.add_handler(conv_handler)
     application.add_error_handler(error_handler)
 
