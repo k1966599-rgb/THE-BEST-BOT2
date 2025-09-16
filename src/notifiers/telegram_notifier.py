@@ -110,9 +110,8 @@ class InteractiveTelegramBot(BaseNotifier):
 
                 # Initialize analysis modules for the current timeframe
                 from ..analysis import (
-                    TrendAnalysis, PriceChannels,
-                    NewSupportResistanceAnalysis, FibonacciAnalysis, ClassicPatterns, TrendLineAnalysis,
-                    PivotDetector
+                    TrendAnalysis, NewSupportResistanceAnalysis, FibonacciAnalysis,
+                    ClassicPatterns, PivotDetector, QuantileChannelAnalysis
                 )
                 from ..indicators.technical_score import TechnicalIndicators
                 from ..indicators.volume_profile import VolumeProfileAnalysis
@@ -125,11 +124,10 @@ class InteractiveTelegramBot(BaseNotifier):
                 analysis_modules = [
                     TechnicalIndicators(config=self.full_config, timeframe=tf),
                     TrendAnalysis(config=self.full_config, timeframe=tf),
-                    PriceChannels(config=self.full_config, timeframe=tf),
+                    QuantileChannelAnalysis(config=self.full_config, timeframe=tf),
                     NewSupportResistanceAnalysis(config=self.full_config, timeframe=tf),
                     FibonacciAnalysis(config=self.full_config, timeframe=tf),
                     ClassicPatterns(config=self.full_config, timeframe=tf),
-                    TrendLineAnalysis(config=self.full_config, timeframe=tf),
                     VolumeProfileAnalysis(config=self.full_config, timeframe=tf)
                 ]
                 orchestrator = AnalysisOrchestrator(analysis_modules)
