@@ -1,3 +1,4 @@
 python-okx
 python-dotenv
 pandas
+pytest

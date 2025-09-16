@@ -25,7 +25,11 @@ TRADING_CONFIG = {
         "long_term": ['1D', '4H', '1H'],
         "medium_term": ['30m', '15m'],
         "short_term": ['5m', '3m']
-    }
+    },
+
+    # The amount of the base currency to trade (e.g., for BTC-USDT, this is the amount of BTC)
+    # NOTE: Ensure this amount is valid for the exchange's minimum trade size.
+    'TRADE_AMOUNT': '0.001'
 }
 
 # --- Exchange Connection ---
