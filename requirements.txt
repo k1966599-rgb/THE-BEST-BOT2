@@ -2,4 +2,4 @@ python-okx
 python-dotenv
 pandas
 pytest
-questionary
+python-telegram-bot

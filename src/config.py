@@ -64,6 +64,12 @@ STRATEGY_PARAMS = {
 }
 
 
+# --- Telegram Bot Settings ---
+TELEGRAM_CONFIG = {
+    'TOKEN': os.getenv('BOT_TOKEN', '')
+}
+
+
 # --- Main Configuration Getter ---
 def get_config():
     """
@@ -73,7 +79,8 @@ def get_config():
         'trading': TRADING_CONFIG,
         'exchange': EXCHANGE_CONFIG,
         'risk_management': RISK_MANAGEMENT_CONFIG,
-        'strategy_params': STRATEGY_PARAMS
+        'strategy_params': STRATEGY_PARAMS,
+        'telegram': TELEGRAM_CONFIG
     }
 
 if __name__ == '__main__':
