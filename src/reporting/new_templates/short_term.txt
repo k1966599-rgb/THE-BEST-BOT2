@@ -1,53 +1,0 @@
-💎 **تحليل فني عميق - {symbol} | {analysis_type}** 💎
-السعر: {current_price} | التاريخ: {date_time}
-
-====================
-**تحليل فريم 5m**
-====================
-- **النموذج الفني:** {pattern_5m} (التفعيل: {activation_5m} | الإلغاء: {invalidation_5m})
-
-- **تحليل الاتجاه والقنوات:**
-  - دعم قناة: {support_channel_5m}
-  - مقاومة قناة: {resistance_channel_5m}
-  - دعوم اتجاه (قصير/متوسط/طويل): {confluence_short_trend_support_5m}, {confluence_mid_trend_support_5m}, {confluence_long_trend_support_5m}
-
-- **تحليل فيبوناتشي:**
-  - دعوم: {fib_support_0_618_5m}, {fib_support_0_5_5m}
-  - مقاومات: {fib_resistance_1_618_5m}
-
-- **مناطق العرض والطلب:**
-  - منطقة طلب عالية: {demand_zone_5m}
-  - منطقة عرض (مقاومة): {confluence_main_resistance_5m}
-
-- **مستويات أخرى:**
-  - دعوم سابقة: {previous_support_secondary_5m}, {previous_support_critical_5m}
-  - قاع تاريخي: {historical_bottom_5m}
-
-====================
-**تحليل فريم 3m**
-====================
-- **النموذج الفني:** {pattern_3m} (التفعيل: {activation_3m} | الإلغاء: {invalidation_3m})
-
-- **تحليل الاتجاه والقنوات:**
-  - دعم قناة: {support_channel_3m}
-  - مقاومة قناة: {resistance_channel_3m}
-  - دعوم اتجاه (قصير/متوسط/طويل): {confluence_short_trend_support_3m}, {confluence_mid_trend_support_3m}, {confluence_long_trend_support_3m}
-
-- **تحليل فيبوناتشي:**
-  - دعوم: {fib_support_0_618_3m}, {fib_support_0_5_3m}
-  - مقاومات: {fib_resistance_1_618_3m}
-
-- **مناطق العرض والطلب:**
-  - منطقة طلب عالية: {demand_zone_3m}
-  - منطقة عرض (مقاومة): {confluence_main_resistance_3m}
-
-- **مستويات أخرى:**
-  - دعوم سابقة: {previous_support_secondary_3m}, {previous_support_critical_3m}
-  - قاع تاريخي: {historical_bottom_3m}
-
-====================
-**⚡️ التوصية النهائية:**
-- **الدخول:** {entry_price}
-- **الأهداف:** {targets}
-- **وقف الخسارة:** {stop_loss}
-- **ملاحظات:** {trade_notes}

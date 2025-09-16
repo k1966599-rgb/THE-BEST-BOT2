@@ -1,5 +1,0 @@
-pylint
-vulture
-pip-autoremove
-pipdeptree
-playwright
