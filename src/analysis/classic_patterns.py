@@ -32,8 +32,8 @@ class ClassicPatterns(BaseAnalysis):
                 analyzed. Defaults to '1h'.
         """
         super().__init__(config, timeframe)
-        self.lookback_period = self.config.get('PATTERN_LOOKBACK', 90)
-        self.price_tolerance = self.config.get('PATTERN_PRICE_TOLERANCE', 0.03)
+        self.lookback_period = self.config.get('PATTERN_LOOKBACK', 90) # This could also be moved to params
+        self.price_tolerance = self.params.get('pattern_price_tolerance', 0.03)
         self.pattern_checkers = [
             AscendingTriangle, BullFlag, DoubleBottom,
             BearFlag, FallingWedge, RisingWedge,

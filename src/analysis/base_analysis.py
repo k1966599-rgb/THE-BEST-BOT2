@@ -22,6 +22,22 @@ class BaseAnalysis(ABC):
             config = {}
         self.config = config
         self.timeframe = timeframe
+        self.params = self._get_timeframe_specific_params()
+
+    def _get_timeframe_specific_params(self) -> Dict[str, Any]:
+        """
+        Retrieves the specific analysis parameters for the module's timeframe.
+        """
+        timeframe_groups = self.config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
+        timeframe_group = 'default' # Fallback group
+        for group, timeframes in timeframe_groups.items():
+            if self.timeframe in timeframes:
+                timeframe_group = group
+                break
+
+        # Load the params for the identified group
+        analysis_groups = self.config.get('analysis', {}).get('groups', {})
+        return analysis_groups.get(timeframe_group, {})
 
     @abstractmethod
     def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
