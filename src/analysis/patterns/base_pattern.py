@@ -122,39 +122,49 @@ class BasePattern(ABC):
         support_current = lower_trend['slope'] * current_index + lower_trend['intercept']
         return resistance_current, support_current
 
-    def _analyze_volume(self, window_highs: List[Dict], window_lows: List[Dict], start_index: int) -> Dict:
+    def _analyze_volume(self, start_index: int, boundary_levels: List[float]) -> Dict:
         """Analyzes volume characteristics for the pattern.
 
-        This method assesses volume trends, such as whether volume is declining
-        as the pattern forms and the strength of the volume on a potential
-        breakout.
-
         Args:
-            window_highs (List[Dict]): Pivot highs within the pattern window.
-            window_lows (List[Dict]): Pivot lows within the pattern window.
             start_index (int): The starting index of the pattern formation.
+            boundary_levels (List[float]): A list of key price levels that
+                form the pattern's boundaries.
 
         Returns:
-            Dict: A dictionary containing volume analysis metrics like
-            'volume_decline' and 'breakout_volume'.
+            Dict: A dictionary containing volume analysis metrics.
         """
         volume_analysis = {}
-        if 'volume' in self.df.columns:
-            early_indices = [p['index'] for p in window_highs + window_lows if p['index'] <= start_index + 10]
-            early_volume = np.mean([self.df.iloc[i]['volume'] for i in early_indices if i < len(self.df)]) if early_indices else 0
+        if 'volume' not in self.df.columns:
+            return {}
 
-            current_index = len(self.df) - 1
-            late_indices = [p['index'] for p in window_highs + window_lows if p['index'] >= current_index - 10]
-            late_volume = np.mean([self.df.iloc[i]['volume'] for i in late_indices if i < len(self.df)]) if late_indices else 0
+        pattern_df = self.df.loc[start_index:]
+        avg_volume = pattern_df['volume'].mean()
+        if avg_volume == 0: return {}
 
-            avg_volume = self.df['volume'].mean()
+        # 1. Volume Decline Analysis
+        early_volume = pattern_df['volume'].iloc[:len(pattern_df)//2].mean()
+        late_volume = pattern_df['volume'].iloc[len(pattern_df)//2:].mean()
+        volume_analysis['volume_decline'] = early_volume > late_volume * 1.2
 
-            volume_analysis = {
-                'early_volume_strength': early_volume / avg_volume if avg_volume > 0 else 1,
-                'late_volume_strength': late_volume / avg_volume if avg_volume > 0 else 1,
-                'volume_decline': early_volume > late_volume * 1.2 if early_volume > 0 and late_volume > 0 else False,
-                'breakout_volume': self.df.iloc[-1]['volume'] / avg_volume if avg_volume > 0 else 1
-            }
+        # 2. Breakout Volume Strength
+        volume_analysis['breakout_volume'] = self.df.iloc[-1]['volume'] / avg_volume
+
+        # 3. Boundary Strength Analysis
+        total_boundary_volume = 0
+        tolerance = self.current_price * 0.01 # 1% tolerance for zone
+        for level in boundary_levels:
+            zone_df = self.df[(self.df['low'] <= level + tolerance) & (self.df['high'] >= level - tolerance)]
+            total_boundary_volume += zone_df['volume'].sum()
+
+        # Normalize the boundary volume against the total volume in the pattern
+        total_pattern_volume = pattern_df['volume'].sum()
+        if total_pattern_volume > 0:
+            # Score from 0 to 100
+            boundary_strength = min(100, (total_boundary_volume / total_pattern_volume) * 100)
+        else:
+            boundary_strength = 0
+        volume_analysis['boundary_strength'] = boundary_strength
+
         return volume_analysis
 
     def _calculate_confidence(self, **kwargs) -> float:
@@ -190,9 +200,15 @@ class BasePattern(ABC):
             weighted_score += min(touch_score, 20) # Max score of 20
             total_weight += 20
 
-        # Volume confirmation
+        # Volume confirmation (declining volume during formation)
         if 'volume_confirmation' in kwargs and kwargs['volume_confirmation']:
-            weighted_score += 25
+            weighted_score += 15 # Weight of 15
+            total_weight += 15
+
+        # Boundary strength (volume at S/R levels)
+        if 'boundary_strength' in kwargs:
+            # boundary_strength is expected to be a score from 0-100
+            weighted_score += kwargs['boundary_strength'] * 0.25 # Weight of 25
             total_weight += 25
 
         # Trend alignment
