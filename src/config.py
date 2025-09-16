@@ -29,7 +29,10 @@ TRADING_CONFIG = {
 
     # The amount of the base currency to trade (e.g., for BTC-USDT, this is the amount of BTC)
     # NOTE: Ensure this amount is valid for the exchange's minimum trade size.
-    'TRADE_AMOUNT': '0.001'
+    'TRADE_AMOUNT': '0.001',
+
+    # Interval for periodic analysis in minutes
+    'ANALYSIS_INTERVAL_MINUTES': 15
 }
 
 # --- Exchange Connection ---
@@ -66,7 +69,8 @@ STRATEGY_PARAMS = {
 
 # --- Telegram Bot Settings ---
 TELEGRAM_CONFIG = {
-    'TOKEN': os.getenv('BOT_TOKEN', '')
+    'TOKEN': os.getenv('BOT_TOKEN', ''),
+    'ADMIN_CHAT_ID': os.getenv('TELEGRAM_ADMIN_CHAT_ID', '')
 }
 
 
