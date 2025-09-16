@@ -41,6 +41,13 @@ EXCHANGE_CONFIG = {
     'SANDBOX_MODE': os.getenv('SANDBOX_MODE', 'True').lower() in ('true', '1', 't')
 }
 
+# --- Risk Management Settings ---
+# These are example values. Tune them based on your risk tolerance.
+RISK_MANAGEMENT_CONFIG = {
+    'max_drawdown': 150.5,       # Maximum unrealized loss in quote currency (e.g., USDT) before closing
+    'stop_loss_percentage': 5.0 # A fallback stop-loss percentage if not otherwise defined
+}
+
 # --- Main Configuration Getter ---
 def get_config():
     """
@@ -49,6 +56,7 @@ def get_config():
     return {
         'trading': TRADING_CONFIG,
         'exchange': EXCHANGE_CONFIG,
+        'risk_management': RISK_MANAGEMENT_CONFIG,
     }
 
 if __name__ == '__main__':
