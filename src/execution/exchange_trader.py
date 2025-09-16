@@ -50,32 +50,42 @@ class ExchangeTrader:
         )
 
 
-    def place_order(self, symbol: str, side: str, order_type: str, amount: str, price: Optional[str] = None) -> Optional[Dict]:
+    def place_order(self, symbol: str, side: str, order_type: str, amount: str, price: Optional[str] = None, sl_tp: Optional[Dict[str, float]] = None) -> Optional[Dict]:
         """
-        Places a trade order on the exchange.
+        Places a trade order on the exchange, with optional stop-loss and take-profit.
 
         Args:
             symbol (str): Trading symbol (e.g., 'BTC-USDT').
             side (str): 'buy' or 'sell'.
             order_type (str): 'market' or 'limit'.
-            amount (str): The quantity to buy or sell. For SPOT, it's the base currency (e.g., BTC in BTC-USDT).
-            price (Optional[str]): The price for a limit order. Not needed for market orders.
+            amount (str): The quantity to buy or sell.
+            price (Optional[str]): The price for a limit order.
+            sl_tp (Optional[Dict[str, float]]): Dict with 'stop_loss' and 'take_profit' prices.
 
         Returns:
-            Optional[Dict]: A dictionary containing the order ID and other details
-                            from the exchange, or None if the order fails.
+            Optional[Dict]: A dictionary containing the order ID and other details, or None if it fails.
         """
         logger.info(f"Placing {side} {order_type} order for {amount} of {symbol}...")
+        if sl_tp:
+            logger.info(f"With Stop-Loss: {sl_tp.get('stop_loss')} and Take-Profit: {sl_tp.get('take_profit')}")
+
+        order_params = {
+            'instId': symbol,
+            'tdMode': 'cash',
+            'side': side,
+            'ordType': order_type,
+            'sz': amount,
+            'px': price
+        }
+
+        if sl_tp:
+            order_params['slTriggerPx'] = str(sl_tp.get('stop_loss'))
+            order_params['tpTriggerPx'] = str(sl_tp.get('take_profit'))
+            order_params['slOrdPx'] = '-1' # Indicates a market order for SL
+            order_params['tpOrdPx'] = '-1' # Indicates a market order for TP
 
         try:
-            result = self.trade_api.place_order(
-                instId=symbol,
-                tdMode='cash',  # Use 'cash' for non-margin spot trading
-                side=side,
-                ordType=order_type,
-                sz=amount,
-                px=price  # This is ignored for market orders, required for limit
-            )
+            result = self.trade_api.place_order(**order_params)
 
             if result.get('code') == '0' and result.get('data'):
                 order_details = result['data'][0]
