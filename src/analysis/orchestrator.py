@@ -88,41 +88,57 @@ class AnalysisOrchestrator:
                 cluster.append(level)
             else:
                 if len(cluster) > 1:
+                    # Advanced Confluence Logic
                     new_value = np.mean([l.value for l in cluster])
                     min_val = min(l.value for l in cluster)
                     max_val = max(l.value for l in cluster)
 
-                    # Prioritize the name of the level with the highest quality in the cluster
-                    cluster.sort(key=lambda x: x.quality or '', reverse=True)
-                    new_name = f"منطقة التقاء: {cluster[0].name}"
+                    # Identify unique sources of support/resistance in the cluster
+                    sources = set(l.name.split(' ')[0] for l in cluster)
+
+                    if len(sources) > 1:
+                        # True confluence
+                        new_name = f"منطقة التقاء قوية ({', '.join(sources)})"
+                        quality = "Critical"
+                    else:
+                        # Just a cluster of the same type
+                        cluster.sort(key=lambda x: x.quality or '', reverse=True)
+                        new_name = f"منطقة مدمجة: {cluster[0].name}"
+                        quality = "Very Strong"
 
                     merged.append(Level(
                         name=new_name,
                         value=new_value,
                         level_type=cluster[0].level_type,
-                        quality="Very Strong",
-                        raw_data={'range_min': min_val, 'range_max': max_val}
+                        quality=quality,
+                        raw_data={'range_min': min_val, 'range_max': max_val, 'sources': list(sources)}
                     ))
                 else:
                     merged.append(cluster[0])
 
                 cluster = [level]
 
+        # Process the last cluster
         if len(cluster) > 1:
             new_value = np.mean([l.value for l in cluster])
             min_val = min(l.value for l in cluster)
             max_val = max(l.value for l in cluster)
+            sources = set(l.name.split(' ')[0] for l in cluster)
 
-            # Prioritize the name of the level with the highest quality in the cluster
-            cluster.sort(key=lambda x: x.quality or '', reverse=True)
-            new_name = f"منطقة التقاء: {cluster[0].name}"
+            if len(sources) > 1:
+                new_name = f"منطقة التقاء قوية ({', '.join(sources)})"
+                quality = "Critical"
+            else:
+                cluster.sort(key=lambda x: x.quality or '', reverse=True)
+                new_name = f"منطقة مدمجة: {cluster[0].name}"
+                quality = "Very Strong"
 
             merged.append(Level(
                 name=new_name,
                 value=new_value,
                 level_type=cluster[0].level_type,
-                quality="Very Strong",
-                raw_data={'range_min': min_val, 'range_max': max_val}
+                quality=quality,
+                raw_data={'range_min': min_val, 'range_max': max_val, 'sources': list(sources)}
             ))
         elif cluster:
             merged.append(cluster[0])
