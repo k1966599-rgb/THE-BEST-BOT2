@@ -1,6 +1,7 @@
 import questionary
 import time
 import logging
+import threading
 from src.config import get_config
 from src.core.engine import TradingEngine
 from src.strategies.fibo_strategy import FiboStrategy
@@ -88,30 +89,44 @@ def analysis_menu():
         time.sleep(2)
 
 
+bot_thread = None
+bot_status = "متوقف"
+
 def main_menu():
     """
     The main menu of the application.
     """
-    status = "متوقف"
+    global bot_thread, bot_status
     questionary.print("مرحباً THE BEST BOT")
 
     while True:
-        questionary.print(f"الحالة: {status}")
+        # Check if the bot thread has finished (e.g., due to an error)
+        if bot_thread and not bot_thread.is_alive() and bot_status == "يعمل":
+            bot_status = "خطأ - توقف البوت" # Error - Bot stopped
+            questionary.print(f"الحالة: {bot_status}", style="bold red")
+        else:
+            questionary.print(f"الحالة: {bot_status}")
+
+        choices = ["تشغيل", "تحليل", "متابعة الصفقات"]
+        # Add a "Stop" option if the bot is running
+        if bot_status == "يعمل":
+            # Stopping a thread gracefully is complex. For now, we just notify the user.
+            # A real implementation would require a signaling mechanism (e.g., an event).
+            choices.append("إيقاف (غير مدعوم بعد)")
+        choices.append("Exit")
+
         choice = questionary.select(
             "Main Menu:",
-            choices=["تشغيل", "تحليل", "متابعة الصفقات", "Exit"]
+            choices=choices
         ).ask()
 
         if choice == "تشغيل":
-            if status == "متوقف":
-                questionary.print("Starting the trading bot...")
-                status = "يعمل"
-                # In a real application, you'd run this in a separate thread.
-                # For this environment, we will just call it directly.
-                # run_trading_bot()
-                questionary.print("Trading bot is now running.")
-                questionary.print("NOTE: Bot logic is commented out to prevent blocking the UI.", style="bold italic")
-                time.sleep(2)
+            if bot_status != "يعمل":
+                questionary.print("Starting the trading bot in the background...")
+                bot_status = "يعمل"
+                bot_thread = threading.Thread(target=run_trading_bot, daemon=True)
+                bot_thread.start()
+                time.sleep(1) # Give the thread a moment to start
             else:
                 questionary.print("Bot is already running.", style="bold italic")
         elif choice == "تحليل":
@@ -120,8 +135,8 @@ def main_menu():
             questionary.print("Feature not implemented yet.")
             time.sleep(2)
         elif choice == "Exit":
+            questionary.print("Exiting... please note the bot may still be running in the background.")
             break
-
 
 if __name__ == '__main__':
     main_menu()
