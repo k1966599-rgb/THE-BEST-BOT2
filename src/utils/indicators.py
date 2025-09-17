@@ -24,7 +24,6 @@ def find_swing_points(data: pd.DataFrame, lookback: int, prominence_multiplier: 
     for i in low_peaks_indices:
         result['lows'].append({'price': recent_data.iloc[i]['low'], 'index': i})
 
-    # Always include the absolute highest and lowest as a fallback
     abs_high_idx = recent_data['high'].idxmax()
     abs_low_idx = recent_data['low'].idxmin()
     if not any(p['index'] == recent_data.index.get_loc(abs_high_idx) for p in result['highs']):
@@ -32,38 +31,27 @@ def find_swing_points(data: pd.DataFrame, lookback: int, prominence_multiplier: 
     if not any(p['index'] == recent_data.index.get_loc(abs_low_idx) for p in result['lows']):
          result['lows'].append({'price': recent_data.loc[abs_low_idx]['low'], 'index': recent_data.index.get_loc(abs_low_idx)})
 
-    # Sort by index
     result['highs'] = sorted(result['highs'], key=lambda x: x['index'])
     result['lows'] = sorted(result['lows'], key=lambda x: x['index'])
 
     return result
 
 def detect_divergence(price_swings: List[Dict[str, Any]], indicator_series: pd.Series, type: str = 'bullish') -> bool:
-    """
-    Detects bullish or bearish divergence between price and an indicator.
-    """
+    """Detects bullish or bearish divergence between price and an indicator."""
     if len(price_swings) < 2:
         return False
 
-    # Get the last two swing points
     last_swing = price_swings[-1]
     prev_swing = price_swings[-2]
-
     last_price = last_swing['price']
     prev_price = prev_swing['price']
-
     last_indicator = indicator_series.iloc[last_swing['index']]
     prev_indicator = indicator_series.iloc[prev_swing['index']]
 
-    if type == 'bullish':
-        # Lower low in price, but higher low in indicator
-        if last_price < prev_price and last_indicator > prev_indicator:
-            return True
-    elif type == 'bearish':
-        # Higher high in price, but lower high in indicator
-        if last_price > prev_price and last_indicator < prev_indicator:
-            return True
-
+    if type == 'bullish' and last_price < prev_price and last_indicator > prev_indicator:
+        return True
+    elif type == 'bearish' and last_price > prev_price and last_indicator < prev_indicator:
+        return True
     return False
 
 def calculate_sma(data: pd.DataFrame, window: int) -> pd.Series:
@@ -95,7 +83,11 @@ def calculate_bollinger_bands(data: pd.DataFrame, window: int = 20, num_std_dev:
 
 def calculate_atr(data: pd.DataFrame, window: int = 14) -> pd.Series:
     if not all(col in data.columns for col in ['high', 'low', 'close']): raise ValueError("Missing required columns")
-    tr = pd.concat([data['high'] - data['low'], (data['high'] - data['close'].shift()).abs(), (data['low'] - data['close'].shift()).abs()], axis=1).max(axis=1)
+    df = data.copy()
+    df['H-L'] = df['high'] - df['low']
+    df['H-C_prev'] = abs(df['high'] - df['close'].shift(1))
+    df['L-C_prev'] = abs(df['low'] - df['close'].shift(1))
+    tr = df[['H-L', 'H-C_prev', 'L-C_prev']].max(axis=1)
     return tr.ewm(alpha=1/window, adjust=False).mean()
 
 def calculate_fib_levels(swing_high: float, swing_low: float, trend: str = 'up') -> Dict[str, float]:
@@ -123,14 +115,27 @@ def calculate_obv(data: pd.DataFrame) -> pd.Series:
     return pd.Series((np.sign(data['close'].diff()) * data['volume']).fillna(0).cumsum(), name='obv')
 
 def calculate_adx(data: pd.DataFrame, window: int = 14) -> pd.Series:
+    """Calculates the Average Directional Index (ADX)."""
     df = data.copy()
     alpha = 1 / window
-    df['TR'] = calculate_atr(df, window)
+
+    # Correctly calculate and assign ATR first
+    df['ATR'] = calculate_atr(df, window)
+
+    # +DI, -DI
     df['+DM'] = np.where((df['high'] - df['high'].shift(1)) > (df['low'].shift(1) - df['low']), df['high'] - df['high'].shift(1), 0)
     df['+DM'] = np.where(df['+DM'] < 0, 0, df['+DM'])
     df['-DM'] = np.where((df['low'].shift(1) - df['low']) > (df['high'] - df['high'].shift(1)), df['low'].shift(1) - df['low'], 0)
     df['-DM'] = np.where(df['-DM'] < 0, 0, df['-DM'])
+
     df['+DI'] = 100 * (df['+DM'].ewm(alpha=alpha, adjust=False).mean() / df['ATR'])
     df['-DI'] = 100 * (df['-DM'].ewm(alpha=alpha, adjust=False).mean() / df['ATR'])
-    df['DX'] = 100 * (abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI']))
-    return df['DX'].ewm(alpha=alpha, adjust=False).mean()
+
+    # ADX
+    df['DX'] = 100 * (abs(df['+DI'] - df['-DI']) / ((df['+DI'] + df['-DI']).replace(0, 1))) # Avoid division by zero
+    adx = df['DX'].ewm(alpha=alpha, adjust=False).mean()
+    return pd.Series(adx, name='adx')
+
+def detect_trend_line_break(data: pd.DataFrame) -> bool:
+    """Placeholder for a complex trend line detection algorithm."""
+    return False
