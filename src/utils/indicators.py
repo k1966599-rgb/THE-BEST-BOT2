@@ -184,31 +184,51 @@ def calculate_atr(data: pd.DataFrame, window: int = 14) -> pd.Series:
 
     return atr
 
-def calculate_fib_extensions(swing_high: float, swing_low: float) -> List[float]:
+def calculate_fib_levels(swing_high: float, swing_low: float, trend: str = 'up') -> Dict[str, float]:
     """
-    Calculates Fibonacci extension levels for take-profit targets.
-
-    Args:
-        swing_high (float): The price of the swing high.
-        swing_low (float): The price of the swing low.
-
-    Returns:
-        List[float]: A list of potential take-profit target prices.
+    Calculates Fibonacci retracement levels based on the trend direction.
     """
     if swing_high <= swing_low:
-        return []
+        return {}
 
     swing_range = swing_high - swing_low
+    levels = {}
+    ratios = [0.236, 0.382, 0.500, 0.618, 0.786, 0.886]
 
-    # Common Fibonacci extension levels
-    # For an uptrend, targets are above the swing high
-    target1 = swing_high + swing_range * 1.618
-    target2 = swing_high + swing_range * 2.618
+    if trend == 'up':
+        # In an uptrend, we are looking for a pullback (downward correction).
+        # Levels are measured from the high down. 0.0 is at the high, 1.0 is at the low.
+        for ratio in ratios:
+            levels[f'fib_{int(ratio*1000)}'] = swing_high - swing_range * ratio
+    else: # downtrend
+        # In a downtrend, we are looking for a pullback (upward correction).
+        # Levels are measured from the low up. 0.0 is at the low, 1.0 is at the high.
+        for ratio in ratios:
+            levels[f'fib_{int(ratio*1000)}'] = swing_low + swing_range * ratio
 
-    # For a downtrend, targets would be below the swing low, but we'll focus on uptrend targets for now.
-    # The logic in the strategy will determine when to use these.
+    return levels
 
-    return [target1, target2]
+def calculate_fib_extensions(swing_high: float, swing_low: float, trend: str = 'up') -> Dict[str, float]:
+    """
+    Calculates Fibonacci extension levels for take-profit targets based on trend.
+    """
+    if swing_high <= swing_low:
+        return {}
+
+    swing_range = swing_high - swing_low
+    levels = {}
+    ratios = [1.272, 1.618, 2.000, 2.618, 3.618]
+
+    if trend == 'up':
+        # In an uptrend, targets are above the swing high.
+        for ratio in ratios:
+            levels[f'ext_{int(ratio*1000)}'] = swing_high + swing_range * ratio
+    else: # downtrend
+        # In a downtrend, targets are below the swing low.
+        for ratio in ratios:
+            levels[f'ext_{int(ratio*1000)}'] = swing_low - swing_range * ratio
+
+    return levels
 
 def detect_trend_line_break(data: pd.DataFrame) -> bool:
     """

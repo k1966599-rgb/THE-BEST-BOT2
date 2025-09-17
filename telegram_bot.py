@@ -58,7 +58,7 @@ async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        text="حالة البوت: يعمل بشكل طبيعي والتحليل الدوري مفعل.",
+        text="حالة البوت: يعمل بشكل طبيعي والتحليل الدوري معطل.",
         reply_markup=reply_markup
     )
 
@@ -223,9 +223,9 @@ async def post_init(application: Application) -> None:
     config = get_config()
     interval = config.get('trading', {}).get('ANALYSIS_INTERVAL_MINUTES', 15)
     scheduler = AsyncIOScheduler(timezone="UTC")
-    scheduler.add_job(run_periodic_analysis, 'interval', minutes=interval, args=[application])
-    scheduler.start()
-    logger.info(f"Scheduler started. Analysis will run every {interval} minutes.")
+    # scheduler.add_job(run_periodic_analysis, 'interval', minutes=interval, args=[application])
+    # scheduler.start()
+    logger.info(f"Scheduler is configured but DISABLED. Automatic analysis will not run.")
 
 def main() -> None:
     """Start the bot."""
