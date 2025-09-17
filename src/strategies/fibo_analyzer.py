@@ -21,8 +21,8 @@ class FiboAnalyzer(BaseStrategy):
         super().__init__(config)
         self.fetcher = fetcher
         p = config.get('strategy_params', {}).get('fibo_strategy', {})
-        self.sma_fast = p.get('sma_period_fast', 50)
-        self.sma_slow = p.get('sma_period_slow', 200)
+        self.sma_fast_period = p.get('sma_period_fast', 50)
+        self.sma_slow_period = p.get('sma_period_slow', 200)
         self.primary_lookback = p.get('primary_lookback', 120)
         self.secondary_lookback = p.get('secondary_lookback', 240)
         self.rsi_period = p.get('rsi_period', 14)
@@ -94,8 +94,11 @@ class FiboAnalyzer(BaseStrategy):
             result['reason'] = 'Not enough data'; return result
 
         # --- 1. Indicators ---
-        for indicator in ['adx', 'atr', 'sma_fast', 'sma_slow', 'rsi']:
-            data[indicator] = globals()[f'calculate_{indicator}'](data, window=getattr(self, f"{indicator}_window", 14))
+        data['adx'] = calculate_adx(data, window=self.adx_window)
+        data['atr'] = calculate_atr(data, window=self.atr_window)
+        data['sma_fast'] = calculate_sma(data, window=self.sma_fast_period)
+        data['sma_slow'] = calculate_sma(data, window=self.sma_slow_period)
+        data['rsi'] = calculate_rsi(data, window=self.rsi_period)
         data = data.join(calculate_macd(data))
         data = data.join(calculate_stochastic(data, window=self.stoch_window))
         data.dropna(inplace=True)
