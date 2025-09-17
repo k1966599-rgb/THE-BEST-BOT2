@@ -9,7 +9,9 @@ from ..utils.indicators import (
     calculate_bollinger_bands,
     find_swing_points,
     calculate_fib_extensions,
-    calculate_macd
+    calculate_macd,
+    detect_trend_line_break,
+    calculate_volume_profile
 )
 from ..utils.patterns import get_candlestick_pattern
 
@@ -35,29 +37,40 @@ class FiboAnalyzer(BaseStrategy):
             # Using default values
             self.rsi_period, self.sma_period_fast, self.sma_period_slow, self.fib_lookback, self.bb_window, self.volume_lookback = 14, 50, 200, 50, 20, 20
 
-    def _get_confirmations(self, data: pd.DataFrame, fib_618_val: float, pattern: str, daily_trend_is_up: bool, prev_pattern: str) -> Dict[str, bool]:
+    def _get_confirmations(self, data: pd.DataFrame, fib_618_val: float, pattern: str, daily_trend_is_up: bool, prev_pattern: str, trendline_break: bool, poc: float) -> Dict[str, bool]:
         """Helper to get all boolean confirmations for the template."""
         latest = data.iloc[-1]
         previous = data.iloc[-2]
         avg_volume = data['volume'].iloc[-self.volume_lookback:-1].mean()
 
         doji_breakout = prev_pattern == "Doji" and latest['close'] > previous['high']
+        bullish_patterns = ["Bullish Engulfing", "Hammer", "Morning Star", "Three White Soldiers"]
+
+        # Check for confluence between Fib 61.8% level and Point of Control (POC)
+        # We check if the POC is within a 1% tolerance of the fib level
+        poc_fib_confluence = False
+        if poc > 0 and fib_618_val > 0:
+            tolerance = fib_618_val * 0.01
+            poc_fib_confluence = abs(poc - fib_618_val) <= tolerance
 
         return {
             "break_618": latest['close'] > fib_618_val,
             "daily_close_above_fib": daily_trend_is_up,
             "high_volume": latest['volume'] > (avg_volume * 1.25),
             "rsi_above_50": latest['rsi'] > 50,
-            "reversal_candle": pattern in ["Bullish Engulfing", "Hammer"] or doji_breakout,
+            "reversal_candle": pattern in bullish_patterns or doji_breakout,
             "is_hammer": pattern == "Hammer",
             "is_engulfing": pattern == "Bullish Engulfing",
+            "is_morning_star": pattern == "Morning Star",
+            "is_three_white_soldiers": pattern == "Three White Soldiers",
             "break_doji": doji_breakout,
             "close_above_doji": doji_breakout, # Same condition for this template line
             "volume_confirm_pattern": latest['volume'] > avg_volume if doji_breakout else False,
+            "poc_fib_confluence": poc_fib_confluence,
             "trade_close_4h": False, # Placeholder
             "trade_volume_150": latest['volume'] > (avg_volume * 1.5),
             "trade_macd_positive": latest['macd'] > latest['signal_line'],
-            "trade_trendline_break": False, # Placeholder
+            "trade_trendline_break": trendline_break,
         }
 
     def _generate_scenarios(self, signal: str, fib_levels: Dict[str, float], swing_high: float, swing_low: float) -> Dict[str, Any]:
@@ -106,13 +119,21 @@ class FiboAnalyzer(BaseStrategy):
 
         # --- 2. Identify Key Points & Patterns ---
         swing_points = find_swing_points(data, lookback=self.fib_lookback)
-        swing_high_info = swing_points['swing_high']
-        swing_low_info = swing_points['swing_low']
-        # Get pattern of the latest candle, and the one before it
-        pattern = get_candlestick_pattern(data.iloc[-2:])
-        prev_pattern = get_candlestick_pattern(data.iloc[-3:-1])
 
-        if not swing_high_info['price'] or not swing_low_info['price']:
+        # Handle the new list-based output from find_swing_points
+        if not swing_points['swing_highs'] or not swing_points['swing_lows']:
+            return {'signal': 'HOLD', 'reason': 'Could not determine swing points for analysis.'}
+
+        # For Fibonacci, we use the most recent swing high and low
+        swing_high_info = swing_points['swing_highs'][-1]
+        swing_low_info = swing_points['swing_lows'][-1]
+
+        # Get pattern of the latest candle, and the one before it.
+        # Pass more data to detect 3-candle patterns.
+        pattern = get_candlestick_pattern(data.iloc[-4:])
+        prev_pattern = get_candlestick_pattern(data.iloc[-5:-1])
+
+        if not swing_high_info.get('price') or not swing_low_info.get('price'):
              return {'signal': 'HOLD', 'reason': 'Could not determine swing points for analysis.'}
         swing_high, swing_low = swing_high_info['price'], swing_low_info['price']
 
@@ -122,15 +143,22 @@ class FiboAnalyzer(BaseStrategy):
         # --- 4. Define Trend and Signal Conditions ---
         latest = data.iloc[-1]
         is_uptrend = latest['sma_fast'] > latest['sma_slow']
-        confirmations = self._get_confirmations(data, fib_levels['fib_618'], pattern, daily_trend_is_up, prev_pattern)
+
+        # Detect trendline break for confirmation
+        trendline_break = detect_trend_line_break(data, swing_points['swing_highs'], line_type='resistance')
+
+        # Calculate Volume Profile POC
+        poc = calculate_volume_profile(data, lookback=self.fib_lookback)
+
+        confirmations = self._get_confirmations(data, fib_levels['fib_618'], pattern, daily_trend_is_up, prev_pattern, trendline_break, poc)
 
         # --- 5. Generate Signal ---
         signal, reason, trade_info = 'HOLD', 'No clear signal met conditions.', {}
         buy_pullback_to_fib = latest['low'] <= fib_levels['fib_618'] <= latest['high']
-        # A buy signal is stronger if confirmed by a reversal pattern or a doji breakout, and with the daily trend
-        buy_pattern_confirm = pattern in ["Bullish Engulfing", "Hammer"] or confirmations["break_doji"]
+        # A buy signal is stronger if confirmed by a reversal pattern, a doji breakout, a trendline break, or POC confluence
+        buy_pattern_confirm = confirmations["reversal_candle"] or confirmations["trade_trendline_break"] or confirmations["poc_fib_confluence"]
 
-        if is_uptrend and daily_trend_is_up and buy_pullback_to_fib and buy_pattern_confirm:
+        if is_uptrend and daily_trend_is_up and ( (buy_pullback_to_fib and buy_pattern_confirm) or trendline_break):
             signal = 'BUY'
             reason = f'Uptrend on both {timeframe} and 1D. Pullback to Fib level confirmed by {pattern}.'
             targets = calculate_fib_extensions(swing_high, swing_low)
