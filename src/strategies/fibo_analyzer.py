@@ -1,143 +1,114 @@
 import pandas as pd
-from typing import Dict, Any
+from typing import Dict, Any, List
 from src.data_retrieval.data_fetcher import DataFetcher
 
 from .base_strategy import BaseStrategy
 from ..utils.indicators import (
-    calculate_rsi,
-    calculate_sma,
-    calculate_bollinger_bands,
-    find_swing_points,
-    calculate_fib_extensions,
-    calculate_macd
+    calculate_sma, find_swing_points, calculate_fib_levels,
+    calculate_fib_extensions, calculate_rsi, calculate_macd,
+    calculate_stochastic, calculate_bollinger_bands, calculate_adx,
+    detect_divergence, calculate_atr
 )
 from ..utils.patterns import get_candlestick_pattern
 
 class FiboAnalyzer(BaseStrategy):
     """
-    An enhanced analyzer based on Fibonacci retracement levels, with confirmations
-    from technical indicators and candlestick patterns, designed to populate a
-    detailed analysis template.
+    Implements Fibonacci analysis with divergence, confluence, and dynamic risk levels.
     """
 
     def __init__(self, config: Dict[str, Any], fetcher: DataFetcher):
         super().__init__(config)
         self.fetcher = fetcher
-        try:
-            strategy_params = self.config['strategy_params']['fibo_strategy']
-            self.rsi_period = strategy_params.get('rsi_period', 14)
-            self.sma_period_fast = strategy_params.get('sma_period_fast', 50)
-            self.sma_period_slow = strategy_params.get('sma_period_slow', 200)
-            self.fib_lookback = strategy_params.get('fib_lookback', 50)
-            self.bb_window = strategy_params.get('bb_window', 20)
-            self.volume_lookback = strategy_params.get('volume_lookback', 20)
-        except KeyError:
-            # Using default values
-            self.rsi_period, self.sma_period_fast, self.sma_period_slow, self.fib_lookback, self.bb_window, self.volume_lookback = 14, 50, 200, 50, 20, 20
+        p = config.get('strategy_params', {}).get('fibo_strategy', {})
+        self.sma_fast = p.get('sma_period_fast', 50)
+        self.sma_slow = p.get('sma_period_slow', 200)
+        self.primary_lookback = p.get('primary_lookback', 120)
+        self.secondary_lookback = p.get('secondary_lookback', 240)
+        self.rsi_period = p.get('rsi_period', 14)
+        self.stoch_window = p.get('stoch_window', 14)
+        self.adx_window = p.get('adx_window', 14)
+        self.atr_window = p.get('atr_window', 14)
+        self.atr_multiplier = p.get('atr_multiplier', 2.0)
 
-    def _get_confirmations(self, data: pd.DataFrame, fib_618_val: float, pattern: str, daily_trend_is_up: bool, prev_pattern: str) -> Dict[str, bool]:
-        """Helper to get all boolean confirmations for the template."""
+    def _find_confluence_zones(self, p_lvls: Dict, s_lvls: Dict, tol: float=0.005) -> List[Dict]:
+        zones = []
+        for pk, pv in p_lvls.items():
+            for sk, sv in s_lvls.items():
+                if abs(pv - sv) / pv <= tol:
+                    zones.append({"level": (pv + sv) / 2, "p_level": pk, "s_level": sk})
+        return zones
+
+    def _calculate_confirmation_score(self, data: pd.DataFrame, trend: str, swings: Dict, zones: List) -> Dict[str, Any]:
+        score, reasons = 0, []
         latest = data.iloc[-1]
-        previous = data.iloc[-2]
-        avg_volume = data['volume'].iloc[-self.volume_lookback:-1].mean()
+        if trend == 'up' and detect_divergence(swings['lows'], data['rsi'], 'bullish'):
+            score += 3; reasons.append("🔥 Bullish RSI Divergence")
+        if zones: score += 2; reasons.append(f"Confluence Zone near ${zones[0]['level']:.2f}")
+        if trend == 'up' and latest['rsi'] > 50: score += 1; reasons.append("RSI > 50")
+        if trend == 'up' and latest['macd'] > latest['signal_line']: score += 1; reasons.append("MACD Bullish")
+        pattern = get_candlestick_pattern(data.iloc[-3:])
+        if trend == 'up' and pattern in ["Bullish Engulfing", "Hammer", "Morning Star"]:
+            score += 2; reasons.append(f"Pattern: {pattern}")
+        return {"score": score, "reasons": reasons, "pattern": pattern}
 
-        doji_breakout = prev_pattern == "Doji" and latest['close'] > previous['high']
-
-        return {
-            "break_618": latest['close'] > fib_618_val,
-            "daily_close_above_fib": daily_trend_is_up,
-            "high_volume": latest['volume'] > (avg_volume * 1.25),
-            "rsi_above_50": latest['rsi'] > 50,
-            "reversal_candle": pattern in ["Bullish Engulfing", "Hammer"] or doji_breakout,
-            "is_hammer": pattern == "Hammer",
-            "is_engulfing": pattern == "Bullish Engulfing",
-            "break_doji": doji_breakout,
-            "close_above_doji": doji_breakout, # Same condition for this template line
-            "volume_confirm_pattern": latest['volume'] > avg_volume if doji_breakout else False,
-            "trade_close_4h": False, # Placeholder
-            "trade_volume_150": latest['volume'] > (avg_volume * 1.5),
-            "trade_macd_positive": latest['macd'] > latest['signal_line'],
-            "trade_trendline_break": False, # Placeholder
-        }
-
-    def _generate_scenarios(self, signal: str, fib_levels: Dict[str, float], swing_high: float, swing_low: float) -> Dict[str, Any]:
-        """Helper to generate potential scenarios based on the signal and calculated levels."""
-        if signal == 'BUY':
-            scen1 = {"title": "صعود من المستوى الذهبي", "prob": 65, "target": fib_levels['fib_236'], "entry": fib_levels['fib_618'], "stop_loss": swing_low}
-        elif signal == 'SELL':
-            scen1 = {"title": "هبوط بعد كسر الدعم", "prob": 65, "target": swing_low, "entry": fib_levels['fib_236'], "stop_loss": fib_levels['fib_500']}
-        else: # HOLD
-            scen1 = {"title": "تذبذب بين الدعم والمقاومة", "prob": 60, "target": fib_levels['fib_382'], "entry": fib_levels['fib_618'], "stop_loss": swing_low}
-        scen2 = {"title": "تذبذب جانبي", "prob": 25, "target": fib_levels['fib_382'], "entry": fib_levels['fib_500'], "stop_loss": fib_levels['fib_786']}
-        if signal in ['BUY', 'HOLD']:
-            scen3 = {"title": "انهيار السعر للأسفل", "prob": 10, "target": swing_low * 0.95, "entry": swing_low, "stop_loss": fib_levels['fib_786']}
-        else: # SELL
-            scen3 = {"title": "انعكاس قوي للأعلى", "prob": 10, "target": swing_high, "entry": fib_levels['fib_236'], "stop_loss": swing_low}
-        return {"scenario1": scen1, "scenario2": scen2, "scenario3": scen3}
+    def _calculate_risk_levels(self, trend: str, high: float, low: float, atr: float, extensions: Dict) -> Dict:
+        if trend == 'up':
+            stop_loss = low - (atr * self.atr_multiplier)
+            targets = [v for k, v in extensions.items() if k in ['ext_1272', 'ext_1618', 'ext_2000']]
+            entry = low + (atr * self.atr_multiplier) # Example entry
+        else: # downtrend
+            stop_loss = high + (atr * self.atr_multiplier)
+            targets = [v for k, v in extensions.items() if k in ['ext_1272', 'ext_1618', 'ext_2000']]
+            entry = high - (atr * self.atr_multiplier)
+        return {"entry": entry, "stop_loss": stop_loss, "targets": targets}
 
     def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
-        """Generates a professional analysis designed to populate the detailed template."""
-        if data.empty or len(data) < self.fib_lookback:
-            return {'signal': 'HOLD', 'reason': 'Not enough data for analysis.'}
+        if len(data) < self.secondary_lookback: return {'signal': 'HOLD', 'reason': 'Not enough data'}
 
-        # --- Multi-Timeframe Analysis (MTA) ---
-        daily_trend_is_up = True # Default to true if it's the daily chart itself
-        if timeframe != '1D':
-            daily_data_dict = self.fetcher.fetch_historical_data(symbol, '1D', limit=self.sma_period_slow + 5)
-            if daily_data_dict and daily_data_dict.get('data'):
-                df_daily = pd.DataFrame(daily_data_dict['data'])
-                numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
-                for col in numeric_cols:
-                    df_daily[col] = pd.to_numeric(df_daily[col], errors='coerce')
-                df_daily.dropna(inplace=True)
-
-                df_daily['sma_fast'] = calculate_sma(df_daily, self.sma_period_fast)
-                df_daily['sma_slow'] = calculate_sma(df_daily, self.sma_period_slow)
-                daily_trend_is_up = df_daily.iloc[-1]['sma_fast'] > df_daily.iloc[-1]['sma_slow']
-
-        # --- 1. Calculate All Indicators ---
+        # --- 1. Indicators ---
+        data['adx'] = calculate_adx(data, window=self.adx_window)
+        data['atr'] = calculate_atr(data, window=self.atr_window)
+        data['sma_fast'] = calculate_sma(data, self.sma_fast)
+        data['sma_slow'] = calculate_sma(data, self.sma_slow)
         data['rsi'] = calculate_rsi(data, self.rsi_period)
-        data['sma_fast'] = calculate_sma(data, self.sma_period_fast)
-        data['sma_slow'] = calculate_sma(data, self.sma_period_slow)
-        data = data.join(calculate_bollinger_bands(data, window=self.bb_window))
-        macd_df = calculate_macd(data)
-        data['macd'] = macd_df['macd']
-        data['signal_line'] = macd_df['signal_line']
+        data = data.join(calculate_macd(data))
+        data = data.join(calculate_stochastic(data, window=self.stoch_window))
+        data.dropna(inplace=True)
+        if len(data) < 50: return {'signal': 'HOLD', 'reason': 'Not enough data after calcs'}
 
-        # --- 2. Identify Key Points & Patterns ---
-        swing_points = find_swing_points(data, lookback=self.fib_lookback)
-        swing_high_info = swing_points['swing_high']
-        swing_low_info = swing_points['swing_low']
-        # Get pattern of the latest candle, and the one before it
-        pattern = get_candlestick_pattern(data.iloc[-2:])
-        prev_pattern = get_candlestick_pattern(data.iloc[-3:-1])
-
-        if not swing_high_info['price'] or not swing_low_info['price']:
-             return {'signal': 'HOLD', 'reason': 'Could not determine swing points for analysis.'}
-        swing_high, swing_low = swing_high_info['price'], swing_low_info['price']
-
-        # --- 3. Calculate Fibonacci Levels ---
-        fib_levels = {"fib_236": swing_high - 0.236 * (swing_high - swing_low), "fib_382": swing_high - 0.382 * (swing_high - swing_low), "fib_500": swing_high - 0.500 * (swing_high - swing_low), "fib_618": swing_high - 0.618 * (swing_high - swing_low), "fib_786": swing_high - 0.786 * (swing_high - swing_low)}
-
-        # --- 4. Define Trend and Signal Conditions ---
+        # --- 2. Trend & Swings ---
         latest = data.iloc[-1]
-        is_uptrend = latest['sma_fast'] > latest['sma_slow']
-        confirmations = self._get_confirmations(data, fib_levels['fib_618'], pattern, daily_trend_is_up, prev_pattern)
+        if latest['adx'] < 20: return {'signal': 'HOLD', 'reason': f"Weak trend (ADX < 20)"}
+        trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
 
-        # --- 5. Generate Signal ---
-        signal, reason, trade_info = 'HOLD', 'No clear signal met conditions.', {}
-        buy_pullback_to_fib = latest['low'] <= fib_levels['fib_618'] <= latest['high']
-        # A buy signal is stronger if confirmed by a reversal pattern or a doji breakout, and with the daily trend
-        buy_pattern_confirm = pattern in ["Bullish Engulfing", "Hammer"] or confirmations["break_doji"]
+        p_swings = find_swing_points(data, self.primary_lookback)
+        s_swings = find_swing_points(data, self.secondary_lookback)
+        if len(p_swings['highs'])<1 or len(p_swings['lows'])<1: return {'signal':'HOLD', 'reason':'Not enough primary swings'}
 
-        if is_uptrend and daily_trend_is_up and buy_pullback_to_fib and buy_pattern_confirm:
-            signal = 'BUY'
-            reason = f'Uptrend on both {timeframe} and 1D. Pullback to Fib level confirmed by {pattern}.'
-            targets = calculate_fib_extensions(swing_high, swing_low)
-            trade_info = {"trade_title": "شراء عند تأكيد الانعكاس", "trade_entry": f"{fib_levels['fib_382']:.2f}", "trade_target1": f"{targets[0]:.2f}", "trade_target2": f"{targets[1]:.2f}", "trade_target3": f"{swing_high + (swing_high - swing_low) * 4.236:.2f}", "trade_stop_loss": f"{swing_low:.2f}"}
+        p_high, p_low = p_swings['highs'][-1], p_swings['lows'][-1]
+        s_high, s_low = s_swings['highs'][-1], s_swings['lows'][-1]
 
-        # --- 6. Generate Scenarios ---
-        scenarios = self._generate_scenarios(signal, fib_levels, swing_high, swing_low)
+        # --- 3. Fibonacci & Confluence ---
+        p_fibs = calculate_fib_levels(p_high['price'], p_low['price'], trend)
+        s_fibs = calculate_fib_levels(s_high['price'], s_low['price'], trend)
+        zones = self._find_confluence_zones(p_fibs, s_fibs)
 
-        # --- 7. Consolidate All Data for Formatting ---
-        return {"signal": signal, "reason": reason, "current_price": latest['close'], "swing_high": swing_high_info, "swing_low": swing_low_info, "fib_levels": fib_levels, "confirmations": confirmations, "pattern": pattern, "scenarios": scenarios, **trade_info, **confirmations}
+        # --- 4. Score, Signal & Risk ---
+        confirm = self._calculate_confirmation_score(data, trend, p_swings, zones)
+        score = confirm['score']
+
+        signal = "HOLD"
+        risk_levels = {}
+        extensions = {}
+        if trend == 'up' and score >= 5:
+            signal = "BUY"
+            extensions = calculate_fib_extensions(p_high['price'], p_low['price'], trend)
+            risk_levels = self._calculate_risk_levels(trend, p_high['price'], p_low['price'], latest['atr'], extensions)
+
+        return {
+            "trend": trend, "signal": signal, "reason": ", ".join(confirm['reasons']),
+            "score": score, "swing_high": p_high, "swing_low": p_low,
+            "retracements": p_fibs, "extensions": extensions,
+            "confluence_zones": zones, "pattern": confirm['pattern'],
+            "risk_levels": risk_levels, "latest_data": latest.to_dict(),
+        }
