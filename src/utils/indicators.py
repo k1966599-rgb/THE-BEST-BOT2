@@ -3,238 +3,134 @@ import numpy as np
 from scipy.signal import find_peaks
 from typing import Dict, List, Any
 
-def find_swing_points(data: pd.DataFrame, lookback: int, prominence: float = 0.1) -> Dict[str, Dict[str, Any]]:
+def find_swing_points(data: pd.DataFrame, lookback: int, prominence_multiplier: float = 0.5, atr_window: int = 14) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Finds the most recent significant swing high and swing low.
-
-    Args:
-        data (pd.DataFrame): DataFrame with 'high', 'low', and 'timestamp' columns.
-        lookback (int): The number of recent candles to consider.
-        prominence (float): The required prominence of the peaks. This helps filter out minor fluctuations.
-
-    Returns:
-        A dictionary containing info about the swing high and low.
-        e.g. {'swing_high': {'price': 123.45, 'timestamp': 1678886400000}, ...}
+    Finds all significant swing highs and lows in the lookback period.
+    This version returns multiple points to be used for divergence detection.
     """
-    recent_data = data.iloc[-lookback:].copy()
-    # Ensure timestamp is in a usable format
-    recent_data['datetime'] = pd.to_datetime(recent_data['timestamp'], unit='ms')
+    recent_data = data.copy().iloc[-lookback:]
 
-    high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=prominence)
-    low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=prominence)
+    # Use ATR for dynamic prominence
+    atr = calculate_atr(recent_data, window=atr_window)
+    dynamic_prominence = atr.mean() * prominence_multiplier if not atr.empty and atr.mean() > 0 else np.std(recent_data['high'] - recent_data['low']) * 0.1
+    if dynamic_prominence <= 0: dynamic_prominence = 0.1
 
-    result = {
-        'swing_high': {'price': None, 'timestamp': None},
-        'swing_low': {'price': None, 'timestamp': None}
-    }
+    high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=dynamic_prominence)
+    low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=dynamic_prominence)
 
-    if high_peaks_indices.size > 0:
-        most_recent_high_index = high_peaks_indices[-1]
-        result['swing_high']['price'] = recent_data['high'].iloc[most_recent_high_index]
-        result['swing_high']['timestamp'] = recent_data['timestamp'].iloc[most_recent_high_index]
-    else:
-        # Fallback to simple max
-        idx = recent_data['high'].idxmax()
-        result['swing_high']['price'] = recent_data['high'].loc[idx]
-        result['swing_high']['timestamp'] = recent_data['timestamp'].loc[idx]
+    result = {'highs': [], 'lows': []}
+    for i in high_peaks_indices:
+        result['highs'].append({'price': recent_data.iloc[i]['high'], 'index': i})
+    for i in low_peaks_indices:
+        result['lows'].append({'price': recent_data.iloc[i]['low'], 'index': i})
 
-    if low_peaks_indices.size > 0:
-        most_recent_low_index = low_peaks_indices[-1]
-        result['swing_low']['price'] = recent_data['low'].iloc[most_recent_low_index]
-        result['swing_low']['timestamp'] = recent_data['timestamp'].iloc[most_recent_low_index]
-    else:
-        # Fallback to simple min
-        idx = recent_data['low'].idxmin()
-        result['swing_low']['price'] = recent_data['low'].loc[idx]
-        result['swing_low']['timestamp'] = recent_data['timestamp'].loc[idx]
+    # Always include the absolute highest and lowest as a fallback
+    abs_high_idx = recent_data['high'].idxmax()
+    abs_low_idx = recent_data['low'].idxmin()
+    if not any(p['index'] == recent_data.index.get_loc(abs_high_idx) for p in result['highs']):
+         result['highs'].append({'price': recent_data.loc[abs_high_idx]['high'], 'index': recent_data.index.get_loc(abs_high_idx)})
+    if not any(p['index'] == recent_data.index.get_loc(abs_low_idx) for p in result['lows']):
+         result['lows'].append({'price': recent_data.loc[abs_low_idx]['low'], 'index': recent_data.index.get_loc(abs_low_idx)})
+
+    # Sort by index
+    result['highs'] = sorted(result['highs'], key=lambda x: x['index'])
+    result['lows'] = sorted(result['lows'], key=lambda x: x['index'])
 
     return result
 
+def detect_divergence(price_swings: List[Dict[str, Any]], indicator_series: pd.Series, type: str = 'bullish') -> bool:
+    """
+    Detects bullish or bearish divergence between price and an indicator.
+    """
+    if len(price_swings) < 2:
+        return False
+
+    # Get the last two swing points
+    last_swing = price_swings[-1]
+    prev_swing = price_swings[-2]
+
+    last_price = last_swing['price']
+    prev_price = prev_swing['price']
+
+    last_indicator = indicator_series.iloc[last_swing['index']]
+    prev_indicator = indicator_series.iloc[prev_swing['index']]
+
+    if type == 'bullish':
+        # Lower low in price, but higher low in indicator
+        if last_price < prev_price and last_indicator > prev_indicator:
+            return True
+    elif type == 'bearish':
+        # Higher high in price, but lower high in indicator
+        if last_price > prev_price and last_indicator < prev_indicator:
+            return True
+
+    return False
 
 def calculate_sma(data: pd.DataFrame, window: int) -> pd.Series:
-    """
-    Calculates the Simple Moving Average (SMA).
-
-    Args:
-        data (pd.DataFrame): DataFrame with a 'close' column.
-        window (int): The period for the moving average.
-
-    Returns:
-        pd.Series: A pandas Series containing the SMA values.
-    """
-    if 'close' not in data.columns:
-        raise ValueError("Input DataFrame must have a 'close' column.")
+    if 'close' not in data.columns: raise ValueError("Input DataFrame must have a 'close' column.")
     return data['close'].rolling(window=window).mean()
 
 def calculate_rsi(data: pd.DataFrame, window: int = 14) -> pd.Series:
-    """
-    Calculates the Relative Strength Index (RSI).
-
-    Args:
-        data (pd.DataFrame): DataFrame with a 'close' column.
-        window (int): The period for the RSI calculation.
-
-    Returns:
-        pd.Series: A pandas Series containing the RSI values.
-    """
-    if 'close' not in data.columns:
-        raise ValueError("Input DataFrame must have a 'close' column.")
-
+    if 'close' not in data.columns: raise ValueError("Input DataFrame must have a 'close' column.")
     delta = data['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-
-    # Avoid division by zero
-    rs = gain / loss
-    rs = rs.fillna(0) # Fill NaNs in rs, which can happen if loss is 0
-
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-def calculate_ema(data: pd.DataFrame, window: int) -> pd.Series:
-    """
-    Calculates the Exponential Moving Average (EMA).
-
-    Args:
-        data (pd.DataFrame): DataFrame with a 'close' column.
-        window (int): The period for the moving average.
-
-    Returns:
-        pd.Series: A pandas Series containing the EMA values.
-    """
-    if 'close' not in data.columns:
-        raise ValueError("Input DataFrame must have a 'close' column.")
-    return data['close'].ewm(span=window, adjust=False).mean()
+    rs = gain / loss; rs = rs.fillna(0)
+    return 100 - (100 / (1 + rs))
 
 def calculate_macd(data: pd.DataFrame, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> pd.DataFrame:
-    """
-    Calculates the Moving Average Convergence Divergence (MACD).
-
-    Args:
-        data (pd.DataFrame): DataFrame with a 'close' column.
-        fast_period (int): The window for the fast EMA.
-        slow_period (int): The window for the slow EMA.
-        signal_period (int): The window for the signal line EMA.
-
-    Returns:
-        pd.DataFrame: A DataFrame with 'macd', 'signal_line', and 'histogram' columns.
-    """
-    ema_fast = calculate_ema(data, fast_period)
-    ema_slow = calculate_ema(data, slow_period)
-
+    ema_fast = data['close'].ewm(span=fast_period, adjust=False).mean()
+    ema_slow = data['close'].ewm(span=slow_period, adjust=False).mean()
     macd_line = ema_fast - ema_slow
     signal_line = macd_line.ewm(span=signal_period, adjust=False).mean()
     histogram = macd_line - signal_line
-
-    macd_df = pd.DataFrame({
-        'macd': macd_line,
-        'signal_line': signal_line,
-        'histogram': histogram
-    })
-    return macd_df
+    return pd.DataFrame({'macd': macd_line, 'signal_line': signal_line, 'histogram': histogram})
 
 def calculate_bollinger_bands(data: pd.DataFrame, window: int = 20, num_std_dev: int = 2) -> pd.DataFrame:
-    """
-    Calculates Bollinger Bands.
-
-    Args:
-        data (pd.DataFrame): DataFrame with a 'close' column.
-        window (int): The moving average period.
-        num_std_dev (int): The number of standard deviations.
-
-    Returns:
-        pd.DataFrame: A DataFrame with 'upper_band', 'middle_band', 'lower_band'.
-    """
-    if 'close' not in data.columns:
-        raise ValueError("Input DataFrame must have a 'close' column.")
-
     middle_band = calculate_sma(data, window)
     std_dev = data['close'].rolling(window=window).std()
-
     upper_band = middle_band + (std_dev * num_std_dev)
     lower_band = middle_band - (std_dev * num_std_dev)
-
-    bb_df = pd.DataFrame({
-        'upper_band': upper_band,
-        'middle_band': middle_band,
-        'lower_band': lower_band
-    })
-    return bb_df
+    return pd.DataFrame({'upper_band': upper_band, 'middle_band': middle_band, 'lower_band': lower_band})
 
 def calculate_atr(data: pd.DataFrame, window: int = 14) -> pd.Series:
-    """
-    Calculates the Average True Range (ATR).
-
-    Args:
-        data (pd.DataFrame): DataFrame with 'high', 'low', 'close' columns.
-        window (int): The period for the ATR calculation.
-
-    Returns:
-        pd.Series: A pandas Series containing the ATR values.
-    """
-    if not all(col in data.columns for col in ['high', 'low', 'close']):
-        raise ValueError("Input DataFrame must have 'high', 'low', and 'close' columns.")
-
-    high_low = data['high'] - data['low']
-    high_close = (data['high'] - data['close'].shift()).abs()
-    low_close = (data['low'] - data['close'].shift()).abs()
-
-    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-    atr = tr.ewm(alpha=1/window, adjust=False).mean()
-
-    return atr
+    if not all(col in data.columns for col in ['high', 'low', 'close']): raise ValueError("Missing required columns")
+    tr = pd.concat([data['high'] - data['low'], (data['high'] - data['close'].shift()).abs(), (data['low'] - data['close'].shift()).abs()], axis=1).max(axis=1)
+    return tr.ewm(alpha=1/window, adjust=False).mean()
 
 def calculate_fib_levels(swing_high: float, swing_low: float, trend: str = 'up') -> Dict[str, float]:
-    """
-    Calculates Fibonacci retracement levels based on the trend direction.
-    """
-    if swing_high <= swing_low:
-        return {}
-
+    if swing_high <= swing_low: return {}
     swing_range = swing_high - swing_low
-    levels = {}
-    ratios = [0.236, 0.382, 0.500, 0.618, 0.786, 0.886]
-
-    if trend == 'up':
-        # In an uptrend, we are looking for a pullback (downward correction).
-        # Levels are measured from the high down. 0.0 is at the high, 1.0 is at the low.
-        for ratio in ratios:
-            levels[f'fib_{int(ratio*1000)}'] = swing_high - swing_range * ratio
-    else: # downtrend
-        # In a downtrend, we are looking for a pullback (upward correction).
-        # Levels are measured from the low up. 0.0 is at the low, 1.0 is at the high.
-        for ratio in ratios:
-            levels[f'fib_{int(ratio*1000)}'] = swing_low + swing_range * ratio
-
+    levels, ratios = {}, [0.236, 0.382, 0.500, 0.618, 0.786, 0.886]
+    for r in ratios: levels[f'fib_{int(r*1000)}'] = (swing_high - swing_range * r) if trend == 'up' else (swing_low + swing_range * r)
     return levels
 
 def calculate_fib_extensions(swing_high: float, swing_low: float, trend: str = 'up') -> Dict[str, float]:
-    """
-    Calculates Fibonacci extension levels for take-profit targets based on trend.
-    """
-    if swing_high <= swing_low:
-        return {}
-
+    if swing_high <= swing_low: return {}
     swing_range = swing_high - swing_low
-    levels = {}
-    ratios = [1.272, 1.618, 2.000, 2.618, 3.618]
-
-    if trend == 'up':
-        # In an uptrend, targets are above the swing high.
-        for ratio in ratios:
-            levels[f'ext_{int(ratio*1000)}'] = swing_high + swing_range * ratio
-    else: # downtrend
-        # In a downtrend, targets are below the swing low.
-        for ratio in ratios:
-            levels[f'ext_{int(ratio*1000)}'] = swing_low - swing_range * ratio
-
+    levels, ratios = {}, [1.272, 1.618, 2.000, 2.618, 3.618]
+    for r in ratios: levels[f'ext_{int(r*1000)}'] = (swing_high + swing_range * r) if trend == 'up' else (swing_low - swing_range * r)
     return levels
 
-def detect_trend_line_break(data: pd.DataFrame) -> bool:
-    """
-    Placeholder for a complex trend line detection algorithm.
-    A real implementation would involve linear regression on swing points.
-    For now, this is a placeholder and will not affect the analysis.
-    """
-    # Returning False as this is a placeholder for a future feature.
-    return False
+def calculate_stochastic(data: pd.DataFrame, window: int = 14, smooth_k: int = 3) -> pd.DataFrame:
+    low_min = data['low'].rolling(window=window).min()
+    high_max = data['high'].rolling(window=window).max()
+    stoch_k = 100 * ((data['close'] - low_min) / (high_max - low_min))
+    stoch_d = stoch_k.rolling(window=smooth_k).mean()
+    return pd.DataFrame({'stoch_k': stoch_k, 'stoch_d': stoch_d})
+
+def calculate_obv(data: pd.DataFrame) -> pd.Series:
+    return pd.Series((np.sign(data['close'].diff()) * data['volume']).fillna(0).cumsum(), name='obv')
+
+def calculate_adx(data: pd.DataFrame, window: int = 14) -> pd.Series:
+    df = data.copy()
+    alpha = 1 / window
+    df['TR'] = calculate_atr(df, window)
+    df['+DM'] = np.where((df['high'] - df['high'].shift(1)) > (df['low'].shift(1) - df['low']), df['high'] - df['high'].shift(1), 0)
+    df['+DM'] = np.where(df['+DM'] < 0, 0, df['+DM'])
+    df['-DM'] = np.where((df['low'].shift(1) - df['low']) > (df['high'] - df['high'].shift(1)), df['low'].shift(1) - df['low'], 0)
+    df['-DM'] = np.where(df['-DM'] < 0, 0, df['-DM'])
+    df['+DI'] = 100 * (df['+DM'].ewm(alpha=alpha, adjust=False).mean() / df['ATR'])
+    df['-DI'] = 100 * (df['-DM'].ewm(alpha=alpha, adjust=False).mean() / df['ATR'])
+    df['DX'] = 100 * (abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI']))
+    return df['DX'].ewm(alpha=alpha, adjust=False).mean()
