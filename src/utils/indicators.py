@@ -3,50 +3,53 @@ import numpy as np
 from scipy.signal import find_peaks
 from typing import Dict, List, Any
 
-def find_swing_points(data: pd.DataFrame, lookback: int, prominence: float = 0.1) -> Dict[str, Dict[str, Any]]:
+def find_swing_points(data: pd.DataFrame, lookback: int, atr_window: int = 14, prominence_multiplier: float = 1.5) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Finds the most recent significant swing high and swing low.
+    Finds all significant swing highs and lows in the lookback period using dynamic
+    prominence based on the Average True Range (ATR).
 
     Args:
-        data (pd.DataFrame): DataFrame with 'high', 'low', and 'timestamp' columns.
+        data (pd.DataFrame): DataFrame with 'high', 'low', 'close', and 'timestamp' columns.
         lookback (int): The number of recent candles to consider.
-        prominence (float): The required prominence of the peaks. This helps filter out minor fluctuations.
+        atr_window (int): The window to use for ATR calculation.
+        prominence_multiplier (float): The multiplier for ATR to determine prominence.
 
     Returns:
-        A dictionary containing info about the swing high and low.
-        e.g. {'swing_high': {'price': 123.45, 'timestamp': 1678886400000}, ...}
+        A dictionary containing lists of swing high and swing low points.
+        e.g., {'swing_highs': [{'price': 123, 'timestamp': ...}, ...], 'swing_lows': [...]}
     """
     recent_data = data.iloc[-lookback:].copy()
-    # Ensure timestamp is in a usable format
     recent_data['datetime'] = pd.to_datetime(recent_data['timestamp'], unit='ms')
 
-    high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=prominence)
-    low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=prominence)
+    atr = calculate_atr(recent_data, window=atr_window)
+    dynamic_prominence = atr.mean() * prominence_multiplier if not atr.empty else 0.1
 
-    result = {
-        'swing_high': {'price': None, 'timestamp': None},
-        'swing_low': {'price': None, 'timestamp': None}
-    }
+    high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=dynamic_prominence)
+    low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=dynamic_prominence)
+
+    result = {'swing_highs': [], 'swing_lows': []}
 
     if high_peaks_indices.size > 0:
-        most_recent_high_index = high_peaks_indices[-1]
-        result['swing_high']['price'] = recent_data['high'].iloc[most_recent_high_index]
-        result['swing_high']['timestamp'] = recent_data['timestamp'].iloc[most_recent_high_index]
+        for i in high_peaks_indices:
+            point = recent_data.iloc[i]
+            result['swing_highs'].append({'price': point['high'], 'timestamp': point['timestamp'], 'index': data.index[0] + i})
     else:
-        # Fallback to simple max
+        # Fallback to simple max if no peaks found
         idx = recent_data['high'].idxmax()
-        result['swing_high']['price'] = recent_data['high'].loc[idx]
-        result['swing_high']['timestamp'] = recent_data['timestamp'].loc[idx]
+        point = recent_data.loc[idx]
+        result['swing_highs'].append({'price': point['high'], 'timestamp': point['timestamp'], 'index': idx})
+
 
     if low_peaks_indices.size > 0:
-        most_recent_low_index = low_peaks_indices[-1]
-        result['swing_low']['price'] = recent_data['low'].iloc[most_recent_low_index]
-        result['swing_low']['timestamp'] = recent_data['timestamp'].iloc[most_recent_low_index]
+        for i in low_peaks_indices:
+            point = recent_data.iloc[i]
+            result['swing_lows'].append({'price': point['low'], 'timestamp': point['timestamp'], 'index': data.index[0] + i})
     else:
         # Fallback to simple min
         idx = recent_data['low'].idxmin()
-        result['swing_low']['price'] = recent_data['low'].loc[idx]
-        result['swing_low']['timestamp'] = recent_data['timestamp'].loc[idx]
+        point = recent_data.loc[idx]
+        result['swing_lows'].append({'price': point['low'], 'timestamp': point['timestamp'], 'index': idx})
+
 
     return result
 
@@ -210,11 +213,94 @@ def calculate_fib_extensions(swing_high: float, swing_low: float) -> List[float]
 
     return [target1, target2]
 
-def detect_trend_line_break(data: pd.DataFrame) -> bool:
+def detect_trend_line_break(data: pd.DataFrame, swing_points: List[Dict[str, Any]], lookback_points: int = 3, line_type: str = 'support') -> bool:
     """
-    Placeholder for a complex trend line detection algorithm.
-    A real implementation would involve linear regression on swing points.
-    For now, this is a placeholder and will not affect the analysis.
+    Detects a break of a trend line drawn through recent swing points.
+
+    Args:
+        data (pd.DataFrame): The full DataFrame of price data.
+        swing_points (List[Dict[str, Any]]): A list of swing points (highs or lows).
+        lookback_points (int): The number of recent swing points to use for the trend line.
+        line_type (str): 'support' for trend line through lows, 'resistance' for highs.
+
+    Returns:
+        bool: True if the most recent close has broken the trend line, False otherwise.
     """
-    # Returning False as this is a placeholder for a future feature.
-    return False
+    if len(swing_points) < 2:
+        return False
+
+    # Use the last `lookback_points` swing points to draw the line
+    relevant_points = swing_points[-lookback_points:]
+    if len(relevant_points) < 2:
+        return False
+
+    # Prepare data for linear regression
+    indices = np.array([p['index'] for p in relevant_points])
+    prices = np.array([p['price'] for p in relevant_points])
+
+    # Fit a line (degree 1 polynomial) to the points
+    # The result, 'coeffs', contains the slope and y-intercept
+    try:
+        coeffs = np.polyfit(indices, prices, 1)
+    except np.linalg.LinAlgError:
+        # Could happen if points are perfectly vertical, etc.
+        return False
+
+    trend_line_func = np.poly1d(coeffs)
+
+    # Get the index of the latest candle
+    latest_index = data.index[-1]
+    latest_close = data.iloc[-1]['close']
+
+    # Calculate the trend line's value at the latest index
+    trend_line_value_now = trend_line_func(latest_index)
+
+    if line_type == 'support':
+        # A support break happens when the close is below the trend line
+        return latest_close < trend_line_value_now
+    elif line_type == 'resistance':
+        # A resistance break happens when the close is above the trend line
+        return latest_close > trend_line_value_now
+    else:
+        return False
+
+def calculate_volume_profile(data: pd.DataFrame, lookback: int, bins: int = 20) -> float:
+    """
+    Calculates a simple volume profile and finds the Point of Control (POC).
+
+    Args:
+        data (pd.DataFrame): DataFrame with 'close' and 'volume' columns.
+        lookback (int): The number of recent candles to consider.
+        bins (int): The number of price bins to create.
+
+    Returns:
+        float: The price level of the Point of Control (POC), or 0 if it cannot be calculated.
+    """
+    if len(data) < lookback:
+        return 0
+
+    recent_data = data.iloc[-lookback:]
+
+    price_range = recent_data['high'].max() - recent_data['low'].min()
+    if price_range == 0:
+        return 0
+
+    # Create price bins
+    price_bins = np.linspace(recent_data['low'].min(), recent_data['high'].max(), bins + 1)
+
+    # Assign each candle's close price to a bin
+    recent_data['price_bin'] = pd.cut(recent_data['close'], bins=price_bins, labels=False, include_lowest=True)
+
+    # Group by price bin and sum the volume
+    volume_by_bin = recent_data.groupby('price_bin')['volume'].sum()
+
+    if volume_by_bin.empty:
+        return 0
+
+    # Find the bin with the maximum volume (Point of Control)
+    poc_bin_index = volume_by_bin.idxmax()
+
+    # Calculate the price corresponding to the center of the POC bin
+    poc_price = (price_bins[poc_bin_index] + price_bins[poc_bin_index + 1]) / 2
+
+    return poc_price
