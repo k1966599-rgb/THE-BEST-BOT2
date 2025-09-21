@@ -48,26 +48,57 @@ class FiboAnalyzer(BaseStrategy):
                     zones.append({"level": (pv + sv) / 2, "p_level": pk, "s_level": sk})
         return zones
 
-    def _calculate_confirmation_score(self, data: pd.DataFrame, trend: str, swings: Dict, zones: List) -> Dict[str, Any]:
+    def _calculate_confirmation_score(self, data: pd.DataFrame, trend: str, swings: Dict, zones: List, retracements: Dict) -> Dict[str, Any]:
         score, reasons = 0, []
         latest = data.iloc[-1]
+
+        # Initialize confirmations dictionary
+        confirmations = {
+            "confirmation_rsi": False,
+            "confirmation_reversal_candle": False,
+            "confirmation_break_618": False,
+            "confirmation_volume": False, # Basic volume check, can be enhanced
+        }
+
+        bullish_reversal_patterns = ["Bullish Engulfing", "Hammer", "Morning Star", "Piercing Pattern", "Three White Soldiers"]
+        bearish_reversal_patterns = ["Bearish Engulfing", "Shooting Star", "Evening Star", "Dark Cloud Cover", "Three Black Crows"]
+
+        pattern = get_candlestick_pattern(data.iloc[-3:])
 
         if trend == 'up':
             if detect_divergence(swings['lows'], data['rsi'], 'bullish'): score += 3; reasons.append("🔥 انحراف إيجابي (RSI)")
             if zones: score += 2; reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
-            if latest['rsi'] > 50: score += 1; reasons.append("RSI > 50")
+            if latest['rsi'] > 50:
+                score += 1; reasons.append("RSI > 50"); confirmations["confirmation_rsi"] = True
             if latest['macd'] > latest['signal_line']: score += 1; reasons.append("تقاطع MACD إيجابي")
-            pattern = get_candlestick_pattern(data.iloc[-3:])
-            if pattern in ["Bullish Engulfing", "Hammer", "Morning Star"]: score += 2; reasons.append(f"نموذج {pattern}")
+            if pattern in bullish_reversal_patterns:
+                score += 2; reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
+
+            # Check for break of 61.8% retracement level
+            fib_618 = retracements.get('fib_618')
+            if fib_618 and latest['close'] > fib_618:
+                confirmations["confirmation_break_618"] = True
+
         else: # downtrend
             if detect_divergence(swings['highs'], data['rsi'], 'bearish'): score += 3; reasons.append("🔥 انحراف سلبي (RSI)")
             if zones: score += 2; reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
-            if latest['rsi'] < 50: score += 1; reasons.append("RSI < 50")
+            if latest['rsi'] < 50:
+                score += 1; reasons.append("RSI < 50"); confirmations["confirmation_rsi"] = True
             if latest['macd'] < latest['signal_line']: score += 1; reasons.append("تقاطع MACD سلبي")
-            pattern = get_candlestick_pattern(data.iloc[-3:])
-            if pattern in ["Bearish Engulfing", "Shooting Star", "Evening Star"]: score += 2; reasons.append(f"نموذج {pattern}")
+            if pattern in bearish_reversal_patterns:
+                score += 2; reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
 
-        return {"score": score, "reasons": reasons, "pattern": pattern}
+            # Check for break of 61.8% retracement level
+            fib_618 = retracements.get('fib_618')
+            if fib_618 and latest['close'] < fib_618:
+                confirmations["confirmation_break_618"] = True
+
+        # Basic volume check (e.g., volume is above its 20-period moving average)
+        data['volume_sma'] = data['volume'].rolling(window=20).mean()
+        if latest['volume'] > data['volume_sma'].iloc[-1]:
+            confirmations["confirmation_volume"] = True
+
+        return {"score": score, "reasons": reasons, "pattern": pattern, "confirmations": confirmations}
 
     def _generate_scenarios(self, result: Dict) -> Dict:
         trend = result['trend']
@@ -130,8 +161,8 @@ class FiboAnalyzer(BaseStrategy):
         result['confluence_zones'] = self._find_confluence_zones(result['retracements'], calculate_fib_levels(s_high['price'], s_low['price'], trend))
 
         # --- 4. Score, Signal & Scenarios ---
-        confirm = self._calculate_confirmation_score(data, trend, p_swings, result['confluence_zones'])
-        result.update(confirm)
+        confirm_data = self._calculate_confirmation_score(data, trend, p_swings, result['confluence_zones'], result['retracements'])
+        result.update(confirm_data)
 
         if trend == 'up' and result['score'] >= 5: result['signal'] = "BUY"
         elif trend == 'down' and result['score'] >= 5: result['signal'] = "SELL"

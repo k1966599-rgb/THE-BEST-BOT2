@@ -25,6 +25,9 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         # OKX timestamp is in milliseconds
         return datetime.fromtimestamp(timestamp / 1000).strftime('%Y-%m-%d')
 
+    def format_bool(flag):
+        return '✅' if flag else '❌'
+
     # --- Main Signal ---
     signal = analysis_data.get('signal', 'HOLD')
     signal_map = {'BUY': ('🟢', 'شراء'), 'SELL': ('🔴', 'بيع'), 'HOLD': ('🟡', 'محايد')}
@@ -42,7 +45,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
 
     # --- Other data points ---
     scenarios = analysis_data.get('scenarios', {})
-    risk_levels = analysis_data.get('risk_levels', {}) # This seems unused in the template
+    confirmations = analysis_data.get('confirmations', {})
 
     # --- Build Replacements Dictionary ---
     replacements = {
@@ -77,14 +80,14 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
 
         "pattern": analysis_data.get('pattern', 'لا يوجد'),
 
-        # --- Defaulting complex keys that need to be implemented in the analyzer ---
-        "confirmation_break_618": "⚪️",
-        "confirmation_daily_close": "⚪️",
+        # --- Now using the real confirmation data ---
+        "confirmation_break_618": format_bool(confirmations.get('confirmation_break_618')),
+        "confirmation_daily_close": "⚪️", # Still not implemented
         "fib_618_val": format_price(retracements.get('fib_618')),
-        "confirmation_volume": "⚪️",
-        "confirmation_rsi": "⚪️",
-        "confirmation_reversal_candle": "⚪️",
-        "pattern_confirm_hammer": "⚪️",
+        "confirmation_volume": format_bool(confirmations.get('confirmation_volume')),
+        "confirmation_rsi": format_bool(confirmations.get('confirmation_rsi')),
+        "confirmation_reversal_candle": format_bool(confirmations.get('confirmation_reversal_candle')),
+        "pattern_confirm_hammer": "⚪️", # These pattern-specific confirms are not implemented yet
         "pattern_confirm_engulfing": "⚪️",
         "pattern_confirm_break_doji": "⚪️",
         "pattern_confirm_close_above": "⚪️",
