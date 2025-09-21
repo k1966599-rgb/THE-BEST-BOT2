@@ -2,6 +2,8 @@ import okx.MarketData as MarketData
 import pandas as pd
 from typing import Dict, List, Optional
 import logging
+import os
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,43 @@ class DataFetcher:
                 return None
         except Exception as e:
             logger.exception(f"An exception occurred while fetching data for {symbol}: {e}")
+            return None
+
+    def fetch_local_historical_data(self, symbol: str, timeframe: str, term: str) -> Optional[Dict]:
+        """
+        Fetches historical candlestick data from a local JSON file.
+
+        Args:
+            symbol (str): The trading symbol (e.g., 'BTC-USDT').
+            timeframe (str): The timeframe for the candles (e.g., '1D', '4H').
+            term (str): The analysis term (e.g., 'long_term', 'medium_term').
+
+        Returns:
+            Optional[Dict]: A dictionary containing the data, or None if an error occurs.
+        """
+        logger.info(f"Fetching local historical data for {symbol} on {timeframe} ({term})...")
+        file_path = os.path.join('data', symbol, term, f"{timeframe}.json")
+
+        if not os.path.exists(file_path):
+            logger.error(f"Local data file not found: {file_path}")
+            return None
+
+        try:
+            with open(file_path, 'r') as f:
+                data_dict = json.load(f)
+
+            # The stored data is already in the desired format, but let's ensure it has the 'data' key
+            if 'data' in data_dict:
+                logger.info(f"Successfully loaded {len(data_dict['data'])} candles from {file_path}.")
+                return data_dict
+            else:
+                logger.error(f"Invalid format in local data file {file_path}: missing 'data' key.")
+                return None
+        except json.JSONDecodeError:
+            logger.exception(f"Failed to decode JSON from file: {file_path}")
+            return None
+        except Exception as e:
+            logger.exception(f"An unexpected error occurred while reading local file {file_path}: {e}")
             return None
 
 if __name__ == '__main__':
