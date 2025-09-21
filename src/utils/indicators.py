@@ -20,16 +20,16 @@ def find_swing_points(data: pd.DataFrame, lookback: int, prominence_multiplier: 
 
     result = {'highs': [], 'lows': []}
     for i in high_peaks_indices:
-        result['highs'].append({'price': recent_data.iloc[i]['high'], 'index': recent_data.index[i]})
+        result['highs'].append({'price': recent_data.iloc[i]['high'], 'index': i})
     for i in low_peaks_indices:
-        result['lows'].append({'price': recent_data.iloc[i]['low'], 'index': recent_data.index[i]})
+        result['lows'].append({'price': recent_data.iloc[i]['low'], 'index': i})
 
     abs_high_idx = recent_data['high'].idxmax()
     abs_low_idx = recent_data['low'].idxmin()
-    if not any(p['index'] == abs_high_idx for p in result['highs']):
-         result['highs'].append({'price': recent_data.loc[abs_high_idx]['high'], 'index': abs_high_idx})
-    if not any(p['index'] == abs_low_idx for p in result['lows']):
-         result['lows'].append({'price': recent_data.loc[abs_low_idx]['low'], 'index': abs_low_idx})
+    if not any(p['index'] == recent_data.index.get_loc(abs_high_idx) for p in result['highs']):
+         result['highs'].append({'price': recent_data.loc[abs_high_idx]['high'], 'index': recent_data.index.get_loc(abs_high_idx)})
+    if not any(p['index'] == recent_data.index.get_loc(abs_low_idx) for p in result['lows']):
+         result['lows'].append({'price': recent_data.loc[abs_low_idx]['low'], 'index': recent_data.index.get_loc(abs_low_idx)})
 
     result['highs'] = sorted(result['highs'], key=lambda x: x['index'])
     result['lows'] = sorted(result['lows'], key=lambda x: x['index'])
@@ -45,8 +45,8 @@ def detect_divergence(price_swings: List[Dict[str, Any]], indicator_series: pd.S
     prev_swing = price_swings[-2]
     last_price = last_swing['price']
     prev_price = prev_swing['price']
-    last_indicator = indicator_series.loc[last_swing['index']]
-    prev_indicator = indicator_series.loc[prev_swing['index']]
+    last_indicator = indicator_series.iloc[last_swing['index']]
+    prev_indicator = indicator_series.iloc[prev_swing['index']]
 
     if type == 'bullish' and last_price < prev_price and last_indicator > prev_indicator:
         return True
