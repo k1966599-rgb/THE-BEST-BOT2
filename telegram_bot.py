@@ -144,7 +144,6 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     context.user_data['timeframe'] = query.data.split('_', 1)[1]
     symbol = context.user_data['symbol']
     timeframe = context.user_data['timeframe']
-    term = context.user_data.get('term', 'long_term') # Default to long_term if not found
 
     await query.edit_message_text(text=f"✅ شكراً لك! جاري تحليل {symbol} على إطار {timeframe}...")
 
@@ -153,8 +152,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         fetcher = DataFetcher(config)
         analyzer = FiboAnalyzer(config, fetcher)
 
-        # Use the new function to load data from local files
-        data_dict = fetcher.fetch_local_historical_data(symbol, timeframe, term)
+        data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=300)
         if not data_dict or 'data' not in data_dict or not data_dict['data']:
             await query.message.reply_text("عذراً، لم أتمكن من جلب البيانات لهذه العملة. يرجى المحاولة مرة أخرى.")
             await start(update, context)
