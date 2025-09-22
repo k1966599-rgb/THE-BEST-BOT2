@@ -165,23 +165,21 @@ class FiboAnalyzer(BaseStrategy):
         # For confluence, we can use a secondary Zig Zag with a larger threshold
         s_swings = calculate_zigzag(data, threshold=zigzag_threshold * 2)
 
-        # Trend-aware selection of primary swing points for Fibonacci
-        if trend == 'up':
-            # For an uptrend, we measure retracement from a high down to a preceding low
-            p_high = p_swings['highs'][-1]
-            # Find the closest low that occurred before this high
-            relevant_lows = [l for l in p_swings['lows'] if l['index'] < p_high['index']]
-            if not relevant_lows:
-                result['reason'] = 'No preceding low found for Fibo in uptrend'; return result
-            p_low = max(relevant_lows, key=lambda x: x['index']) # closest one
-        else: # 'down'
-            # For a downtrend, we measure retracement from a low up to a preceding high
-            p_low = p_swings['lows'][-1]
-            # Find the closest high that occurred before this low
-            relevant_highs = [h for h in p_swings['highs'] if h['index'] < p_low['index']]
-            if not relevant_highs:
-                result['reason'] = 'No preceding high found for Fibo in downtrend'; return result
-            p_high = max(relevant_highs, key=lambda x: x['index']) # closest one
+        # --- Select the Most Significant Swing for Fibonacci ---
+        # Instead of just the last pivot, find the largest recent price swing.
+
+        # Combine all detected pivots and sort them by time
+        all_pivots = sorted(p_swings['highs'] + p_swings['lows'], key=lambda x: x['index'])
+
+        if len(all_pivots) < 2:
+            result['reason'] = 'Not enough pivot points for significant swing analysis'; return result
+
+        # Look at the last 5 pivots to find the most dominant swing
+        recent_pivots = all_pivots[-5:]
+
+        # Find the absolute highest high and lowest low in this recent window
+        p_high = max(recent_pivots, key=lambda x: x['price'])
+        p_low = min(recent_pivots, key=lambda x: x['price'])
 
         # Ensure p_high is actually higher than p_low
         if p_high['price'] <= p_low['price']:
