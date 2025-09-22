@@ -4,25 +4,25 @@
 ---
 
 ### **وضع السوق الحالي**
-- **السعر:** `{current_price:.4f}`
-- **الاتجاه العام:** `{trend_emoji} {trend_text}`
-- **قوة الاتجاه (ADX):** `{adx:.2f}`
-- **الزخم (RSI):** `{rsi:.2f}`
+- **السعر:** {current_price}
+- **الاتجاه العام:** {trend_emoji} {trend_text}
+- **قوة الاتجاه (ADX):** {adx}
+- **الزخم (RSI):** {rsi}
 
 ---
 
 ### **تحليل فيبوناتشي**
-- **القمة المرجعية (High):** `{swing_high_price:.4f}`
-- **القاع المرجعي (Low):** `{swing_low_price:.4f}`
-- **مستوى 61.8% الذهبي:** `{fib_618:.4f}`
+- **القمة المرجعية (High):** {swing_high_price}
+- **القاع المرجعي (Low):** {swing_low_price}
+- **مستوى 61.8% الذهبي:** {fib_618}
 - **أهم مناطق التوافق:**
 {confluence_zones_text}
 
 ---
 
 ### **مؤشرات القوة والتأكيد**
-- **النمط الفني:** `{pattern}`
-- **تقييم القوة:** `{score}/10`
+- **النمط الفني:** {pattern}
+- **تقييم القوة:** {score}
 - **أسباب القوة:**
 {reasons_text}
 
@@ -32,14 +32,14 @@
 **نوع الإشارة: {signal_emoji} {signal}**
 
 **السيناريو الأساسي ({scenario1_title})**
-- **نقطة الدخول المقترحة:** `{scenario1_entry:.4f}`
-- **وقف الخسارة (SL):** `{scenario1_stop_loss:.4f}`
-- **الهدف (TP):** `{scenario1_target:.4f}`
-- *نسبة النجاح المتوقعة: {scenario1_prob}%*
+- **نقطة الدخول المقترحة:** {scenario1_entry}
+- **وقف الخسارة (SL):** {scenario1_stop_loss}
+- **الهدف (TP):** {scenario1_target}
+- *نسبة النجاح المتوقعة: {scenario1_prob}*
 
 **السيناريو البديل ({scenario2_title})**
-- **نقطة التحول:** كسر مستوى `{scenario2_stop_loss:.4f}`
-- **الهدف في حالة الانعكاس:** `{scenario2_target:.4f}`
+- **نقطة التحول:** كسر مستوى {scenario2_stop_loss}
+- **الهدف في حالة الانعكاس:** {scenario2_target}
 
 ---
 *تحليل آلي، ليس توصية استثمارية مباشرة.*
