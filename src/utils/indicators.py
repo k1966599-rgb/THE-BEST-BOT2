@@ -139,3 +139,73 @@ def calculate_adx(data: pd.DataFrame, window: int = 14) -> pd.Series:
 def detect_trend_line_break(data: pd.DataFrame) -> bool:
     """Placeholder for a complex trend line detection algorithm."""
     return False
+
+def calculate_zigzag(data: pd.DataFrame, threshold: float = 0.05) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Calculates swing points using the Zig Zag indicator methodology.
+    Args:
+        data: DataFrame with 'high', 'low', and 'close' columns. Assumes a monotonic increasing index.
+        threshold: The percentage change required to reverse the trend. e.g., 0.05 for 5%.
+    Returns:
+        A dictionary with 'highs' and 'lows' lists, containing swing points.
+    """
+    if data.empty:
+        return {'highs': [], 'lows': []}
+
+    highs = []
+    lows = []
+
+    trend = 0  # 1 for up, -1 for down
+    last_pivot_price = data['close'].iloc[0]
+    last_pivot_idx = data.index[0]
+
+    # Use 'high' and 'low' for comparison to find true peaks and troughs
+    for i in range(1, len(data)):
+        high_price = data['high'].iloc[i]
+        low_price = data['low'].iloc[i]
+
+        if trend == 0:
+            if high_price > last_pivot_price * (1 + threshold):
+                trend = 1
+                # Not a real pivot yet, just establishing trend, but the start is a low
+                lows.append({'price': last_pivot_price, 'index': last_pivot_idx})
+                last_pivot_price = high_price
+                last_pivot_idx = data.index[i]
+            elif low_price < last_pivot_price * (1 - threshold):
+                trend = -1
+                # Not a real pivot yet, just establishing trend, but the start is a high
+                highs.append({'price': last_pivot_price, 'index': last_pivot_idx})
+                last_pivot_price = low_price
+                last_pivot_idx = data.index[i]
+
+        elif trend == 1:  # Uptrend, looking for a high
+            if high_price > last_pivot_price:
+                # New high in the current uptrend
+                last_pivot_price = high_price
+                last_pivot_idx = data.index[i]
+            elif low_price < last_pivot_price * (1 - threshold):
+                # Reversal confirmed, the last pivot was a high
+                highs.append({'price': last_pivot_price, 'index': last_pivot_idx})
+                trend = -1
+                last_pivot_price = low_price
+                last_pivot_idx = data.index[i]
+
+        elif trend == -1:  # Downtrend, looking for a low
+            if low_price < last_pivot_price:
+                # New low in the current downtrend
+                last_pivot_price = low_price
+                last_pivot_idx = data.index[i]
+            elif high_price > last_pivot_price * (1 + threshold):
+                # Reversal confirmed, the last pivot was a low
+                lows.append({'price': last_pivot_price, 'index': last_pivot_idx})
+                trend = 1
+                last_pivot_price = high_price
+                last_pivot_idx = data.index[i]
+
+    # Add the last unconfirmed pivot to the list
+    if trend == 1:
+        highs.append({'price': last_pivot_price, 'index': last_pivot_idx})
+    elif trend == -1:
+        lows.append({'price': last_pivot_price, 'index': last_pivot_idx})
+
+    return {'highs': highs, 'lows': lows}
