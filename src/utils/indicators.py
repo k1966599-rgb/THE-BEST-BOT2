@@ -142,7 +142,8 @@ def detect_trend_line_break(data: pd.DataFrame) -> bool:
 
 def calculate_zigzag(data: pd.DataFrame, threshold: float = 0.05) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Calculates swing points using the Zig Zag indicator methodology.
+    Calculates swing points using a refined Zig Zag indicator methodology to ensure
+    it captures the absolute high/low wicks.
     Args:
         data: DataFrame with 'high', 'low', and 'close' columns. Assumes a monotonic increasing index.
         threshold: The percentage change required to reverse the trend. e.g., 0.05 for 5%.
@@ -152,60 +153,66 @@ def calculate_zigzag(data: pd.DataFrame, threshold: float = 0.05) -> Dict[str, L
     if data.empty:
         return {'highs': [], 'lows': []}
 
-    highs = []
-    lows = []
+    pivots = []
 
+    # State variables
     trend = 0  # 1 for up, -1 for down
-    last_pivot_price = data['close'].iloc[0]
-    last_pivot_idx = data.index[0]
 
-    # Use 'high' and 'low' for comparison to find true peaks and troughs
+    # Candidate for the next pivot
+    candidate_idx = data.index[0]
+    candidate_price = data['close'].iloc[0]
+
     for i in range(1, len(data)):
-        high_price = data['high'].iloc[i]
-        low_price = data['low'].iloc[i]
+        current_high = data['high'].iloc[i]
+        current_low = data['low'].iloc[i]
 
-        if trend == 0:
-            if high_price > last_pivot_price * (1 + threshold):
-                trend = 1
-                # Not a real pivot yet, just establishing trend, but the start is a low
-                lows.append({'price': last_pivot_price, 'index': last_pivot_idx})
-                last_pivot_price = high_price
-                last_pivot_idx = data.index[i]
-            elif low_price < last_pivot_price * (1 - threshold):
+        if trend == 0: # Establishing initial trend
+            # Determine initial trend based on first significant move
+            if current_high > candidate_price * (1 + threshold):
+                trend = 1 # Trend is now up, the last pivot was a low
+                pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'low'})
+                candidate_price = current_high
+                candidate_idx = data.index[i]
+            elif current_low < candidate_price * (1 - threshold):
+                trend = -1 # Trend is now down, the last pivot was a high
+                pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'high'})
+                candidate_price = current_low
+                candidate_idx = data.index[i]
+
+        elif trend == 1: # In an uptrend, looking for a high
+            if current_high > candidate_price:
+                # Found a new higher high
+                candidate_price = current_high
+                candidate_idx = data.index[i]
+            elif current_low < candidate_price * (1 - threshold) and len(pivots) > 0:
+                # Confirmed a high pivot, trend is now down
+                pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'high'})
                 trend = -1
-                # Not a real pivot yet, just establishing trend, but the start is a high
-                highs.append({'price': last_pivot_price, 'index': last_pivot_idx})
-                last_pivot_price = low_price
-                last_pivot_idx = data.index[i]
+                candidate_price = current_low
+                candidate_idx = data.index[i]
 
-        elif trend == 1:  # Uptrend, looking for a high
-            if high_price > last_pivot_price:
-                # New high in the current uptrend
-                last_pivot_price = high_price
-                last_pivot_idx = data.index[i]
-            elif low_price < last_pivot_price * (1 - threshold):
-                # Reversal confirmed, the last pivot was a high
-                highs.append({'price': last_pivot_price, 'index': last_pivot_idx})
-                trend = -1
-                last_pivot_price = low_price
-                last_pivot_idx = data.index[i]
-
-        elif trend == -1:  # Downtrend, looking for a low
-            if low_price < last_pivot_price:
-                # New low in the current downtrend
-                last_pivot_price = low_price
-                last_pivot_idx = data.index[i]
-            elif high_price > last_pivot_price * (1 + threshold):
-                # Reversal confirmed, the last pivot was a low
-                lows.append({'price': last_pivot_price, 'index': last_pivot_idx})
+        elif trend == -1: # In a downtrend, looking for a low
+            if current_low < candidate_price:
+                # Found a new lower low
+                candidate_price = current_low
+                candidate_idx = data.index[i]
+            elif current_high > candidate_price * (1 + threshold) and len(pivots) > 0:
+                # Confirmed a low pivot, trend is now up
+                pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'low'})
                 trend = 1
-                last_pivot_price = high_price
-                last_pivot_idx = data.index[i]
+                candidate_price = current_high
+                candidate_idx = data.index[i]
 
-    # Add the last unconfirmed pivot to the list
-    if trend == 1:
-        highs.append({'price': last_pivot_price, 'index': last_pivot_idx})
-    elif trend == -1:
-        lows.append({'price': last_pivot_price, 'index': last_pivot_idx})
+    # Add the last unconfirmed pivot
+    if len(pivots) > 0:
+        last_pivot_type = pivots[-1]['type']
+        if trend == 1 and last_pivot_type == 'low':
+             pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'high'})
+        elif trend == -1 and last_pivot_type == 'high':
+             pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'low'})
+
+    # Separate into highs and lows
+    highs = [{'price': p['price'], 'index': p['index']} for p in pivots if p['type'] == 'high']
+    lows = [{'price': p['price'], 'index': p['index']} for p in pivots if p['type'] == 'low']
 
     return {'highs': highs, 'lows': lows}
