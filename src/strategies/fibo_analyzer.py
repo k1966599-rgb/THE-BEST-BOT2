@@ -123,7 +123,7 @@ class FiboAnalyzer(BaseStrategy):
         if len(data) < 200: # Ensure we have enough data for robust analysis
             result['reason'] = 'Not enough data'; return result
 
-        # --- 1. Indicators ---
+        # --- 1. Calculate all indicators and clean data FIRST ---
         data['adx'] = calculate_adx(data, window=self.adx_window)
         data['atr'] = calculate_atr(data, window=self.atr_window)
         data['sma_fast'] = calculate_sma(data, window=self.sma_fast_period)
@@ -131,14 +131,20 @@ class FiboAnalyzer(BaseStrategy):
         data['rsi'] = calculate_rsi(data, window=self.rsi_period)
         data = data.join(calculate_macd(data))
         data = data.join(calculate_stochastic(data, window=self.stoch_window))
+
+        # Drop rows with NaN values resulting from indicator calculations
         data.dropna(inplace=True)
+
+        # After cleaning, reset the index to ensure .iloc works correctly
+        data.reset_index(drop=True, inplace=True)
+
         if len(data) < 50:
-            result['reason'] = 'Not enough data after calcs'; return result
+            result['reason'] = 'Not enough data after indicator calculations'; return result
 
         latest = data.iloc[-1]
         result.update({"latest_data": latest.to_dict(), "current_price": latest['close']})
 
-        # --- 2. Trend & Swings ---
+        # --- 2. Trend & Swings (on clean data) ---
         if latest['adx'] < 20:
             result['reason'] = f"Weak trend (ADX: {latest['adx']:.1f})"; return result
 
