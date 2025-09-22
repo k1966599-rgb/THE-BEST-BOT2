@@ -3,38 +3,42 @@ import numpy as np
 from scipy.signal import find_peaks
 from typing import Dict, List, Any
 
-def find_swing_points(data: pd.DataFrame, lookback: int, prominence_multiplier: float = 0.5, atr_window: int = 14) -> Dict[str, List[Dict[str, Any]]]:
+def find_classic_swings(data: pd.DataFrame) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Finds all significant swing highs and lows in the lookback period.
-    This version returns multiple points to be used for divergence detection.
+    Finds swing points using the classic technical analysis method:
+    - A swing high is a candle with 2 lower highs on each side.
+    - A swing low is a candle with 2 higher lows on each side.
     """
-    recent_data = data.copy().iloc[-lookback:]
+    if len(data) < 5:
+        return {'highs': [], 'lows': []}
 
-    # Use ATR for dynamic prominence
-    atr = calculate_atr(recent_data, window=atr_window)
-    dynamic_prominence = atr.mean() * prominence_multiplier if not atr.empty and atr.mean() > 0 else np.std(recent_data['high'] - recent_data['low']) * 0.1
-    if dynamic_prominence <= 0: dynamic_prominence = 0.1
+    highs = []
+    lows = []
 
-    high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=dynamic_prominence)
-    low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=dynamic_prominence)
+    for i in range(2, len(data) - 2):
+        # Check for Swing High
+        is_swing_high = (
+            data['high'].iloc[i] > data['high'].iloc[i-1] and
+            data['high'].iloc[i] > data['high'].iloc[i-2] and
+            data['high'].iloc[i] > data['high'].iloc[i+1] and
+            data['high'].iloc[i] > data['high'].iloc[i+2]
+        )
+        if is_swing_high:
+            highs.append({'price': data['high'].iloc[i], 'index': data.index[i]})
 
-    result = {'highs': [], 'lows': []}
-    for i in high_peaks_indices:
-        result['highs'].append({'price': recent_data.iloc[i]['high'], 'index': i})
-    for i in low_peaks_indices:
-        result['lows'].append({'price': recent_data.iloc[i]['low'], 'index': i})
+        # Check for Swing Low
+        is_swing_low = (
+            data['low'].iloc[i] < data['low'].iloc[i-1] and
+            data['low'].iloc[i] < data['low'].iloc[i-2] and
+            data['low'].iloc[i] < data['low'].iloc[i+1] and
+            data['low'].iloc[i] < data['low'].iloc[i+2]
+        )
+        if is_swing_low:
+            lows.append({'price': data['low'].iloc[i], 'index': data.index[i]})
 
-    abs_high_idx = recent_data['high'].idxmax()
-    abs_low_idx = recent_data['low'].idxmin()
-    if not any(p['index'] == recent_data.index.get_loc(abs_high_idx) for p in result['highs']):
-         result['highs'].append({'price': recent_data.loc[abs_high_idx]['high'], 'index': recent_data.index.get_loc(abs_high_idx)})
-    if not any(p['index'] == recent_data.index.get_loc(abs_low_idx) for p in result['lows']):
-         result['lows'].append({'price': recent_data.loc[abs_low_idx]['low'], 'index': recent_data.index.get_loc(abs_low_idx)})
+    return {'highs': highs, 'lows': lows}
 
-    result['highs'] = sorted(result['highs'], key=lambda x: x['index'])
-    result['lows'] = sorted(result['lows'], key=lambda x: x['index'])
 
-    return result
 
 def detect_divergence(price_swings: List[Dict[str, Any]], indicator_series: pd.Series, type: str = 'bullish') -> bool:
     """Detects bullish or bearish divergence between price and an indicator."""
@@ -139,80 +143,3 @@ def calculate_adx(data: pd.DataFrame, window: int = 14) -> pd.Series:
 def detect_trend_line_break(data: pd.DataFrame) -> bool:
     """Placeholder for a complex trend line detection algorithm."""
     return False
-
-def calculate_zigzag(data: pd.DataFrame, threshold: float = 0.05) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Calculates swing points using a refined Zig Zag indicator methodology to ensure
-    it captures the absolute high/low wicks.
-    Args:
-        data: DataFrame with 'high', 'low', and 'close' columns. Assumes a monotonic increasing index.
-        threshold: The percentage change required to reverse the trend. e.g., 0.05 for 5%.
-    Returns:
-        A dictionary with 'highs' and 'lows' lists, containing swing points.
-    """
-    if data.empty:
-        return {'highs': [], 'lows': []}
-
-    pivots = []
-
-    # State variables
-    trend = 0  # 1 for up, -1 for down
-
-    # Candidate for the next pivot
-    candidate_idx = data.index[0]
-    candidate_price = data['close'].iloc[0]
-
-    for i in range(1, len(data)):
-        current_high = data['high'].iloc[i]
-        current_low = data['low'].iloc[i]
-
-        if trend == 0: # Establishing initial trend
-            # Determine initial trend based on first significant move
-            if current_high > candidate_price * (1 + threshold):
-                trend = 1 # Trend is now up, the last pivot was a low
-                pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'low'})
-                candidate_price = current_high
-                candidate_idx = data.index[i]
-            elif current_low < candidate_price * (1 - threshold):
-                trend = -1 # Trend is now down, the last pivot was a high
-                pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'high'})
-                candidate_price = current_low
-                candidate_idx = data.index[i]
-
-        elif trend == 1: # In an uptrend, looking for a high
-            if current_high > candidate_price:
-                # Found a new higher high
-                candidate_price = current_high
-                candidate_idx = data.index[i]
-            elif current_low < candidate_price * (1 - threshold) and len(pivots) > 0:
-                # Confirmed a high pivot, trend is now down
-                pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'high'})
-                trend = -1
-                candidate_price = current_low
-                candidate_idx = data.index[i]
-
-        elif trend == -1: # In a downtrend, looking for a low
-            if current_low < candidate_price:
-                # Found a new lower low
-                candidate_price = current_low
-                candidate_idx = data.index[i]
-            elif current_high > candidate_price * (1 + threshold) and len(pivots) > 0:
-                # Confirmed a low pivot, trend is now up
-                pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'low'})
-                trend = 1
-                candidate_price = current_high
-                candidate_idx = data.index[i]
-
-    # Add the last unconfirmed pivot
-    if len(pivots) > 0:
-        last_pivot_type = pivots[-1]['type']
-        if trend == 1 and last_pivot_type == 'low':
-             pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'high'})
-        elif trend == -1 and last_pivot_type == 'high':
-             pivots.append({'price': candidate_price, 'index': candidate_idx, 'type': 'low'})
-
-    # Separate into highs and lows
-    highs = [{'price': p['price'], 'index': p['index']} for p in pivots if p['type'] == 'high']
-    lows = [{'price': p['price'], 'index': p['index']} for p in pivots if p['type'] == 'low']
-
-    return {'highs': highs, 'lows': lows}
