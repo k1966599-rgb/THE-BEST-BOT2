@@ -151,7 +151,28 @@ class FiboAnalyzer(BaseStrategy):
         if len(p_swings['highs'])<1 or len(p_swings['lows'])<1:
             result['reason'] = 'Not enough primary swings'; return result
 
-        p_high, p_low = p_swings['highs'][-1], p_swings['lows'][-1]
+        # Trend-aware selection of primary swing points for Fibonacci
+        if trend == 'up':
+            # For an uptrend, we measure retracement from a high down to a preceding low
+            p_high = p_swings['highs'][-1]
+            # Find the closest low that occurred before this high
+            relevant_lows = [l for l in p_swings['lows'] if l['index'] < p_high['index']]
+            if not relevant_lows:
+                result['reason'] = 'No preceding low found for Fibo in uptrend'; return result
+            p_low = max(relevant_lows, key=lambda x: x['index']) # closest one
+        else: # 'down'
+            # For a downtrend, we measure retracement from a low up to a preceding high
+            p_low = p_swings['lows'][-1]
+            # Find the closest high that occurred before this low
+            relevant_highs = [h for h in p_swings['highs'] if h['index'] < p_low['index']]
+            if not relevant_highs:
+                result['reason'] = 'No preceding high found for Fibo in downtrend'; return result
+            p_high = max(relevant_highs, key=lambda x: x['index']) # closest one
+
+        # Ensure p_high is actually higher than p_low
+        if p_high['price'] <= p_low['price']:
+            result['reason'] = f"Invalid Fibo points (H:{p_high['price']} <= L:{p_low['price']})"; return result
+
         s_high, s_low = s_swings['highs'][-1] if s_swings['highs'] else p_high, s_swings['lows'][-1] if s_swings['lows'] else p_low
         result.update({"swing_high": p_high, "swing_low": p_low})
 
