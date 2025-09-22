@@ -7,7 +7,7 @@ from ..utils.indicators import (
     calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
     calculate_stochastic, calculate_bollinger_bands, calculate_adx,
-    calculate_atr, find_classic_swings
+    calculate_atr
 )
 from ..utils.patterns import get_candlestick_pattern
 
@@ -65,7 +65,6 @@ class FiboAnalyzer(BaseStrategy):
         pattern = get_candlestick_pattern(data.iloc[-3:])
 
         if trend == 'up':
-            if detect_divergence(swings['lows'], data['rsi'], 'bullish'): score += 3; reasons.append("🔥 انحراف إيجابي (RSI)")
             if zones: score += 2; reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] > 50:
                 score += 1; reasons.append("RSI > 50"); confirmations["confirmation_rsi"] = True
@@ -79,7 +78,6 @@ class FiboAnalyzer(BaseStrategy):
                 confirmations["confirmation_break_618"] = True
 
         else: # downtrend
-            if detect_divergence(swings['highs'], data['rsi'], 'bearish'): score += 3; reasons.append("🔥 انحراف سلبي (RSI)")
             if zones: score += 2; reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] < 50:
                 score += 1; reasons.append("RSI < 50"); confirmations["confirmation_rsi"] = True
