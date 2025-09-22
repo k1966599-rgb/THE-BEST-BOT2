@@ -7,7 +7,7 @@ from ..utils.indicators import (
     calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
     calculate_stochastic, calculate_bollinger_bands, calculate_adx,
-    detect_divergence, calculate_atr, calculate_zigzag
+    detect_divergence, calculate_atr, find_classic_swings
 )
 from ..utils.patterns import get_candlestick_pattern
 
@@ -29,16 +29,6 @@ class FiboAnalyzer(BaseStrategy):
         self.atr_window = p.get('atr_window', 14)
         self.atr_multiplier = p.get('atr_multiplier', 2.0)
 
-        # Zig Zag thresholds per timeframe, as specified by the user
-        self.zigzag_thresholds = {
-            '3m': 0.008,   # 0.8%
-            '5m': 0.012,   # 1.2%
-            '15m': 0.02,   # 2.0%
-            '30m': 0.025,  # 2.5%
-            '1H': 0.035,   # 3.5%
-            '4H': 0.05,    # 5.0%
-            '1D': 0.08    # 8.0%
-        }
 
     def _initialize_result(self) -> Dict[str, Any]:
         """Initializes a default result dictionary."""
@@ -155,15 +145,13 @@ class FiboAnalyzer(BaseStrategy):
         trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
         result['trend'] = trend
 
-        # Get Zig Zag threshold for the current timeframe, with a default
-        zigzag_threshold = self.zigzag_thresholds.get(timeframe, 0.05)
-
-        p_swings = calculate_zigzag(data, threshold=zigzag_threshold)
+        # Use the classic method to find swing points
+        p_swings = find_classic_swings(data)
         if len(p_swings['highs']) < 1 or len(p_swings['lows']) < 1:
-            result['reason'] = 'Not enough Zig Zag points found for analysis'; return result
+            result['reason'] = 'Not enough classic swing points found for analysis'; return result
 
-        # For confluence, we can use a secondary Zig Zag with a larger threshold
-        s_swings = calculate_zigzag(data, threshold=zigzag_threshold * 2)
+        # For confluence, we can just use the same swings for now
+        s_swings = p_swings
 
         # --- Select the Most Significant Swing for Fibonacci ---
         # Instead of just the last pivot, find the largest recent price swing.
