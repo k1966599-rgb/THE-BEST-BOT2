@@ -118,8 +118,7 @@ class FiboAnalyzer(BaseStrategy):
 
     def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
         result = self._initialize_result()
-        if len(data) < 200: # Ensure we have enough data for robust analysis
-            result['reason'] = 'Not enough data'; return result
+        # A data length check will be performed after indicator calculation
 
         # --- 1. Calculate all indicators and clean data FIRST ---
         data['adx'] = calculate_adx(data, window=self.adx_window)
