@@ -2,10 +2,42 @@ import os
 from datetime import datetime
 from typing import Dict, Any
 
+def format_dynamic_price(price: float) -> str:
+    """
+    Formats a price with a dynamic number of decimal places and wraps it in backticks.
+    - No decimals for prices > 10000 (like BTC)
+    - 2 decimals for prices > 100
+    - 4 decimals for prices > 1
+    - 5 decimals for prices <= 1 (like DOGE)
+    """
+    if not isinstance(price, (int, float)):
+        return '`N/A`'
+
+    if price > 10000:
+        formatted_price = f"{price:,.0f}"
+    elif price > 100:
+        formatted_price = f"{price:,.2f}"
+    elif price > 1:
+        formatted_price = f"{price:,.4f}"
+    else:
+        formatted_price = f"{price:,.5f}"
+
+    return f"`{formatted_price}`"
+
+
 def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, timeframe: str) -> str:
     """
     Formats the analysis data into the 'Strategist' human-readable report.
     """
+    # Handle cases where analysis was stopped prematurely
+    reason = analysis_data.get('reason')
+    if reason:
+        return (
+            f"📊 **تحليل {symbol} | {timeframe}**\n\n"
+            f"**⚠️ تم إيقاف التحليل.**\n"
+            f"**السبب:** {reason}"
+        )
+
     template_path = os.path.join('src', 'templates', 'analysis_template.md')
     try:
         with open(template_path, 'r', encoding='utf-8') as f:
@@ -30,7 +62,8 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     # Confluence Zones
     zones = analysis_data.get('confluence_zones', [])
     if zones:
-        confluence_zones_text = "\n".join([f"- **${zone['level']:.4f}** (تقاطع {zone['p_level']} و {zone['s_level']})" for zone in zones[:2]])
+        # Use the new dynamic formatter for zone levels
+        confluence_zones_text = "\n".join([f"- {format_dynamic_price(zone['level'])} (تقاطع {zone['p_level']} و {zone['s_level']})" for zone in zones[:2]])
     else:
         confluence_zones_text = "- لا توجد مناطق توافق واضحة."
 
@@ -56,33 +89,33 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "date": now.strftime('%Y/%m/%d'),
         "time": now.strftime('%H:%M:%S'),
 
-        "current_price": analysis_data.get('current_price', 0.0),
+        "current_price": format_dynamic_price(analysis_data.get('current_price', 0.0)),
         "trend_emoji": trend_emoji,
         "trend_text": trend_text,
-        "adx": latest_data.get('adx', 0.0),
-        "rsi": latest_data.get('rsi', 0.0),
+        "adx": f"`{latest_data.get('adx', 0.0):.2f}`",
+        "rsi": f"`{latest_data.get('rsi', 0.0):.2f}`",
 
-        "swing_high_price": swing_high.get('price', 0.0),
-        "swing_low_price": swing_low.get('price', 0.0),
-        "fib_618": retracements.get('fib_618', 0.0),
+        "swing_high_price": format_dynamic_price(swing_high.get('price', 0.0)),
+        "swing_low_price": format_dynamic_price(swing_low.get('price', 0.0)),
+        "fib_618": format_dynamic_price(retracements.get('fib_618', 0.0)),
         "confluence_zones_text": confluence_zones_text,
 
         "pattern": analysis_data.get('pattern', 'لا يوجد'),
-        "score": analysis_data.get('score', 0),
+        "score": f"{analysis_data.get('score', 0)}/10",
         "reasons_text": reasons_text,
 
         "signal_emoji": signal_emoji,
         "signal": signal_text,
 
         "scenario1_title": scenario1.get('title', 'N/A'),
-        "scenario1_entry": scenario1.get('entry', 0.0),
-        "scenario1_stop_loss": scenario1.get('stop_loss', 0.0),
-        "scenario1_target": scenario1.get('target', 0.0),
-        "scenario1_prob": scenario1.get('prob', 0),
+        "scenario1_entry": format_dynamic_price(scenario1.get('entry', 0.0)),
+        "scenario1_stop_loss": format_dynamic_price(scenario1.get('stop_loss', 0.0)),
+        "scenario1_target": format_dynamic_price(scenario1.get('target', 0.0)),
+        "scenario1_prob": f"{scenario1.get('prob', 0)}%",
 
         "scenario2_title": scenario2.get('title', 'N/A'),
-        "scenario2_stop_loss": scenario2.get('stop_loss', 0.0),
-        "scenario2_target": scenario2.get('target', 0.0),
+        "scenario2_stop_loss": format_dynamic_price(scenario2.get('stop_loss', 0.0)),
+        "scenario2_target": format_dynamic_price(scenario2.get('target', 0.0)),
     }
 
     # Using format_map with a custom dict to avoid crashing on any other missing keys
