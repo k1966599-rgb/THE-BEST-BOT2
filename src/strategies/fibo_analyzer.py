@@ -130,7 +130,7 @@ class FiboAnalyzer(BaseStrategy):
 
     def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
         result = self._initialize_result()
-        if len(data) < self.secondary_lookback:
+        if len(data) < 200: # Ensure we have enough data for robust analysis
             result['reason'] = 'Not enough data'; return result
 
         # --- 1. Indicators ---
