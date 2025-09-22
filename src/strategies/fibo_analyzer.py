@@ -7,7 +7,7 @@ from ..utils.indicators import (
     calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
     calculate_stochastic, calculate_bollinger_bands, calculate_adx,
-    detect_divergence, calculate_atr, find_classic_swings
+    calculate_atr, find_classic_swings
 )
 from ..utils.patterns import get_candlestick_pattern
 
@@ -145,35 +145,29 @@ class FiboAnalyzer(BaseStrategy):
         result.update({"latest_data": latest.to_dict(), "current_price": latest['close']})
 
         # --- 2. Trend & Swings (on clean data) ---
-        if latest['adx'] < 20:
-            result['reason'] = f"Weak trend (ADX: {latest['adx']:.1f})"; return result
+        # Determine the main trend from the moving averages for context
+        main_trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
+        result['trend'] = main_trend
 
-        trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
-        result['trend'] = trend
+        # For Fibo, find the absolute highest and lowest points in the entire dataset
+        abs_high_price = data['high'].max()
+        abs_low_price = data['low'].min()
 
-        # Use the classic method to find swing points
-        p_swings = find_classic_swings(data)
-        if len(p_swings['highs']) < 1 or len(p_swings['lows']) < 1:
-            result['reason'] = 'Not enough classic swing points found for analysis'; return result
+        # Get the indices of these points
+        # .idxmax() returns the index label. We need the integer position for later.
+        abs_high_idx_label = data['high'].idxmax()
+        abs_low_idx_label = data['low'].idxmin()
 
-        # For confluence, we can just use the same swings for now
+        p_high = {'price': abs_high_price, 'index': abs_high_idx_label}
+        p_low = {'price': abs_low_price, 'index': abs_low_idx_label}
+
+        # The trend for Fibo drawing is determined by which came last
+        trend = 'up' if p_high['index'] > p_low['index'] else 'down'
+
+        # The score and confirmation section is no longer relevant with this simple approach.
+        # We will bypass it and go straight to scenario generation.
+        p_swings = {'highs': [p_high], 'lows': [p_low]} # Create a dummy swings object for compatibility
         s_swings = p_swings
-
-        # --- Select the Most Significant Swing for Fibonacci ---
-        # Instead of just the last pivot, find the largest recent price swing.
-
-        # Combine all detected pivots and sort them by time
-        all_pivots = sorted(p_swings['highs'] + p_swings['lows'], key=lambda x: x['index'])
-
-        if len(all_pivots) < 2:
-            result['reason'] = 'Not enough pivot points for significant swing analysis'; return result
-
-        # Look at the last 5 pivots to find the most dominant swing
-        recent_pivots = all_pivots[-5:]
-
-        # Find the absolute highest high and lowest low in this recent window
-        p_high = max(recent_pivots, key=lambda x: x['price'])
-        p_low = min(recent_pivots, key=lambda x: x['price'])
 
         # Ensure p_high is actually higher than p_low
         if p_high['price'] <= p_low['price']:

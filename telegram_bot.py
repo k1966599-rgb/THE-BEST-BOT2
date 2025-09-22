@@ -152,7 +152,23 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         fetcher = DataFetcher(config)
         analyzer = FiboAnalyzer(config, fetcher)
 
-        data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=300)
+        # Define the number of candles to fetch per timeframe as requested
+        candle_limits = {
+            '3m': 10000,
+            '5m': 8000,
+            '15m': 5000,
+            '30m': 3000,
+            '1H': 2000,
+            '4H': 1000,
+            '1D': 500
+        }
+
+        # Get the appropriate limit for the selected timeframe, with a fallback
+        limit = candle_limits.get(timeframe, 300)
+
+        await query.edit_message_text(text=f"⏳ شكراً لك! جاري تحميل {limit} شمعة لعملة {symbol} على إطار {timeframe}...")
+
+        data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
         if not data_dict or 'data' not in data_dict or not data_dict['data']:
             await query.message.reply_text("عذراً، لم أتمكن من جلب البيانات لهذه العملة. يرجى المحاولة مرة أخرى.")
             await start(update, context)
