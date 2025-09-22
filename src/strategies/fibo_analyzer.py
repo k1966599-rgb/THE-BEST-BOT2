@@ -4,10 +4,10 @@ from src.data_retrieval.data_fetcher import DataFetcher
 
 from .base_strategy import BaseStrategy
 from ..utils.indicators import (
-    calculate_sma, find_swing_points, calculate_fib_levels,
+    calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
     calculate_stochastic, calculate_bollinger_bands, calculate_adx,
-    detect_divergence, calculate_atr
+    detect_divergence, calculate_atr, calculate_zigzag
 )
 from ..utils.patterns import get_candlestick_pattern
 
@@ -23,13 +23,22 @@ class FiboAnalyzer(BaseStrategy):
         p = config.get('strategy_params', {}).get('fibo_strategy', {})
         self.sma_fast_period = p.get('sma_period_fast', 50)
         self.sma_slow_period = p.get('sma_period_slow', 200)
-        self.primary_lookback = p.get('primary_lookback', 120)
-        self.secondary_lookback = p.get('secondary_lookback', 240)
         self.rsi_period = p.get('rsi_period', 14)
         self.stoch_window = p.get('stoch_window', 14)
         self.adx_window = p.get('adx_window', 14)
         self.atr_window = p.get('atr_window', 14)
         self.atr_multiplier = p.get('atr_multiplier', 2.0)
+
+        # Zig Zag thresholds per timeframe, as specified by the user
+        self.zigzag_thresholds = {
+            '3m': 0.008,   # 0.8%
+            '5m': 0.012,   # 1.2%
+            '15m': 0.02,   # 2.0%
+            '30m': 0.025,  # 2.5%
+            '1H': 0.035,   # 3.5%
+            '4H': 0.05,    # 5.0%
+            '1D': 0.08    # 8.0%
+        }
 
     def _initialize_result(self) -> Dict[str, Any]:
         """Initializes a default result dictionary."""
@@ -146,10 +155,15 @@ class FiboAnalyzer(BaseStrategy):
         trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
         result['trend'] = trend
 
-        p_swings = find_swing_points(data, self.primary_lookback)
-        s_swings = find_swing_points(data, self.secondary_lookback)
-        if len(p_swings['highs'])<1 or len(p_swings['lows'])<1:
-            result['reason'] = 'Not enough primary swings'; return result
+        # Get Zig Zag threshold for the current timeframe, with a default
+        zigzag_threshold = self.zigzag_thresholds.get(timeframe, 0.05)
+
+        p_swings = calculate_zigzag(data, threshold=zigzag_threshold)
+        if len(p_swings['highs']) < 1 or len(p_swings['lows']) < 1:
+            result['reason'] = 'Not enough Zig Zag points found for analysis'; return result
+
+        # For confluence, we can use a secondary Zig Zag with a larger threshold
+        s_swings = calculate_zigzag(data, threshold=zigzag_threshold * 2)
 
         # Trend-aware selection of primary swing points for Fibonacci
         if trend == 'up':
