@@ -3,60 +3,9 @@ import numpy as np
 from scipy.signal import find_peaks
 from typing import Dict, List, Any
 
-def find_classic_swings(data: pd.DataFrame) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Finds swing points using the classic technical analysis method:
-    - A swing high is a candle with 2 lower highs on each side.
-    - A swing low is a candle with 2 higher lows on each side.
-    """
-    if len(data) < 5:
-        return {'highs': [], 'lows': []}
-
-    highs = []
-    lows = []
-
-    for i in range(2, len(data) - 2):
-        # Check for Swing High
-        is_swing_high = (
-            data['high'].iloc[i] > data['high'].iloc[i-1] and
-            data['high'].iloc[i] > data['high'].iloc[i-2] and
-            data['high'].iloc[i] > data['high'].iloc[i+1] and
-            data['high'].iloc[i] > data['high'].iloc[i+2]
-        )
-        if is_swing_high:
-            highs.append({'price': data['high'].iloc[i], 'index': data.index[i]})
-
-        # Check for Swing Low
-        is_swing_low = (
-            data['low'].iloc[i] < data['low'].iloc[i-1] and
-            data['low'].iloc[i] < data['low'].iloc[i-2] and
-            data['low'].iloc[i] < data['low'].iloc[i+1] and
-            data['low'].iloc[i] < data['low'].iloc[i+2]
-        )
-        if is_swing_low:
-            lows.append({'price': data['low'].iloc[i], 'index': data.index[i]})
-
-    return {'highs': highs, 'lows': lows}
 
 
 
-def detect_divergence(price_swings: List[Dict[str, Any]], indicator_series: pd.Series, type: str = 'bullish') -> bool:
-    """Detects bullish or bearish divergence between price and an indicator."""
-    if len(price_swings) < 2:
-        return False
-
-    last_swing = price_swings[-1]
-    prev_swing = price_swings[-2]
-    last_price = last_swing['price']
-    prev_price = prev_swing['price']
-    last_indicator = indicator_series.iloc[last_swing['index']]
-    prev_indicator = indicator_series.iloc[prev_swing['index']]
-
-    if type == 'bullish' and last_price < prev_price and last_indicator > prev_indicator:
-        return True
-    elif type == 'bearish' and last_price > prev_price and last_indicator < prev_indicator:
-        return True
-    return False
 
 def calculate_sma(data: pd.DataFrame, window: int) -> pd.Series:
     if 'close' not in data.columns: raise ValueError("Input DataFrame must have a 'close' column.")
