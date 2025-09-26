@@ -59,7 +59,7 @@ STRATEGY_PARAMS = {
     'fibo_strategy': {
         'rsi_period': 14,
         'sma_period_fast': 50,
-        'sma_period_slow': 200,
+        'sma_period_slow': 50, # Reduced to fit sandbox data limit (100 candles)
         'fib_lookback': 50,
         'adx_trend_threshold': 25,
         'swing_prominence_atr_multiplier': 0.5, # Multiplier for ATR to determine swing point prominence
