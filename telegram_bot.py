@@ -152,10 +152,11 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         fetcher = DataFetcher(config)
         analyzer = FiboAnalyzer(config, fetcher)
 
-        # Set a very large limit to fetch all available historical data
-        limit = 50000
+        # Set a reasonable limit for historical data to ensure fast responses.
+        # 1000 candles are more than enough for the implemented analysis.
+        limit = 1000
 
-        await query.edit_message_text(text=f"⏳ شكراً لك! جاري تحميل أقصى بيانات متاحة لعملة {symbol} على إطار {timeframe}...")
+        await query.edit_message_text(text=f"⏳ شكراً لك! جاري تحميل البيانات التاريخية لعملة {symbol} على إطار {timeframe}...")
 
         data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
         if not data_dict or 'data' not in data_dict or not data_dict['data']:
@@ -228,6 +229,9 @@ async def post_init(application: Application) -> None:
     config = get_config()
     interval = config.get('trading', {}).get('ANALYSIS_INTERVAL_MINUTES', 15)
     scheduler = AsyncIOScheduler(timezone="UTC")
+    # The scheduler is configured but disabled by default.
+    # To enable, uncomment the following two lines.
+    # Be aware of API rate limits and server load before enabling.
     # scheduler.add_job(run_periodic_analysis, 'interval', minutes=interval, args=[application])
     # scheduler.start()
     logger.info(f"Scheduler is configured but DISABLED. Automatic analysis will not run.")

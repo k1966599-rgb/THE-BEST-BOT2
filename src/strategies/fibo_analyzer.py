@@ -193,10 +193,10 @@ class FiboAnalyzer(BaseStrategy):
         # The trend for Fibo drawing is determined by which came last
         trend = 'up' if p_high['index'] > p_low['index'] else 'down'
 
-        # The score and confirmation section is no longer relevant with this simple approach.
-        # We will bypass it and go straight to scenario generation.
-        p_swings = {'highs': [p_high], 'lows': [p_low]} # Create a dummy swings object for compatibility
-        s_swings = p_swings
+        # The trend for Fibo drawing is determined by the most recent swing point.
+        trend = 'up' if p_high['index'] > p_low['index'] else 'down'
+        p_swings = {'highs': [p_high], 'lows': [p_low]}
+        s_swings = p_swings # In this version, primary and secondary swings are the same.
 
         # Ensure p_high is actually higher than p_low
         # Update the result with the found swings first for consistent output
