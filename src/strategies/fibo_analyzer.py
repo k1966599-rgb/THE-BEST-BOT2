@@ -1,5 +1,7 @@
 import pandas as pd
+import logging
 from typing import Dict, Any, List
+from scipy.signal import find_peaks
 from src.data_retrieval.data_fetcher import DataFetcher
 
 from .base_strategy import BaseStrategy
@@ -116,6 +118,40 @@ class FiboAnalyzer(BaseStrategy):
 
         return {"scenario1": primary, "scenario2": secondary}
 
+    def _find_recent_swing_points(self, data: pd.DataFrame, prominence: int = 1) -> (Dict, Dict):
+        """
+        Finds the most recent significant swing high and low using scipy's
+        find_peaks for better accuracy.
+        """
+        recent_data = data.tail(100).copy()
+
+        # Find swing highs (peaks)
+        high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=prominence)
+
+        # Find swing lows (valleys) by finding peaks in the inverted 'low' series
+        low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=prominence)
+
+        if high_peaks_indices.size == 0 or low_peaks_indices.size == 0:
+            # Fallback to absolute min/max of the recent data if no peaks are found
+            high_idx = recent_data['high'].idxmax()
+            low_idx = recent_data['low'].idxmin()
+            p_high = {'price': recent_data.loc[high_idx, 'high'], 'index': high_idx}
+            p_low = {'price': recent_data.loc[low_idx, 'low'], 'index': low_idx}
+            return p_high, p_low
+
+        # Get the most recent high and low from the detected peaks
+        latest_high_idx = high_peaks_indices[-1]
+        latest_low_idx = low_peaks_indices[-1]
+
+        # Ensure we are using the original DataFrame's index
+        original_high_idx = recent_data.index[latest_high_idx]
+        original_low_idx = recent_data.index[latest_low_idx]
+
+        p_high = {'price': recent_data.loc[original_high_idx, 'high'], 'index': original_high_idx}
+        p_low = {'price': recent_data.loc[original_low_idx, 'low'], 'index': original_low_idx}
+
+        return p_high, p_low
+
     def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
         result = self._initialize_result()
         # A data length check will be performed after indicator calculation
@@ -146,17 +182,13 @@ class FiboAnalyzer(BaseStrategy):
         main_trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
         result['trend'] = main_trend
 
-        # For Fibo, find the absolute highest and lowest points in the entire dataset
-        abs_high_price = data['high'].max()
-        abs_low_price = data['low'].min()
+        # Find the most recent significant swing points for Fibonacci analysis.
+        p_high, p_low = self._find_recent_swing_points(data, prominence=1)
 
-        # Get the indices of these points
-        # .idxmax() returns the index label. We need the integer position for later.
-        abs_high_idx_label = data['high'].idxmax()
-        abs_low_idx_label = data['low'].idxmin()
-
-        p_high = {'price': abs_high_price, 'index': abs_high_idx_label}
-        p_low = {'price': abs_low_price, 'index': abs_low_idx_label}
+        # If swings are not found, fallback gracefully
+        if p_high is None or p_low is None:
+            result['reason'] = 'Could not determine recent swing points for analysis.'
+            return result
 
         # The trend for Fibo drawing is determined by which came last
         trend = 'up' if p_high['index'] > p_low['index'] else 'down'
@@ -167,11 +199,13 @@ class FiboAnalyzer(BaseStrategy):
         s_swings = p_swings
 
         # Ensure p_high is actually higher than p_low
+        # Update the result with the found swings first for consistent output
+        result.update({"swing_high": p_high, "swing_low": p_low})
+
         if p_high['price'] <= p_low['price']:
             result['reason'] = f"Invalid Fibo points (H:{p_high['price']} <= L:{p_low['price']})"; return result
 
         s_high, s_low = s_swings['highs'][-1] if s_swings['highs'] else p_high, s_swings['lows'][-1] if s_swings['lows'] else p_low
-        result.update({"swing_high": p_high, "swing_low": p_low})
 
         # --- 3. Fibonacci & Confluence ---
         result['retracements'] = calculate_fib_levels(p_high['price'], p_low['price'], trend)
