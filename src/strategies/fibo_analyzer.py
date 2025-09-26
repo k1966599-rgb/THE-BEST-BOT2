@@ -5,6 +5,7 @@ from scipy.signal import find_peaks
 from src.data_retrieval.data_fetcher import DataFetcher
 
 from .base_strategy import BaseStrategy
+from ..utils.exceptions import AnalysisError
 from ..utils.indicators import (
     calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
@@ -168,11 +169,17 @@ class FiboAnalyzer(BaseStrategy):
         # Drop rows with NaN values resulting from indicator calculations
         data.dropna(inplace=True)
 
+        # --- Post-cleaning data validation ---
+        # The _find_recent_swing_points method looks back 100 candles. We need at least that many.
+        MIN_REQUIRED_POINTS_AFTER_CLEAN = 100
+        if len(data) < MIN_REQUIRED_POINTS_AFTER_CLEAN:
+            raise AnalysisError(
+                f"لا توجد بيانات كافية بعد حساب المؤشرات (مطلوب {MIN_REQUIRED_POINTS_AFTER_CLEAN} شمعة، متوفر {len(data)} فقط). "
+                f"يرجى تجربة إطار زمني أكبر."
+            )
+
         # After cleaning, reset the index to ensure .iloc works correctly
         data.reset_index(drop=True, inplace=True)
-
-        if len(data) < 50:
-            result['reason'] = 'Not enough data after indicator calculations'; return result
 
         latest = data.iloc[-1]
         result.update({"latest_data": latest.to_dict(), "current_price": latest['close']})
