@@ -60,7 +60,15 @@ STRATEGY_PARAMS = {
         'rsi_period': 14,
         'sma_period_fast': 50,
         'sma_period_slow': 200,
-        'fib_lookback': 50
+        'fib_lookback': 50,
+        'adx_trend_threshold': 25,
+        'swing_prominence_atr_multiplier': 0.5, # Multiplier for ATR to determine swing point prominence
+        'scoring_weights': {
+            'confluence_zone': 2,
+            'rsi_confirm': 1,
+            'macd_confirm': 1,
+            'reversal_pattern': 2
+        }
     }
     # Future strategies can be added here
     # 'another_strategy': { ... }

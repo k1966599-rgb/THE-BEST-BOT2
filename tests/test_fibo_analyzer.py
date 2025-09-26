@@ -24,8 +24,7 @@ def mock_config():
                 'stoch_window': 14,
                 'adx_window': 14,
                 'atr_window': 14,
-                'atr_multiplier': 2.0,
-                'fib_lookback': 50
+                'atr_multiplier': 2.0
             }
         }
     }
@@ -39,24 +38,24 @@ def mock_fetcher(mock_config):
 @pytest.fixture
 def sample_market_data():
     """
-    Generates a DataFrame with 200 periods of realistic OHLC data to ensure
-    it passes the post-indicator-calculation length check.
+    Generates a DataFrame with 100 periods of realistic OHLC data and
+    unambiguous swing points for testing.
     """
-    periods = 200
+    periods = 100
     # Start with a baseline close price
     close_prices = pd.Series([70.0] * periods, dtype=float)
 
-    # 1. Old absolute low (will be ignored)
+    # 1. Old absolute low (will be ignored by later logic due to dropna)
     close_prices.iloc[10] = 10.0
 
-    # 2. RECENT SWING HIGH (the one we want to find) - adjusted index
-    close_prices.iloc[160] = 95.0
+    # 2. RECENT SWING HIGH (the one we want to find)
+    close_prices.iloc[60] = 95.0
 
-    # 3. RECENT SWING LOW (the one we want to find) - adjusted index
-    close_prices.iloc[180] = 50.0
+    # 3. RECENT SWING LOW (the one we want to find)
+    close_prices.iloc[80] = 50.0
 
-    # 4. Absolute high at the end, but as part of an uptrend (so, not a peak) - adjusted index
-    close_prices.iloc[195:] = np.linspace(140, 150, 5)
+    # 4. Absolute high at the end, but as part of an uptrend (so, not a peak)
+    close_prices.iloc[95:] = np.linspace(140, 150, 5)
 
     # Create realistic OHLC data from the close prices
     data = {
@@ -68,9 +67,9 @@ def sample_market_data():
         'volume': [1000] * periods
     }
 
-    # Explicitly set the exact high/low for our points of interest - adjusted index
-    data['high'].iloc[160] = 95.0 # This is the peak
-    data['low'].iloc[180] = 50.0  # This is the valley
+    # Explicitly set the exact high/low for our points of interest
+    data['high'].iloc[60] = 95.0 # This is the peak
+    data['low'].iloc[80] = 50.0  # This is the valley
 
     df = pd.DataFrame(data)
     for col in ['high', 'low', 'close', 'open', 'volume']:
@@ -82,6 +81,7 @@ def test_identifies_correct_recent_swing_points(mock_config, mock_fetcher, sampl
     """
     This test asserts the correct behavior: the analyzer should find the most
     recent significant swing points, not the absolute max/min of the dataset.
+    This test should now PASS with the implemented fix.
     """
     # Arrange
     analyzer = FiboAnalyzer(mock_config, mock_fetcher)

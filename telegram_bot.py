@@ -15,7 +15,6 @@ from src.config import get_config
 from src.data_retrieval.data_fetcher import DataFetcher
 from src.strategies.fibo_analyzer import FiboAnalyzer
 from src.utils.formatter import format_analysis_from_template
-from src.utils.exceptions import DataUnavailableError, AnalysisError
 import pandas as pd
 
 # --- Basic Logging ---
@@ -152,7 +151,10 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         config = get_config()
         fetcher = DataFetcher(config)
         analyzer = FiboAnalyzer(config, fetcher)
-        limit = 400 # Increased limit to ensure enough data after indicator calculations
+
+        # Set a reasonable limit for historical data to ensure fast responses.
+        # 1000 candles are more than enough for the implemented analysis.
+        limit = 1000
 
         await query.edit_message_text(text=f"⏳ شكراً لك! جاري تحميل البيانات التاريخية لعملة {symbol} على إطار {timeframe}...")
 
@@ -173,12 +175,9 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
 
-    except AnalysisError as e:
-        logger.warning(f"Analysis stopped for {symbol} on {timeframe}: {e}")
-        await query.message.reply_text(f"⚠️ تم إيقاف التحليل.\nالسبب: {e}")
     except Exception as e:
-        logger.error(f"An unexpected error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
-        await query.message.reply_text("حدث خطأ فني غير متوقع أثناء محاولة التحليل. يرجى مراجعة السجلات.")
+        logger.error(f"An error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
+        await query.message.reply_text("حدث خطأ فني أثناء محاولة التحليل. يرجى مراجعة السجلات.")
 
     await start(update, context)
     return ConversationHandler.END
@@ -205,7 +204,7 @@ async def run_periodic_analysis(application: Application):
     for symbol in watchlist:
         for timeframe in timeframes:
             try:
-                data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=400)
+                data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=300)
                 if not data_dict or 'data' not in data_dict or not data_dict['data']:
                     continue
 
