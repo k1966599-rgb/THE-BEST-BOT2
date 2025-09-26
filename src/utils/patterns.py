@@ -1,5 +1,7 @@
 import pandas as pd
 
+# --- 2-Candle Patterns ---
+
 def is_bullish_engulfing(data: pd.DataFrame, body_min_size: float = 0.0001) -> bool:
     """Checks for a Bullish Engulfing pattern."""
     if len(data) < 2: return False
@@ -21,6 +23,54 @@ def is_bearish_engulfing(data: pd.DataFrame, body_min_size: float = 0.0001) -> b
     if is_prev_bullish and is_curr_bearish and curr['open'] > prev['close'] and curr['close'] < prev['open']:
         return True
     return False
+
+def is_piercing_pattern(data: pd.DataFrame) -> bool:
+    """Checks for a Piercing Pattern (bullish reversal)."""
+    if len(data) < 2: return False
+    prev, curr = data.iloc[-2], data.iloc[-1]
+    is_prev_bearish = prev['close'] < prev['open']
+    is_curr_bullish = curr['close'] > curr['open']
+    mid_point = (prev['open'] + prev['close']) / 2
+    if is_prev_bearish and is_curr_bullish and curr['open'] < prev['low'] and curr['close'] > mid_point and curr['close'] < prev['open']:
+        return True
+    return False
+
+def is_dark_cloud_cover(data: pd.DataFrame) -> bool:
+    """Checks for a Dark Cloud Cover pattern (bearish reversal)."""
+    if len(data) < 2: return False
+    prev, curr = data.iloc[-2], data.iloc[-1]
+    is_prev_bullish = prev['close'] > prev['open']
+    is_curr_bearish = curr['close'] < curr['open']
+    mid_point = (prev['open'] + prev['close']) / 2
+    if is_prev_bullish and is_curr_bearish and curr['open'] > prev['high'] and curr['close'] < mid_point and curr['close'] > prev['open']:
+        return True
+    return False
+
+def is_tweezer_bottom(data: pd.DataFrame, tolerance: float = 0.001) -> bool:
+    """Checks for Tweezer Bottom pattern (bullish reversal)."""
+    if len(data) < 2: return False
+    c1, c2 = data.iloc[-2], data.iloc[-1]
+    # c1 is bearish, c2 is bullish
+    if not (c1['close'] < c1['open'] and c2['close'] > c2['open']):
+        return False
+    # Lows are nearly equal
+    if abs(c1['low'] - c2['low']) / c1['low'] > tolerance:
+        return False
+    return True
+
+def is_tweezer_top(data: pd.DataFrame, tolerance: float = 0.001) -> bool:
+    """Checks for Tweezer Top pattern (bearish reversal)."""
+    if len(data) < 2: return False
+    c1, c2 = data.iloc[-2], data.iloc[-1]
+    # c1 is bullish, c2 is bearish
+    if not (c1['close'] > c1['open'] and c2['close'] < c2['open']):
+        return False
+    # Highs are nearly equal
+    if abs(c1['high'] - c2['high']) / c1['high'] > tolerance:
+        return False
+    return True
+
+# --- 1-Candle Patterns ---
 
 def is_hammer(candle: pd.Series, body_ratio: float = 0.3, lower_wick_ratio: float = 0.6) -> bool:
     """Checks if a single candle is a Hammer."""
@@ -46,27 +96,7 @@ def is_doji(candle: pd.Series, body_threshold: float = 0.05) -> bool:
     if candle_range == 0: return False
     return abs(candle['open'] - candle['close']) / candle_range < body_threshold
 
-def is_piercing_pattern(data: pd.DataFrame) -> bool:
-    """Checks for a Piercing Pattern (bullish reversal)."""
-    if len(data) < 2: return False
-    prev, curr = data.iloc[-2], data.iloc[-1]
-    is_prev_bearish = prev['close'] < prev['open']
-    is_curr_bullish = curr['close'] > curr['open']
-    mid_point = (prev['open'] + prev['close']) / 2
-    if is_prev_bearish and is_curr_bullish and curr['open'] < prev['low'] and curr['close'] > mid_point and curr['close'] < prev['open']:
-        return True
-    return False
-
-def is_dark_cloud_cover(data: pd.DataFrame) -> bool:
-    """Checks for a Dark Cloud Cover pattern (bearish reversal)."""
-    if len(data) < 2: return False
-    prev, curr = data.iloc[-2], data.iloc[-1]
-    is_prev_bullish = prev['close'] > prev['open']
-    is_curr_bearish = curr['close'] < curr['open']
-    mid_point = (prev['open'] + prev['close']) / 2
-    if is_prev_bullish and is_curr_bearish and curr['open'] > prev['high'] and curr['close'] < mid_point and curr['close'] > prev['open']:
-        return True
-    return False
+# --- 3-Candle Patterns ---
 
 def is_morning_star(data: pd.DataFrame) -> bool:
     """Checks for a Morning Star pattern (bullish reversal)."""
@@ -92,13 +122,50 @@ def is_evening_star(data: pd.DataFrame) -> bool:
         return True
     return False
 
+def is_three_white_soldiers(data: pd.DataFrame) -> bool:
+    """Checks for Three White Soldiers pattern (strong bullish)."""
+    if len(data) < 3: return False
+    c1, c2, c3 = data.iloc[-3], data.iloc[-2], data.iloc[-1]
+    # All three are bullish
+    if not (c1['close'] > c1['open'] and c2['close'] > c2['open'] and c3['close'] > c3['open']):
+        return False
+    # Each opens within the previous body
+    if not (c2['open'] > c1['open'] and c2['open'] < c1['close'] and \
+            c3['open'] > c2['open'] and c3['open'] < c2['close']):
+        return False
+    # Each closes higher than the previous close
+    if not (c2['close'] > c1['close'] and c3['close'] > c2['close']):
+        return False
+    # Optional: shadows are small (not implemented to keep it simple)
+    return True
+
+def is_three_black_crows(data: pd.DataFrame) -> bool:
+    """Checks for Three Black Crows pattern (strong bearish)."""
+    if len(data) < 3: return False
+    c1, c2, c3 = data.iloc[-3], data.iloc[-2], data.iloc[-1]
+    # All three are bearish
+    if not (c1['close'] < c1['open'] and c2['close'] < c2['open'] and c3['close'] < c3['open']):
+        return False
+    # Each opens within the previous body
+    if not (c2['open'] < c1['open'] and c2['open'] > c1['close'] and \
+            c3['open'] < c2['open'] and c3['open'] > c2['close']):
+        return False
+    # Each closes lower than the previous close
+    if not (c2['close'] < c1['close'] and c3['close'] < c2['close']):
+        return False
+    return True
+
+# --- Main Pattern Recognition Function ---
+
 def get_candlestick_pattern(data: pd.DataFrame) -> str:
     """
     Identifies the most prominent recent candlestick pattern.
     Checks for patterns on the last one, two, or three candles.
     Priority is given to more complex (and often more reliable) patterns.
     """
-    # 3-candle patterns
+    # 3-candle patterns (highest priority)
+    if is_three_white_soldiers(data): return "Three White Soldiers"
+    if is_three_black_crows(data): return "Three Black Crows"
     if is_morning_star(data): return "Morning Star"
     if is_evening_star(data): return "Evening Star"
 
@@ -107,8 +174,10 @@ def get_candlestick_pattern(data: pd.DataFrame) -> str:
     if is_bearish_engulfing(data): return "Bearish Engulfing"
     if is_piercing_pattern(data): return "Piercing Pattern"
     if is_dark_cloud_cover(data): return "Dark Cloud Cover"
+    if is_tweezer_bottom(data): return "Tweezer Bottom"
+    if is_tweezer_top(data): return "Tweezer Top"
 
-    # 1-candle patterns
+    # 1-candle patterns (lowest priority)
     if len(data) > 0:
         last_candle = data.iloc[-1]
         if is_hammer(last_candle): return "Hammer"
