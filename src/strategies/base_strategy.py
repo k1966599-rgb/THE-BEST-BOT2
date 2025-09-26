@@ -21,19 +21,19 @@ class BaseStrategy(ABC):
         self.config = config
 
     @abstractmethod
-    def get_analysis(self, data: pd.DataFrame) -> Dict[str, str]:
+    def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
         """
         Generates a trading analysis based on the input data.
 
         This method must be implemented by all subclasses.
 
         Args:
-            data (pd.DataFrame): A pandas DataFrame containing the market data
-                                 (e.g., OHLCV candles).
+            data (pd.DataFrame): A pandas DataFrame containing the market data.
+            symbol (str): The trading symbol (e.g., 'BTC-USDT').
+            timeframe (str): The timeframe for the candles (e.g., '1H', '4H').
 
         Returns:
-            Dict[str, str]: A dictionary containing the analysis result.
-                            For example: {'signal': 'BUY', 'reason': 'RSI below 30'}
-                            Possible signals: 'BUY', 'SELL', 'HOLD'.
+            Dict[str, Any]: A dictionary containing the detailed analysis result.
+                            The structure may vary but should contain at least a 'signal'.
         """
         pass

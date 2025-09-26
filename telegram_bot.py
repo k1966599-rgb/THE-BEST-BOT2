@@ -15,6 +15,7 @@ from src.config import get_config
 from src.data_retrieval.data_fetcher import DataFetcher
 from src.strategies.fibo_analyzer import FiboAnalyzer
 from src.utils.formatter import format_analysis_from_template
+from src.utils.exceptions import DataUnavailableError, AnalysisError
 import pandas as pd
 
 # --- Basic Logging ---
@@ -171,15 +172,11 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     try:
         fetcher = DataFetcher(config)
         analyzer = FiboAnalyzer(config, fetcher)
-        limit = 1000  # Reasonable limit for fast responses
+        limit = 1000
 
         await query.edit_message_text(text=ui_cfg['MESSAGES']['fetching_data'].format(symbol=symbol, timeframe=timeframe))
 
         data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
-        if not data_dict or 'data' not in data_dict or not data_dict['data']:
-            await query.message.reply_text(ui_cfg['MESSAGES']['data_fetch_error'])
-            await start(update, context)
-            return ConversationHandler.END
 
         df = pd.DataFrame(data_dict['data'])
         numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
@@ -192,8 +189,17 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
 
+    except DataUnavailableError:
+        logger.warning(f"Could not fetch data for {symbol} on {timeframe}.")
+        await query.message.reply_text(ui_cfg['MESSAGES']['data_fetch_error'])
+
+    except AnalysisError as e:
+        logger.error(f"An analysis error occurred for {symbol} on {timeframe}: {e}", exc_info=False)
+        # Use the exception message directly for specific feedback.
+        await query.message.reply_text(f"خطأ في التحليل: {e}")
+
     except Exception as e:
-        logger.error(f"An error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
+        logger.error(f"An unexpected error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
         await query.message.reply_text(ui_cfg['MESSAGES']['analysis_error'])
 
     await start(update, context)
