@@ -3,102 +3,131 @@ import pandas as pd
 from typing import Dict, List, Optional
 import logging
 import time
+import os
+from pathlib import Path
+
+from ..utils.exceptions import DataUnavailableError
 
 logger = logging.getLogger(__name__)
 
 class DataFetcher:
     """
-    A class to fetch historical market data from the OKX exchange.
+    A class to fetch historical market data from the OKX exchange,
+    with an integrated caching mechanism to reduce API calls.
     """
     def __init__(self, config: Dict):
-        self.config = config.get('exchange', {})
-        self.debug = self.config.get('SANDBOX_MODE', True)
-        flag = "1" if self.debug else "0"  # 0 for live, 1 for demo
+        self.exchange_config = config.get('exchange', {})
+        self.cache_config = config.get('cache', {})
+
+        self.debug = self.exchange_config.get('SANDBOX_MODE', True)
+        flag = "1" if self.debug else "0"
 
         self.market_api = MarketData.MarketAPI(
-            api_key=self.config.get('API_KEY'),
-            api_secret_key=self.config.get('API_SECRET'),
-            passphrase=self.config.get('PASSWORD'),
+            api_key=self.exchange_config.get('API_KEY'),
+            api_secret_key=self.exchange_config.get('API_SECRET'),
+            passphrase=self.exchange_config.get('PASSWORD'),
             use_server_time=False,
             flag=flag,
             debug=self.debug
         )
 
-    def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 300) -> Optional[Dict]:
-        """
-        Fetches historical candlestick data for a given symbol and timeframe,
-        handling pagination to retrieve large datasets.
+        # Create cache directory if it doesn't exist
+        if self.cache_config.get('ENABLED'):
+            Path(self.cache_config.get('DIRECTORY', 'data/cache')).mkdir(parents=True, exist_ok=True)
 
-        Args:
-            symbol (str): The trading symbol (e.g., 'BTC-USDT').
-            timeframe (str): The timeframe for the candles (e.g., '1D', '4H', '15m').
-            limit (int): The total number of candles to fetch.
+    def _get_cache_filepath(self, symbol: str, timeframe: str, limit: int) -> str:
+        """Generates a standardized filepath for a cache file."""
+        cache_dir = self.cache_config.get('DIRECTORY', 'data/cache')
+        return os.path.join(cache_dir, f"{symbol.replace('/', '_')}_{timeframe}_{limit}.csv")
 
-        Returns:
-            Optional[Dict]: A dictionary containing the data, or None if an error occurs.
-        """
-        logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} timeframe...")
+    def _read_from_cache(self, filepath: str) -> Optional[pd.DataFrame]:
+        """Reads data from a cache file if it's valid and not expired."""
+        if not os.path.exists(filepath):
+            return None
 
-        API_MAX_LIMIT = 100  # OKX API limit for historical candles
+        try:
+            file_mod_time = os.path.getmtime(filepath)
+            expiration_seconds = self.cache_config.get('EXPIRATION_MINUTES', 15) * 60
+
+            if time.time() - file_mod_time < expiration_seconds:
+                logger.info(f"Cache hit. Reading from {filepath}")
+                return pd.read_csv(filepath)
+            else:
+                logger.info(f"Cache expired for {filepath}. Re-fetching.")
+                return None
+        except Exception as e:
+            logger.error(f"Error reading cache file {filepath}: {e}")
+            return None
+
+    def _write_to_cache(self, filepath: str, df: pd.DataFrame):
+        """Writes a DataFrame to a cache file."""
+        try:
+            df.to_csv(filepath, index=False)
+            logger.info(f"Successfully wrote data to cache file: {filepath}")
+        except Exception as e:
+            logger.error(f"Error writing to cache file {filepath}: {e}")
+
+    def _fetch_from_api(self, symbol: str, timeframe: str, limit: int) -> Optional[pd.DataFrame]:
+        """The core logic to fetch data directly from the OKX API."""
+        logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} from API...")
+
+        API_MAX_LIMIT = 100
         all_candles = []
-        end_timestamp = '' # Start with no end time
-
+        end_timestamp = ''
         requests_needed = (limit + API_MAX_LIMIT - 1) // API_MAX_LIMIT
-        logger.info(f"Need to make {requests_needed} API requests.")
 
         for i in range(requests_needed):
             try:
-                logger.info(f"Fetching page {i+1}/{requests_needed} for {symbol}...")
-
                 result = self.market_api.get_history_candlesticks(
-                    instId=symbol,
-                    bar=timeframe,
-                    limit=str(API_MAX_LIMIT),
-                    before=end_timestamp
+                    instId=symbol, bar=timeframe, limit=str(API_MAX_LIMIT), before=end_timestamp
                 )
-
                 if result.get('code') == '0':
                     data = result.get('data', [])
                     if not data:
-                        logger.warning(f"No more data returned for {symbol}. Fetched {len(all_candles)} candles in total.")
                         break
-
-                    # The first element is the newest, last is the oldest.
-                    # We add all but the first one to avoid duplicates if the range overlaps.
                     all_candles.extend(data)
-
-                    # The timestamp of the oldest candle becomes the 'before' for the next request
                     end_timestamp = data[-1][0]
-
-                    # Respect API rate limits
-                    time.sleep(0.2) # 200ms delay between requests
-
+                    time.sleep(0.2)
                 else:
-                    logger.error(f"Error fetching page {i+1} for {symbol}: {result.get('msg')}")
-                    # Don't stop, just return what we have so far
+                    logger.error(f"API Error for {symbol}: {result.get('msg')}")
                     break
-
             except Exception as e:
-                logger.exception(f"An exception occurred while fetching page {i+1} for {symbol}: {e}")
+                logger.exception(f"Exception during API fetch for {symbol}: {e}")
                 break
 
         if not all_candles:
-            logger.error(f"Failed to fetch any data for {symbol}.")
             return None
 
-        # Convert to DataFrame for easier use later
         df = pd.DataFrame(all_candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'volCcy', 'volCcyQuote', 'confirm'])
         df['timestamp'] = pd.to_numeric(df['timestamp'])
+        df = df.drop_duplicates(subset=['timestamp']).sort_values(by='timestamp', ascending=True)
+        return df.tail(limit).reset_index(drop=True)
 
-        # Remove duplicates that might occur at page boundaries and sort
-        df = df.drop_duplicates(subset=['timestamp'])
-        df = df.sort_values(by='timestamp', ascending=True).reset_index(drop=True)
+    def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 300) -> Dict:
+        """
+        Fetches historical data, using a cache if available and enabled.
 
-        # Trim the data to the exact limit requested
-        if len(df) > limit:
-            df = df.tail(limit)
+        Raises:
+            DataUnavailableError: If data cannot be fetched from the API.
+        """
+        use_cache = self.cache_config.get('ENABLED')
+        cache_filepath = None
 
-        logger.info(f"Successfully fetched a total of {len(df)} candles for {symbol} on {timeframe}.")
+        if use_cache:
+            cache_filepath = self._get_cache_filepath(symbol, timeframe, limit)
+            df = self._read_from_cache(cache_filepath)
+            if df is not None:
+                return {"symbol": symbol, "data": df.to_dict('records')}
+
+        # Fetch from API if cache is disabled or there was a cache miss
+        df = self._fetch_from_api(symbol, timeframe, limit)
+        if df is None:
+            raise DataUnavailableError(f"Failed to fetch required data for {symbol} on {timeframe}.")
+
+        # Write to cache if enabled and we have a path
+        if use_cache and cache_filepath:
+            self._write_to_cache(cache_filepath, df)
+
         return {"symbol": symbol, "data": df.to_dict('records')}
 
 

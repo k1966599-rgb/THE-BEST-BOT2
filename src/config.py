@@ -73,6 +73,13 @@ TELEGRAM_CONFIG = {
     'ADMIN_CHAT_ID': os.getenv('TELEGRAM_ADMIN_CHAT_ID', '')
 }
 
+# --- Cache Settings ---
+CACHE_CONFIG = {
+    'ENABLED': True,
+    'DIRECTORY': 'data/cache',
+    'EXPIRATION_MINUTES': 15  # How long to keep cache files before re-fetching
+}
+
 # --- UI Configuration ---
 # Centralizes all user-facing strings and UI components for easy management.
 UI_CONFIG = {
@@ -126,6 +133,7 @@ def get_config():
         'risk_management': RISK_MANAGEMENT_CONFIG,
         'strategy_params': STRATEGY_PARAMS,
         'telegram': TELEGRAM_CONFIG,
+        'cache': CACHE_CONFIG,
         'ui': UI_CONFIG
     }
 
