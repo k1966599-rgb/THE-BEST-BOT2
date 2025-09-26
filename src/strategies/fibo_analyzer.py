@@ -31,8 +31,11 @@ class FiboAnalyzer(BaseStrategy):
         self.atr_window = p.get('atr_window', 14)
         self.atr_multiplier = p.get('atr_multiplier', 2.0)
         self.fib_lookback = p.get('fib_lookback', 50)
+        self.volume_period = p.get('volume_period', 20)
+        self.volume_multiplier = p.get('volume_multiplier', 1.5)
         self.weights = p.get('scoring_weights', {
-            'confluence_zone': 2, 'rsi_confirm': 1, 'macd_confirm': 1, 'reversal_pattern': 2
+            'confluence_zone': 2, 'rsi_confirm': 1, 'macd_confirm': 1,
+            'reversal_pattern': 2, 'volume_confirm': 1
         })
         self.adx_threshold = p.get('adx_trend_threshold', 25)
         self.swing_atr_multiplier = p.get('swing_prominence_atr_multiplier', 0.5)
@@ -59,62 +62,50 @@ class FiboAnalyzer(BaseStrategy):
     def _calculate_confirmation_score(self, data: pd.DataFrame, trend: str, swings: Dict, zones: List, retracements: Dict) -> Dict[str, Any]:
         score, reasons = 0, []
         latest = data.iloc[-1]
+        data['volume_sma'] = data['volume'].rolling(window=self.volume_period).mean()
 
-        # Initialize confirmations dictionary
         confirmations = {
-            "confirmation_rsi": False,
-            "confirmation_reversal_candle": False,
-            "confirmation_break_618": False,
-            "confirmation_volume": False, # Basic volume check, can be enhanced
+            "confirmation_rsi": False, "confirmation_reversal_candle": False,
+            "confirmation_break_618": False, "confirmation_volume": False,
         }
 
-        bullish_reversal_patterns = ["Bullish Engulfing", "Hammer", "Morning Star", "Piercing Pattern", "Three White Soldiers"]
-        bearish_reversal_patterns = ["Bearish Engulfing", "Shooting Star", "Evening Star", "Dark Cloud Cover", "Three Black Crows"]
+        bullish_patterns = ["Bullish Engulfing", "Hammer", "Morning Star", "Piercing Pattern", "Three White Soldiers", "Tweezer Bottom"]
+        bearish_patterns = ["Bearish Engulfing", "Shooting Star", "Evening Star", "Dark Cloud Cover", "Three Black Crows", "Tweezer Top"]
 
-        pattern = get_candlestick_pattern(data.iloc[-3:])
+        pattern = get_candlestick_pattern(data.tail(3))
+        is_reversal_pattern = pattern in bullish_patterns or pattern in bearish_patterns
 
+        # --- Scoring Logic ---
         if trend == 'up':
             if zones:
-                score += self.weights.get('confluence_zone', 2)
-                reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
+                score += self.weights.get('confluence_zone', 2); reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] > 50:
-                score += self.weights.get('rsi_confirm', 1)
-                reasons.append("RSI > 50"); confirmations["confirmation_rsi"] = True
+                score += self.weights.get('rsi_confirm', 1); reasons.append("RSI > 50"); confirmations["confirmation_rsi"] = True
             if latest['macd'] > latest['signal_line']:
-                score += self.weights.get('macd_confirm', 1)
-                reasons.append("تقاطع MACD إيجابي")
-            if pattern in bullish_reversal_patterns:
-                score += self.weights.get('reversal_pattern', 2)
-                reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
-
-            # Check for break of 61.8% retracement level
+                score += self.weights.get('macd_confirm', 1); reasons.append("تقاطع MACD إيجابي")
+            if pattern in bullish_patterns:
+                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
             fib_618 = retracements.get('fib_618')
-            if fib_618 and latest['close'] > fib_618:
-                confirmations["confirmation_break_618"] = True
-
-        else: # downtrend
+            if fib_618 and latest['close'] > fib_618: confirmations["confirmation_break_618"] = True
+        else:  # downtrend
             if zones:
-                score += self.weights.get('confluence_zone', 2)
-                reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
+                score += self.weights.get('confluence_zone', 2); reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] < 50:
-                score += self.weights.get('rsi_confirm', 1)
-                reasons.append("RSI < 50"); confirmations["confirmation_rsi"] = True
+                score += self.weights.get('rsi_confirm', 1); reasons.append("RSI < 50"); confirmations["confirmation_rsi"] = True
             if latest['macd'] < latest['signal_line']:
-                score += self.weights.get('macd_confirm', 1)
-                reasons.append("تقاطع MACD سلبي")
-            if pattern in bearish_reversal_patterns:
-                score += self.weights.get('reversal_pattern', 2)
-                reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
-
-            # Check for break of 61.8% retracement level
+                score += self.weights.get('macd_confirm', 1); reasons.append("تقاطع MACD سلبي")
+            if pattern in bearish_patterns:
+                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
             fib_618 = retracements.get('fib_618')
-            if fib_618 and latest['close'] < fib_618:
-                confirmations["confirmation_break_618"] = True
+            if fib_618 and latest['close'] < fib_618: confirmations["confirmation_break_618"] = True
 
-        # Basic volume check (e.g., volume is above its 20-period moving average)
-        data['volume_sma'] = data['volume'].rolling(window=20).mean()
-        if latest['volume'] > data['volume_sma'].iloc[-1]:
-            confirmations["confirmation_volume"] = True
+        # Enhanced Volume Confirmation: Check for high volume only on reversal patterns
+        if is_reversal_pattern:
+            volume_threshold = data['volume_sma'].iloc[-2] * self.volume_multiplier # Use previous candle's SMA
+            if latest['volume'] > volume_threshold:
+                score += self.weights.get('volume_confirm', 1)
+                reasons.append("تأكيد حجم التداول")
+                confirmations["confirmation_volume"] = True
 
         return {"score": score, "reasons": reasons, "pattern": pattern, "confirmations": confirmations}
 
@@ -202,11 +193,8 @@ class FiboAnalyzer(BaseStrategy):
 
         return p_high, p_low
 
-    def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
-        result = self._initialize_result()
-        # A data length check will be performed after indicator calculation
-
-        # --- 1. Calculate all indicators and clean data FIRST ---
+    def _prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Calculates all technical indicators and cleans the data."""
         data['adx'] = calculate_adx(data, window=self.adx_window)
         data['atr'] = calculate_atr(data, window=self.atr_window)
         data['sma_fast'] = calculate_sma(data, window=self.sma_fast_period)
@@ -214,68 +202,74 @@ class FiboAnalyzer(BaseStrategy):
         data['rsi'] = calculate_rsi(data, window=self.rsi_period)
         data = data.join(calculate_macd(data))
         data = data.join(calculate_stochastic(data, window=self.stoch_window))
-
-        # Drop rows with NaN values resulting from indicator calculations
         data.dropna(inplace=True)
-
-        # After cleaning, reset the index to ensure .iloc works correctly
         data.reset_index(drop=True, inplace=True)
+        return data
 
-        if len(data) < 50:
-            result['reason'] = 'Not enough data after indicator calculations'; return result
-
+    def _analyze_trend_and_swings(self, data: pd.DataFrame, result: Dict) -> bool:
+        """Determines trend, finds swing points, and updates the result dict."""
         latest = data.iloc[-1]
-        result.update({"latest_data": latest.to_dict(), "current_price": latest['close']})
-
-        # --- 2. Trend & Swings (on clean data) ---
-        # Determine the main trend from moving averages, confirmed by ADX for strength
         if latest['adx'] < self.adx_threshold:
-            main_trend = 'Sideways'
+            result['trend'] = 'Sideways'
         else:
-            main_trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
-        result['trend'] = main_trend
+            result['trend'] = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
 
-        # Find the most recent significant swing points for Fibonacci analysis.
         avg_atr = data['atr'].mean()
         p_high, p_low = self._find_recent_swing_points(data, avg_atr=avg_atr)
 
-        # If swings are not found, fallback gracefully
         if p_high is None or p_low is None:
-            result['reason'] = 'Could not determine recent swing points for analysis.'
-            return result
+            result['reason'] = 'Could not determine recent swing points.'
+            return False
 
-        # The trend for Fibo drawing is determined by which came last
-        trend = 'up' if p_high['index'] > p_low['index'] else 'down'
-
-        # The trend for Fibo drawing is determined by the most recent swing point.
-        trend = 'up' if p_high['index'] > p_low['index'] else 'down'
-        p_swings = {'highs': [p_high], 'lows': [p_low]}
-        s_swings = p_swings # In this version, primary and secondary swings are the same.
-
-        # Ensure p_high is actually higher than p_low
-        # Update the result with the found swings first for consistent output
         result.update({"swing_high": p_high, "swing_low": p_low})
 
         if p_high['price'] <= p_low['price']:
-            result['reason'] = f"Invalid Fibo points (H:{p_high['price']} <= L:{p_low['price']})"; return result
+            result['reason'] = f"Invalid Fibo points (H:{p_high['price']} <= L:{p_low['price']})"
+            return False
 
-        s_high, s_low = s_swings['highs'][-1] if s_swings['highs'] else p_high, s_swings['lows'][-1] if s_swings['lows'] else p_low
+        return True
 
-        # --- 3. Fibonacci & Confluence ---
-        result['retracements'] = calculate_fib_levels(p_high['price'], p_low['price'], trend)
-        result['extensions'] = calculate_fib_extensions(p_high['price'], p_low['price'], trend)
-        result['confluence_zones'] = self._find_confluence_zones(result['retracements'], calculate_fib_levels(s_high['price'], s_low['price'], trend))
+    def _analyze_fibonacci_and_score(self, data: pd.DataFrame, result: Dict):
+        """Calculates Fibonacci levels, confluence zones, and the confirmation score."""
+        p_high = result['swing_high']
+        p_low = result['swing_low']
+        fibo_trend = 'up' if p_high['index'] > p_low['index'] else 'down'
 
-        # --- 4. Score, Signal & Scenarios ---
-        confirm_data = self._calculate_confirmation_score(data, trend, p_swings, result['confluence_zones'], result['retracements'])
+        # In this version, primary and secondary swings are the same.
+        s_high, s_low = p_high, p_low
+
+        result['retracements'] = calculate_fib_levels(p_high['price'], p_low['price'], fibo_trend)
+        result['extensions'] = calculate_fib_extensions(p_high['price'], p_low['price'], fibo_trend)
+        result['confluence_zones'] = self._find_confluence_zones(result['retracements'], calculate_fib_levels(s_high['price'], s_low['price'], fibo_trend))
+
+        p_swings = {'highs': [p_high], 'lows': [p_low]}
+        confirm_data = self._calculate_confirmation_score(data, fibo_trend, p_swings, result['confluence_zones'], result['retracements'])
         result.update(confirm_data)
 
-        if trend == 'up' and result['score'] >= 5: result['signal'] = "BUY"
-        elif trend == 'down' and result['score'] >= 5: result['signal'] = "SELL"
+        if fibo_trend == 'up' and result['score'] >= 5:
+            result['signal'] = "BUY"
+        elif fibo_trend == 'down' and result['score'] >= 5:
+            result['signal'] = "SELL"
 
+    def _finalize_analysis(self, result: Dict):
+        """Generates scenarios and calculates final risk metrics."""
         result['scenarios'] = self._generate_scenarios(result)
+        self._calculate_risk_metrics(result) # This function modifies result in-place
 
-        # --- 5. Final Risk Metrics ---
-        result = self._calculate_risk_metrics(result)
+    def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
+        result = self._initialize_result()
+
+        data = self._prepare_data(data)
+        if len(data) < 50:
+            result['reason'] = 'Not enough data after indicator calculations'
+            return result
+
+        result.update({"latest_data": data.iloc[-1].to_dict(), "current_price": data.iloc[-1]['close']})
+
+        if not self._analyze_trend_and_swings(data, result):
+            return result
+
+        self._analyze_fibonacci_and_score(data, result)
+        self._finalize_analysis(result)
 
         return result
