@@ -168,7 +168,6 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-        df.dropna(inplace=True)
 
         analysis_info = analyzer.get_analysis(df, symbol, timeframe)
         formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
@@ -212,7 +211,6 @@ async def run_periodic_analysis(application: Application):
                 numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
                 for col in numeric_cols:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
-                df.dropna(inplace=True)
 
                 analysis_info = analyzer.get_analysis(df, symbol, timeframe)
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
