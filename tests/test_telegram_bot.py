@@ -14,18 +14,6 @@ mock_config = {
     },
     'telegram': {
         'TOKEN': 'mock-token-for-testing'
-    },
-    # Add the UI config part that setup_conversation_handler needs, as it's
-    # now created dynamically.
-    'ui': {
-        'CALLBACK_DATA': {
-            'analyze_start': 'analyze_start',
-            'bot_status': 'bot_status',
-            'main_menu': 'main_menu',
-            'symbol_prefix': 'symbol_',
-            'term_prefix': 'term_',
-            'timeframe_prefix': 'timeframe_',
-        }
     }
 }
 
@@ -38,32 +26,28 @@ class TestTelegramBotConversation(unittest.TestCase):
 
     def setUp(self):
         """Load the bot's components. This runs before each test."""
-        # Import the setup function and necessary components from the bot module
-        from telegram_bot import setup_conversation_handler, select_term, TIMEFRAME
-
-        # Create the handler instance for testing, reflecting the new architecture
-        self.conv_handler = setup_conversation_handler(mock_config)
+        from telegram_bot import conv_handler, select_term, TIMEFRAME
+        self.conv_handler = conv_handler
         self.select_term = select_term
         self.TIMEFRAME = TIMEFRAME
 
     def test_back_button_handler_is_present_in_timeframe_state(self, mock_get_config, mock_fetcher, mock_analyzer):
         """
         Verifies that the TIMEFRAME state has a handler for the 'Back' button.
-        This test will fail if the handler is removed or its pattern changes.
+        This test will fail before the fix and pass after it.
         """
         timeframe_state_handlers = self.conv_handler.states.get(self.TIMEFRAME, [])
 
-        # The 'Back' button from the timeframe selection should trigger a handler
-        # with a pattern that matches a symbol (e.g., 'symbol_BTC/USDT').
         has_back_button_handler = any(
             hasattr(handler, 'pattern') and handler.pattern.match('symbol_BTC/USDT')
             for handler in timeframe_state_handlers
         )
 
+        # This assertion will fail before the fix.
         self.assertTrue(
             has_back_button_handler,
-            "The ConversationHandler's TIMEFRAME state is missing a handler "
-            "for the 'symbol_' pattern, which is required for the 'Back' button to work."
+            "BUG: The ConversationHandler's TIMEFRAME state is missing a handler "
+            "for the 'symbol_' pattern, breaking the 'Back' button."
         )
 
         # Find the specific handler to verify its callback function.
@@ -72,8 +56,6 @@ class TestTelegramBotConversation(unittest.TestCase):
             None
         )
         self.assertIsNotNone(back_handler, "The handler for the 'symbol_' pattern was not found.")
-
-        # Verify that this handler correctly points to the `select_term` function
         self.assertEqual(
             back_handler.callback,
             self.select_term,
