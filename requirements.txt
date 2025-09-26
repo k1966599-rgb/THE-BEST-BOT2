@@ -5,3 +5,5 @@ pytest==8.4.2
 python-telegram-bot==22.4
 apscheduler==3.11.0
 scipy==1.16.2
+matplotlib==3.9.1
+mplfinance==0.12.10b0
