@@ -232,6 +232,23 @@ async def post_init(application: Application) -> None:
     # scheduler.start()
     logger.info(f"Scheduler is configured but DISABLED. Automatic analysis will not run.")
 
+# --- Conversation Handler Definition ---
+# Defined at the module level to allow for easier testing and inspection.
+conv_handler = ConversationHandler(
+    entry_points=[CallbackQueryHandler(analyze_entry, pattern='^analyze_start$')],
+    states={
+        SYMBOL: [CallbackQueryHandler(select_term, pattern='^symbol_')],
+        TERM: [CallbackQueryHandler(select_timeframe, pattern='^term_')],
+        TIMEFRAME: [
+            CallbackQueryHandler(run_analysis, pattern='^timeframe_'),
+            CallbackQueryHandler(select_term, pattern='^symbol_')
+        ],
+    },
+    fallbacks=[CallbackQueryHandler(start, pattern='^main_menu$')],
+    per_message=False
+)
+
+
 def main() -> None:
     """Start the bot."""
     config = get_config()
@@ -241,17 +258,6 @@ def main() -> None:
         return
 
     application = Application.builder().token(token).post_init(post_init).build()
-
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(analyze_entry, pattern='^analyze_start$')],
-        states={
-            SYMBOL: [CallbackQueryHandler(select_term, pattern='^symbol_')],
-            TERM: [CallbackQueryHandler(select_timeframe, pattern='^term_')],
-            TIMEFRAME: [CallbackQueryHandler(run_analysis, pattern='^timeframe_')],
-        },
-        fallbacks=[CallbackQueryHandler(start, pattern='^main_menu$')],
-        per_message=False
-    )
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(start, pattern='^main_menu$'))
