@@ -62,65 +62,6 @@ async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         reply_markup=reply_markup
     )
 
-# --- Admin & Debug Features ---
-from functools import wraps
-import io
-
-def admin_only(func):
-    """Decorator to restrict usage of a command to the admin."""
-    @wraps(func)
-    async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
-        config = get_config()
-        admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
-        if not admin_chat_id or str(update.effective_user.id) != str(admin_chat_id):
-            await update.message.reply_text("عذرًا، هذا الأمر مخصص للمشرف فقط.")
-            return
-        return await func(update, context, *args, **kwargs)
-    return wrapped
-
-@admin_only
-async def debug_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Fetches raw data and sends it as a CSV file for debugging."""
-    try:
-        symbol = context.args[0].upper()
-        timeframe = context.args[1]
-        limit = int(context.args[2]) if len(context.args) > 2 else 400
-    except (IndexError, ValueError):
-        await update.message.reply_text("الاستخدام: /debug_data <SYMBOL> <TIMEFRAME> [LIMIT]")
-        return
-
-    await update.message.reply_text(f"⏳ جاري جلب البيانات الأولية لـ {symbol} على إطار {timeframe}...")
-
-    try:
-        config = get_config()
-        fetcher = DataFetcher(config)
-
-        data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
-
-        if not data_dict or 'data' not in data_dict or not data_dict['data']:
-            await update.message.reply_text("لم يتم العثور على بيانات.")
-            return
-
-        df = pd.DataFrame(data_dict['data'])
-
-        # Save DataFrame to a in-memory text buffer
-        buffer = io.StringIO()
-        df.to_csv(buffer, index=False)
-        buffer.seek(0)
-
-        # Convert to BytesIO for sending
-        bytes_buffer = io.BytesIO(buffer.getvalue().encode())
-
-        await update.message.reply_document(
-            document=bytes_buffer,
-            filename=f"debug_data_{symbol}_{timeframe}.csv",
-            caption=f"البيانات الأولية لـ {symbol} على إطار {timeframe}."
-        )
-
-    except Exception as e:
-        logger.error(f"Error in /debug_data command: {e}", exc_info=True)
-        await update.message.reply_text(f"حدث خطأ أثناء جلب البيانات: {e}")
-
 # --- Analysis Conversation ---
 async def analyze_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Entry point for the analysis conversation. Asks for a symbol."""
@@ -227,6 +168,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')
+        df.dropna(inplace=True)
 
         analysis_info = analyzer.get_analysis(df, symbol, timeframe)
         formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
@@ -270,6 +212,7 @@ async def run_periodic_analysis(application: Application):
                 numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
                 for col in numeric_cols:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
+                df.dropna(inplace=True)
 
                 analysis_info = analyzer.get_analysis(df, symbol, timeframe)
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
@@ -323,7 +266,6 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(start, pattern='^main_menu$'))
     application.add_handler(CallbackQueryHandler(bot_status, pattern='^bot_status$'))
-    application.add_handler(CommandHandler("debug_data", debug_data))
     application.add_handler(conv_handler)
     application.add_error_handler(error_handler)
 
