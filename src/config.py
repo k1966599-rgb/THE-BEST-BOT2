@@ -73,6 +73,47 @@ TELEGRAM_CONFIG = {
     'ADMIN_CHAT_ID': os.getenv('TELEGRAM_ADMIN_CHAT_ID', '')
 }
 
+# --- UI Configuration ---
+# Centralizes all user-facing strings and UI components for easy management.
+UI_CONFIG = {
+    'MESSAGES': {
+        'start': (
+            "**THE BEST BOT**\n\n"
+            "الحالة: يعمل ✅\n"
+            "__{now}__"
+        ),
+        'bot_status': "حالة البوت: يعمل بشكل طبيعي والتحليل الدوري معطل.",
+        'select_symbol': "اختر العملة التي تريد تحليلها:",
+        'symbol_selected': "تم اختيار {symbol}. الآن، اختر مدة التحليل:",
+        'select_term': "اخترت {term}. الآن، اختر الإطار الزمني:",
+        'analysis_error': "حدث خطأ فني أثناء محاولة التحليل. يرجى مراجعة السجلات.",
+        'data_fetch_error': "عذراً، لم أتمكن من جلب البيانات لهذه العملة. يرجى المحاولة مرة أخرى.",
+        'config_error': "خطأ في الإعدادات: لم يتم العثور على أطر زمنية لهذا الاختيار.",
+        'analysis_inprogress': "✅ شكراً لك! جاري تحليل {symbol} على إطار {timeframe}...",
+        'fetching_data': "⏳ شكراً لك! جاري تحميل البيانات التاريخية لعملة {symbol} على إطار {timeframe}...",
+    },
+    'BUTTONS': {
+        'analyze': "📊 تحليل",
+        'status': "ℹ️ حالة البوت",
+        'back_to_main': "🔙 رجوع للقائمة الرئيسية",
+        'back': "🔙 رجوع",
+        'long_term': "مدى طويل",
+        'medium_term': "مدى متوسط",
+        'short_term': "مدى قصير",
+    },
+    'CALLBACK_DATA': {
+        'analyze_start': 'analyze_start',
+        'bot_status': 'bot_status',
+        'main_menu': 'main_menu',
+        'symbol_prefix': 'symbol_',
+        'term_prefix': 'term_',
+        'timeframe_prefix': 'timeframe_',
+        'term_long': 'term_long_term',
+        'term_medium': 'term_medium_term',
+        'term_short': 'term_short_term',
+    }
+}
+
 
 # --- Main Configuration Getter ---
 def get_config():
@@ -84,7 +125,8 @@ def get_config():
         'exchange': EXCHANGE_CONFIG,
         'risk_management': RISK_MANAGEMENT_CONFIG,
         'strategy_params': STRATEGY_PARAMS,
-        'telegram': TELEGRAM_CONFIG
+        'telegram': TELEGRAM_CONFIG,
+        'ui': UI_CONFIG
     }
 
 if __name__ == '__main__':
