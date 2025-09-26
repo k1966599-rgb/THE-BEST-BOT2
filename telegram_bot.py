@@ -11,11 +11,15 @@ from telegram.ext import (
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from functools import wraps
 from src.config import get_config
 from src.data_retrieval.data_fetcher import DataFetcher
 from src.strategies.fibo_analyzer import FiboAnalyzer
 from src.utils.formatter import format_analysis_from_template
 from src.utils.exceptions import DataUnavailableError, AnalysisError
+from src.utils.state_manager import StateManager
+from src.utils.config_validator import validate_config
+from pydantic import ValidationError
 import pandas as pd
 
 # --- Basic Logging ---
@@ -64,16 +68,102 @@ async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         reply_markup=reply_markup
     )
 
+# --- Admin Features ---
+def admin_only(func):
+    """Decorator to restrict usage of a command to the admin."""
+    @wraps(func)
+    async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        # We get the config from bot_data to ensure it's the reloaded version.
+        admin_chat_id = context.bot_data.get('config', {}).get('telegram', {}).get('ADMIN_CHAT_ID')
+        if not admin_chat_id:
+            logger.error("ADMIN_CHAT_ID is not configured. Cannot verify admin user.")
+            return
+
+        user_id = update.effective_user.id
+        if str(user_id) != str(admin_chat_id):
+            await update.message.reply_text("عذرًا، هذا الأمر مخصص للمشرف فقط.")
+            logger.warning(f"Unauthorized access attempt to admin command by user {user_id}.")
+            return
+        return await func(update, context, *args, **kwargs)
+    return wrapped
+
+@admin_only
+async def add_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Adds a symbol to the watchlist."""
+    try:
+        symbol = context.args[0].upper()
+        state_manager: StateManager = context.bot_data['state_manager']
+
+        watchlist = state_manager.get_watchlist()
+        if symbol in watchlist:
+            await update.message.reply_text(f"العملة {symbol} موجودة بالفعل في قائمة المراقبة.")
+            return
+
+        watchlist.append(symbol)
+        state_manager.update_watchlist(watchlist)
+        await update.message.reply_text(f"✅ تم إضافة {symbol} إلى قائمة المراقبة.\nالقائمة الحالية: {', '.join(watchlist)}")
+        logger.info(f"Admin {update.effective_user.id} added {symbol} to the watchlist.")
+
+    except (IndexError, ValueError):
+        await update.message.reply_text("الاستخدام: /add SYMBOL-USDT")
+
+@admin_only
+async def remove_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Removes a symbol from the watchlist."""
+    try:
+        symbol_to_remove = context.args[0].upper()
+        state_manager: StateManager = context.bot_data['state_manager']
+
+        watchlist = state_manager.get_watchlist()
+        if symbol_to_remove not in watchlist:
+            await update.message.reply_text(f"العملة {symbol_to_remove} غير موجودة في قائمة المراقبة.")
+            return
+
+        watchlist.remove(symbol_to_remove)
+        state_manager.update_watchlist(watchlist)
+        await update.message.reply_text(f"🗑️ تم إزالة {symbol_to_remove} من قائمة المراقبة.\nالقائمة الحالية: {', '.join(watchlist)}")
+        logger.info(f"Admin {update.effective_user.id} removed {symbol_to_remove} from the watchlist.")
+
+    except (IndexError, ValueError):
+        await update.message.reply_text("الاستخدام: /remove SYMBOL-USDT")
+
+@admin_only
+async def reload_config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Reloads the configuration from the config file."""
+    try:
+        # We need to re-import the module to get the latest version of the file
+        import importlib
+        from src import config as config_module
+        importlib.reload(config_module)
+
+        new_config = config_module.get_config()
+        context.bot_data['config'] = new_config
+
+        logger.info(f"Admin {update.effective_user.id} reloaded the configuration.")
+        await update.message.reply_text("✅ تم إعادة تحميل ملف الإعدادات بنجاح.")
+
+    except Exception as e:
+        logger.error(f"Failed to reload configuration: {e}", exc_info=True)
+        await update.message.reply_text(f"حدث خطأ أثناء إعادة تحميل الإعدادات: {e}")
+
+
 # --- Analysis Conversation ---
 async def analyze_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Entry point for the analysis conversation. Asks for a symbol."""
     query = update.callback_query
     await query.answer()
 
-    config = get_config()
+    config = context.bot_data.get('config', get_config())
     ui_cfg = config['ui']
-    watchlist = config.get('trading', {}).get('WATCHLIST', [])
+    state_manager: StateManager = context.bot_data['state_manager']
+    watchlist = state_manager.get_watchlist()
     cb_data = ui_cfg['CALLBACK_DATA']
+
+    if not watchlist:
+        await query.edit_message_text(text="قائمة المراقبة فارغة حاليًا. يمكن للمشرف إضافة عملات باستخدام الأمر /add.")
+        # Go back to the main menu gracefully
+        await start(update, context)
+        return ConversationHandler.END
 
     keyboard = [
         [InlineKeyboardButton(symbol, callback_data=f"{cb_data['symbol_prefix']}{symbol}") for symbol in watchlist[i:i+2]]
@@ -209,43 +299,59 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Exception while handling an update:", exc_info=context.error)
 
-async def run_periodic_analysis(application: Application):
-    """Runs analysis periodically and sends formatted alerts."""
-    config = get_config()
+async def _run_single_analysis(symbol: str, timeframe: str, application: Application):
+    """Helper function to run analysis for a single symbol/timeframe pair."""
+    config = application.bot_data.get('config')
     fetcher = DataFetcher(config)
     analyzer = FiboAnalyzer(config, fetcher)
     admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
 
-    if not admin_chat_id:
-        logger.warning("TELEGRAM_ADMIN_CHAT_ID not set. Periodic alerts will be skipped.")
+    try:
+        data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=300)
+        df = pd.DataFrame(data_dict['data'])
+        numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        df.dropna(inplace=True)
+
+        analysis_info = analyzer.get_analysis(df, symbol, timeframe)
+        if analysis_info.get('signal') in ['BUY', 'SELL']:
+            report = format_analysis_from_template(analysis_info, symbol, timeframe)
+            await application.bot.send_message(chat_id=admin_chat_id, text=report, parse_mode='Markdown')
+            logger.info(f"Sent '{analysis_info['signal']}' alert for {symbol} on {timeframe} to admin.")
+    except DataUnavailableError:
+        logger.warning(f"Periodic analysis: Could not fetch data for {symbol} on {timeframe}.")
+    except Exception as e:
+        logger.error(f"Error in periodic analysis for {symbol} on {timeframe}: {e}", exc_info=False)
+
+
+async def run_periodic_analysis(application: Application):
+    """Runs analysis periodically and concurrently for all symbols and timeframes."""
+    config = application.bot_data.get('config', get_config())
+    state_manager: StateManager = application.bot_data.get('state_manager')
+    admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
+
+    if not state_manager or not admin_chat_id:
+        logger.error("StateManager or ADMIN_CHAT_ID not initialized. Skipping periodic analysis.")
         return
 
-    watchlist = config.get('trading', {}).get('WATCHLIST', [])
+    watchlist = state_manager.get_watchlist()
     timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
-    logger.info(f"--- Starting Periodic Analysis for {len(watchlist)} symbols ---")
 
+    if not watchlist:
+        logger.info("Watchlist is empty. Skipping periodic analysis.")
+        return
+
+    logger.info(f"--- Starting Concurrent Periodic Analysis for {len(watchlist)} symbols across {len(timeframes)} timeframes ---")
+
+    tasks = []
     for symbol in watchlist:
         for timeframe in timeframes:
-            try:
-                data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=300)
-                if not data_dict or 'data' not in data_dict or not data_dict['data']:
-                    continue
+            tasks.append(_run_single_analysis(symbol, timeframe, application))
 
-                df = pd.DataFrame(data_dict['data'])
-                numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
-                for col in numeric_cols:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-                df.dropna(inplace=True)
+    await asyncio.gather(*tasks)
 
-                analysis_info = analyzer.get_analysis(df, symbol, timeframe)
-                if analysis_info.get('signal') in ['BUY', 'SELL']:
-                    report = format_analysis_from_template(analysis_info, symbol, timeframe)
-                    await application.bot.send_message(chat_id=admin_chat_id, text=report, parse_mode='Markdown')
-                    logger.info(f"Sent '{analysis_info['signal']}' alert for {symbol} on {timeframe} to admin.")
-            except Exception as e:
-                logger.error(f"Error in periodic analysis for {symbol} on {timeframe}: {e}")
-            await asyncio.sleep(2)
-    logger.info("--- Periodic Analysis Complete ---")
+    logger.info("--- Concurrent Periodic Analysis Complete ---")
 
 async def post_init(application: Application) -> None:
     """Initializes the background scheduler."""
@@ -283,13 +389,31 @@ def setup_conversation_handler(config):
 
 def main() -> None:
     """Start the bot."""
-    config = get_config()
+    # 1. Load and validate configuration first
+    try:
+        config = get_config()
+        validate_config(config)
+        logger.info("Configuration validated successfully.")
+    except ValidationError as e:
+        logger.critical("!!! CONFIGURATION IS INVALID. BOT WILL NOT START !!!")
+        logger.critical("Please check your .env file and src/config.py for the following errors:")
+        for error in e.errors():
+            loc_str = " -> ".join(map(str, error['loc']))
+            logger.critical(f"  - Location: {loc_str} | Message: {error['msg']}")
+        return  # Stop execution if config is invalid
+
     token = config.get('telegram', {}).get('TOKEN')
+    # The validator ensures the token exists, so this check is now redundant but safe to keep.
     if not token:
-        logger.error("Telegram BOT_TOKEN not found in .env file.")
+        logger.error("Telegram BOT_TOKEN not found.")
         return
 
     application = Application.builder().token(token).post_init(post_init).build()
+
+    # Initialize and store the config and state manager in bot_data
+    # This makes them accessible and modifiable application-wide
+    application.bot_data['config'] = config
+    application.bot_data['state_manager'] = StateManager(config)
 
     ui_cfg = config['ui']
     cb_data = ui_cfg['CALLBACK_DATA']
@@ -300,6 +424,12 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(start, pattern=f"^{cb_data['main_menu']}$"))
     application.add_handler(CallbackQueryHandler(bot_status, pattern=f"^{cb_data['bot_status']}$"))
     application.add_handler(conv_handler)
+
+    # Add admin command handlers
+    application.add_handler(CommandHandler("add", add_symbol))
+    application.add_handler(CommandHandler("remove", remove_symbol))
+    application.add_handler(CommandHandler("reload", reload_config_command))
+
     application.add_error_handler(error_handler)
 
     logger.info("Starting Telegram bot...")
