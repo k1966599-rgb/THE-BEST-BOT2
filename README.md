@@ -1,103 +1,72 @@
-# Professional Trading Bot for OKX
+# بوت تحليل فني متقدم للعملات الرقمية عبر تليجرام
 
-This is a Python-based trading bot designed for the OKX exchange. It provides a framework for developing, backtesting, and deploying automated trading strategies. The bot is built with a modular structure to allow for easy extension and customization.
+هذا المشروع هو بوت تليجرام تفاعلي مصمم لتقديم تحليلات فنية معمقة للعملات الرقمية المتداولة على منصة OKX. يستخدم البوت استراتيجية تحليل مخصصة تعتمد على مستويات فيبوناتشي ومجموعة من المؤشرات الفنية الأخرى لتقديم رؤى قابلة للتنفيذ.
 
-## Key Features
+## الميزات الرئيسية
 
-- **OKX Exchange Integration**: Connects to the OKX V5 API for both market data and trade execution.
-- **Sandbox & Live Trading**: A simple configuration flag (`SANDBOX_MODE`) allows switching between a safe demo environment and live trading.
-- **Pluggable Strategy Framework**: Easily create new strategies by inheriting from a `BaseStrategy` class. Comes with a sample Fibonacci-based strategy.
-- **Backtesting Engine**: A simple, event-driven backtester to evaluate strategy performance on historical data before deployment.
-- **Data Population Utility**: Includes a script to download and store historical candle data locally for backtesting.
-- **Unit Testing Framework**: Uses `pytest` to ensure the reliability of individual components.
+- **واجهة تليجرام تفاعلية**: يوفر البوت واجهة سهلة الاستخدام باللغة العربية عبر تليجرام لبدء التحليلات.
+- **استراتيجية تحليل متطورة**: يعتمد على `FiboAnalyzer` الذي يدمج مستويات فيبوناتشي، ومناطق التوافق، ومؤشرات (RSI, MACD, ADX, ATR) لتقييم السوق.
+- **نظام نقاط التأكيد**: يقوم بتقييم قوة إشارة التداول المحتملة عبر نظام نقاط (Scoring System) يأخذ في الاعتبار عدة عوامل فنية.
+- **إعدادات مرنة**: يمكن التحكم في جميع جوانب البوت، من قائمة المراقبة إلى معلمات الاستراتيجية، عبر ملف `src/config.py` وملف `.env`.
+- **اتصال بمنصة OKX**: يستخدم واجهة برمجة تطبيقات OKX V5 لجلب بيانات السوق المباشرة.
+- **تحليل دوري (اختياري)**: يحتوي على وظيفة لإجراء تحليلات تلقائية وإرسال تنبيهات (معطلة افتراضيًا ولكن يمكن تفعيلها).
 
-## Project Structure
+## هيكل المشروع
 
 ```
 .
-├── data/                 # Stores historical market data for backtesting
-├── src/                  # Main source code
-│   ├── backtesting/      # Backtesting engine and data loader
-│   ├── core/             # Core trading engine logic
-│   ├── data_retrieval/   # Data fetching from the exchange
-│   ├── execution/        # Order execution handler
-│   ├── strategies/       # Trading strategy implementations
-│   └── utils/            # Helper functions (e.g., technical indicators)
-├── tests/                # Unit and integration tests
-├── .env                  # Environment variables (API keys, etc.) - MUST BE CREATED
-├── main.py               # Main entry point to run the bot
-├── populate_data.py      # Script to download historical data
-├── requirements.txt      # Python dependencies
+├── data/                 # (غير مستخدم حاليًا) لتخزين البيانات التاريخية
+├── src/                  # الشيفرة المصدرية الرئيسية
+│   ├── data_retrieval/   # لجلب البيانات من المنصة
+│   ├── strategies/       # منطق استراتيجيات التحليل (FiboAnalyzer)
+│   ├── templates/        # قوالب لتنسيق تقارير التحليل
+│   ├── utils/            # دوال مساعدة (مثل حساب المؤشرات)
+│   └── config.py         # ملف الإعدادات المركزي
+├── tests/                # (غير مستخدم حاليًا) للاختبارات
+├── .env.example          # ملف مثال لمتغيرات البيئة
+├── populate_data.py      # سكربت لجلب البيانات التاريخية (لأغراض الاختبار المستقبلي)
+├── requirements.txt      # الاعتماديات الخاصة ببايثون
+├── telegram_bot.py       # نقطة الدخول الرئيسية لتشغيل بوت تليجرام
 └── README.md
 ```
 
-## Setup and Installation
+## الإعداد والتشغيل
 
-1.  **Clone the repository:**
+1.  **استنسخ المستودع:**
     ```bash
     git clone <repository_url>
     cd <repository_directory>
     ```
 
-2.  **Create and activate a virtual environment (recommended):**
+2.  **أنشئ وشغل بيئة افتراضية (مستحسن):**
     ```bash
     python -m venv venv
-    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+    source venv/bin/activate  # على ويندوز، استخدم `venv\Scripts\activate`
     ```
 
-3.  **Install dependencies:**
+3.  **ثبت الاعتماديات:**
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Create the environment file:**
-    Create a file named `.env` in the project root. This file will hold your secret API keys. Copy the following into it and replace the placeholder values.
+4.  **أنشئ ملف متغيرات البيئة:**
+    -   قم بنسخ ملف `.env.example` إلى ملف جديد باسم `.env`.
+    -   افتح ملف `.env` واملأ القيم المطلوبة:
+        -   `BOT_TOKEN`: توكن بوت التليجرام الخاص بك (احصل عليه من @BotFather).
+        -   `TELEGRAM_ADMIN_CHAT_ID`: معرف الدردشة الخاص بك لاستقبال التنبيهات.
+        -   `EXCHANGE_API_KEY`, `EXCHANGE_API_SECRET`, `EXCHANGE_API_PASSWORD`: مفاتيح API الخاصة بمنصة OKX.
+        -   `SANDBOX_MODE`: اضبطها على `True` للتداول التجريبي أو `False` للفعلي.
 
-    ```ini
-    # OKX API Credentials
-    # Get these from your OKX account
-    EXCHANGE_API_KEY="your_api_key"
-    EXCHANGE_API_SECRET="your_secret_key"
-    EXCHANGE_API_PASSWORD="your_api_password"
+## كيفية الاستخدام
 
-    # Trading Mode: 'True' for sandbox/demo, 'False' for live trading
-    SANDBOX_MODE=True
+1.  **شغل البوت:**
+    تأكد من أنك في البيئة الافتراضية وأن ملف `.env` الخاص بك صحيح، ثم قم بتشغيل الأمر التالي:
+    ```bash
+    python telegram_bot.py
     ```
 
-## Usage
-
-### 1. Populate Historical Data
-
-Before backtesting, you need to download the data for the symbols in your watchlist.
-
-```bash
-python populate_data.py
-```
-This will create JSON files in the `data/` directory.
-
-### 2. Run a Backtest
-
-To test your strategy against the historical data you just downloaded:
-
-```bash
-python -m src.backtesting.backtester
-```
-This will run the backtest defined in the `if __name__ == '__main__':` block of the `backtester.py` file and print the results.
-
-### 3. Run the Live/Sandbox Bot
-
-To start the bot in live or sandbox mode (depending on your `.env` setting):
-
-```bash
-python main.py
-```
-The bot will start running and log its activities to the console and to `trading_bot.log`. Press `Ctrl+C` to stop it.
-
-## Strategy Development
-
-To create your own strategy:
-1.  Create a new Python file in the `src/strategies/` directory (e.g., `my_strategy.py`).
-2.  Create a class that inherits from `BaseStrategy`.
-3.  Implement the `generate_signals` method. This method receives a pandas DataFrame of historical data and must return a dictionary with a `signal` key ('BUY', 'SELL', or 'HOLD').
-
-See `src/strategies/fibo_strategy.py` for an example.
+2.  **تفاعل مع البوت على تليجرام:**
+    -   ابحث عن البوت الخاص بك على تليجرام وابدأ محادثة معه.
+    -   أرسل الأمر `/start` لعرض القائمة الرئيسية.
+    -   اتبع الأزرار التفاعلية لاختيار العملة، والإطار الزمني، وبدء التحليل.
+    -   سيقوم البوت بإرسال تقرير تحليل مفصل مباشرة في الدردشة.
