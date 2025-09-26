@@ -5,7 +5,6 @@ from scipy.signal import find_peaks
 from src.data_retrieval.data_fetcher import DataFetcher
 
 from .base_strategy import BaseStrategy
-from ..utils.exceptions import AnalysisError
 from ..utils.indicators import (
     calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
@@ -31,6 +30,12 @@ class FiboAnalyzer(BaseStrategy):
         self.adx_window = p.get('adx_window', 14)
         self.atr_window = p.get('atr_window', 14)
         self.atr_multiplier = p.get('atr_multiplier', 2.0)
+        self.fib_lookback = p.get('fib_lookback', 50)
+        self.weights = p.get('scoring_weights', {
+            'confluence_zone': 2, 'rsi_confirm': 1, 'macd_confirm': 1, 'reversal_pattern': 2
+        })
+        self.adx_threshold = p.get('adx_trend_threshold', 25)
+        self.swing_atr_multiplier = p.get('swing_prominence_atr_multiplier', 0.5)
 
 
     def _initialize_result(self) -> Dict[str, Any]:
@@ -39,7 +44,8 @@ class FiboAnalyzer(BaseStrategy):
             "trend": "N/A", "signal": "HOLD", "reason": "", "score": 0,
             "swing_high": {}, "swing_low": {}, "retracements": {}, "extensions": {},
             "confluence_zones": [], "pattern": "N/A", "risk_levels": {},
-            "scenarios": {}, "latest_data": {}, "current_price": 0
+            "scenarios": {}, "latest_data": {}, "current_price": 0,
+            "confidence": 0, "rr_ratio": 0.0
         }
 
     def _find_confluence_zones(self, p_lvls: Dict, s_lvls: Dict, tol: float=0.005) -> List[Dict]:
@@ -68,12 +74,18 @@ class FiboAnalyzer(BaseStrategy):
         pattern = get_candlestick_pattern(data.iloc[-3:])
 
         if trend == 'up':
-            if zones: score += 2; reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
+            if zones:
+                score += self.weights.get('confluence_zone', 2)
+                reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] > 50:
-                score += 1; reasons.append("RSI > 50"); confirmations["confirmation_rsi"] = True
-            if latest['macd'] > latest['signal_line']: score += 1; reasons.append("تقاطع MACD إيجابي")
+                score += self.weights.get('rsi_confirm', 1)
+                reasons.append("RSI > 50"); confirmations["confirmation_rsi"] = True
+            if latest['macd'] > latest['signal_line']:
+                score += self.weights.get('macd_confirm', 1)
+                reasons.append("تقاطع MACD إيجابي")
             if pattern in bullish_reversal_patterns:
-                score += 2; reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
+                score += self.weights.get('reversal_pattern', 2)
+                reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
 
             # Check for break of 61.8% retracement level
             fib_618 = retracements.get('fib_618')
@@ -81,12 +93,18 @@ class FiboAnalyzer(BaseStrategy):
                 confirmations["confirmation_break_618"] = True
 
         else: # downtrend
-            if zones: score += 2; reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
+            if zones:
+                score += self.weights.get('confluence_zone', 2)
+                reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] < 50:
-                score += 1; reasons.append("RSI < 50"); confirmations["confirmation_rsi"] = True
-            if latest['macd'] < latest['signal_line']: score += 1; reasons.append("تقاطع MACD سلبي")
+                score += self.weights.get('rsi_confirm', 1)
+                reasons.append("RSI < 50"); confirmations["confirmation_rsi"] = True
+            if latest['macd'] < latest['signal_line']:
+                score += self.weights.get('macd_confirm', 1)
+                reasons.append("تقاطع MACD سلبي")
             if pattern in bearish_reversal_patterns:
-                score += 2; reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
+                score += self.weights.get('reversal_pattern', 2)
+                reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
 
             # Check for break of 61.8% retracement level
             fib_618 = retracements.get('fib_618')
@@ -99,6 +117,33 @@ class FiboAnalyzer(BaseStrategy):
             confirmations["confirmation_volume"] = True
 
         return {"score": score, "reasons": reasons, "pattern": pattern, "confirmations": confirmations}
+
+    def _calculate_risk_metrics(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculates confidence level and risk/reward ratio."""
+        score = result.get('score', 0)
+        max_score = sum(self.weights.values())
+
+        # Calculate confidence level (e.g., from a base of 50% to a max of 95%)
+        confidence = 50 + (score / max_score) * 45 if max_score > 0 else 50
+        result['confidence'] = round(confidence)
+
+        # Calculate Risk/Reward Ratio from the primary scenario
+        scenario1 = result.get('scenarios', {}).get('scenario1', {})
+        entry_price = scenario1.get('entry')
+        stop_loss = scenario1.get('stop_loss')
+        target = scenario1.get('target')
+
+        if entry_price and stop_loss and target:
+            potential_loss = abs(entry_price - stop_loss)
+            potential_profit = abs(target - entry_price)
+
+            if potential_loss > 0:
+                rr_ratio = potential_profit / potential_loss
+                result['rr_ratio'] = round(rr_ratio, 2)
+            else:
+                result['rr_ratio'] = float('inf')
+
+        return result
 
     def _generate_scenarios(self, result: Dict) -> Dict:
         trend = result['trend']
@@ -119,12 +164,16 @@ class FiboAnalyzer(BaseStrategy):
 
         return {"scenario1": primary, "scenario2": secondary}
 
-    def _find_recent_swing_points(self, data: pd.DataFrame, prominence: int = 1) -> (Dict, Dict):
+    def _find_recent_swing_points(self, data: pd.DataFrame, avg_atr: float) -> (Dict, Dict):
         """
-        Finds the most recent significant swing high and low using scipy's
-        find_peaks for better accuracy.
+        Finds the most recent significant swing high and low.
+        The prominence is calculated dynamically based on the average ATR to adapt
+        to different market volatility conditions.
         """
         recent_data = data.tail(100).copy()
+
+        # Dynamic prominence based on volatility (ATR)
+        prominence = avg_atr * self.swing_atr_multiplier
 
         # Find swing highs (peaks)
         high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=prominence)
@@ -169,28 +218,26 @@ class FiboAnalyzer(BaseStrategy):
         # Drop rows with NaN values resulting from indicator calculations
         data.dropna(inplace=True)
 
-        # --- Post-cleaning data validation ---
-        # The _find_recent_swing_points method looks back 100 candles. We need at least that many.
-        MIN_REQUIRED_POINTS_AFTER_CLEAN = 100
-        if len(data) < MIN_REQUIRED_POINTS_AFTER_CLEAN:
-            raise AnalysisError(
-                f"لا توجد بيانات كافية بعد حساب المؤشرات (مطلوب {MIN_REQUIRED_POINTS_AFTER_CLEAN} شمعة، متوفر {len(data)} فقط). "
-                f"يرجى تجربة إطار زمني أكبر."
-            )
-
         # After cleaning, reset the index to ensure .iloc works correctly
         data.reset_index(drop=True, inplace=True)
+
+        if len(data) < 50:
+            result['reason'] = 'Not enough data after indicator calculations'; return result
 
         latest = data.iloc[-1]
         result.update({"latest_data": latest.to_dict(), "current_price": latest['close']})
 
         # --- 2. Trend & Swings (on clean data) ---
-        # Determine the main trend from the moving averages for context
-        main_trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
+        # Determine the main trend from moving averages, confirmed by ADX for strength
+        if latest['adx'] < self.adx_threshold:
+            main_trend = 'Sideways'
+        else:
+            main_trend = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
         result['trend'] = main_trend
 
         # Find the most recent significant swing points for Fibonacci analysis.
-        p_high, p_low = self._find_recent_swing_points(data, prominence=1)
+        avg_atr = data['atr'].mean()
+        p_high, p_low = self._find_recent_swing_points(data, avg_atr=avg_atr)
 
         # If swings are not found, fallback gracefully
         if p_high is None or p_low is None:
@@ -227,5 +274,8 @@ class FiboAnalyzer(BaseStrategy):
         elif trend == 'down' and result['score'] >= 5: result['signal'] = "SELL"
 
         result['scenarios'] = self._generate_scenarios(result)
+
+        # --- 5. Final Risk Metrics ---
+        result = self._calculate_risk_metrics(result)
 
         return result
