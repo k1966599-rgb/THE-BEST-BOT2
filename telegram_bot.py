@@ -30,16 +30,14 @@ SYMBOL, TERM, TIMEFRAME = range(3)
 # --- Main Menu ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends or edits the main menu message."""
-    now = datetime.now()
-    text = (
-        f"**THE BEST BOT**\n\n"
-        f"الحالة: يعمل ✅\n"
-        f"__{now.strftime('%Y-%m-%d %H:%M:%S')}__"
-    )
+    config = get_config()
+    ui_cfg = config['ui']
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    text = ui_cfg['MESSAGES']['start'].format(now=now)
 
     keyboard = [
-        [InlineKeyboardButton("📊 تحليل", callback_data='analyze_start')],
-        [InlineKeyboardButton("ℹ️ حالة البوت", callback_data='bot_status')],
+        [InlineKeyboardButton(ui_cfg['BUTTONS']['analyze'], callback_data=ui_cfg['CALLBACK_DATA']['analyze_start'])],
+        [InlineKeyboardButton(ui_cfg['BUTTONS']['status'], callback_data=ui_cfg['CALLBACK_DATA']['bot_status'])],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -54,11 +52,14 @@ async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     query = update.callback_query
     await query.answer()
 
-    keyboard = [[InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data='main_menu')]]
+    config = get_config()
+    ui_cfg = config['ui']
+
+    keyboard = [[InlineKeyboardButton(ui_cfg['BUTTONS']['back_to_main'], callback_data=ui_cfg['CALLBACK_DATA']['main_menu'])]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        text="حالة البوت: يعمل بشكل طبيعي والتحليل الدوري معطل.",
+        text=ui_cfg['MESSAGES']['bot_status'],
         reply_markup=reply_markup
     )
 
@@ -69,17 +70,19 @@ async def analyze_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     await query.answer()
 
     config = get_config()
+    ui_cfg = config['ui']
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
+    cb_data = ui_cfg['CALLBACK_DATA']
 
     keyboard = [
-        [InlineKeyboardButton(symbol, callback_data=f'symbol_{symbol}') for symbol in watchlist[i:i+2]]
+        [InlineKeyboardButton(symbol, callback_data=f"{cb_data['symbol_prefix']}{symbol}") for symbol in watchlist[i:i+2]]
         for i in range(0, len(watchlist), 2)
     ]
-    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='main_menu')])
+    keyboard.append([InlineKeyboardButton(ui_cfg['BUTTONS']['back'], callback_data=cb_data['main_menu'])])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        text="اختر العملة التي تريد تحليلها:",
+        text=ui_cfg['MESSAGES']['select_symbol'],
         reply_markup=reply_markup
     )
     return SYMBOL
@@ -89,20 +92,25 @@ async def select_term(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     query = update.callback_query
     await query.answer()
 
-    context.user_data['symbol'] = query.data.split('_', 1)[1]
+    config = get_config()
+    ui_cfg = config['ui']
+    cb_data = ui_cfg['CALLBACK_DATA']
+
+    symbol = query.data.split(cb_data['symbol_prefix'], 1)[1]
+    context.user_data['symbol'] = symbol
 
     keyboard = [
         [
-            InlineKeyboardButton("مدى طويل", callback_data='term_long_term'),
-            InlineKeyboardButton("مدى متوسط", callback_data='term_medium_term'),
-            InlineKeyboardButton("مدى قصير", callback_data='term_short_term'),
+            InlineKeyboardButton(ui_cfg['BUTTONS']['long_term'], callback_data=cb_data['term_long']),
+            InlineKeyboardButton(ui_cfg['BUTTONS']['medium_term'], callback_data=cb_data['term_medium']),
+            InlineKeyboardButton(ui_cfg['BUTTONS']['short_term'], callback_data=cb_data['term_short']),
         ],
-        [InlineKeyboardButton("🔙 رجوع", callback_data='analyze_start')],
+        [InlineKeyboardButton(ui_cfg['BUTTONS']['back'], callback_data=cb_data['analyze_start'])],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        text=f"تم اختيار {context.user_data['symbol']}. الآن، اختر مدة التحليل:",
+        text=ui_cfg['MESSAGES']['symbol_selected'].format(symbol=symbol),
         reply_markup=reply_markup
     )
     return TERM
@@ -112,26 +120,35 @@ async def select_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     query = update.callback_query
     await query.answer()
 
-    term_key = query.data.split('_', 1)[1]
+    config = get_config()
+    ui_cfg = config['ui']
+    cb_data = ui_cfg['CALLBACK_DATA']
+
+    term_key = query.data.split(cb_data['term_prefix'], 1)[1]
     context.user_data['term'] = term_key
 
-    config = get_config()
     timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
     timeframes = timeframe_groups.get(term_key, [])
 
     if not timeframes:
-        await query.edit_message_text(text="خطأ في الإعدادات: لم يتم العثور على أطر زمنية لهذا الاختيار.")
+        await query.edit_message_text(text=ui_cfg['MESSAGES']['config_error'])
         return ConversationHandler.END
 
     keyboard = [
-        [InlineKeyboardButton(tf, callback_data=f'timeframe_{tf}') for tf in timeframes[i:i+3]]
+        [InlineKeyboardButton(tf, callback_data=f"{cb_data['timeframe_prefix']}{tf}") for tf in timeframes[i:i+3]]
         for i in range(0, len(timeframes), 3)
     ]
-    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data=f'symbol_{context.user_data["symbol"]}')])
+    # Go back to the term selection
+    keyboard.append([InlineKeyboardButton(ui_cfg['BUTTONS']['back'], callback_data=f"{cb_data['symbol_prefix']}{context.user_data['symbol']}")])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # We need a user-friendly term name, we can get it from the button text in the previous step
+    # This is a bit of a workaround. A better solution might be to store a display name in the config.
+    term_display_name = term_key.replace('_', ' ')
+
+
     await query.edit_message_text(
-        text=f"اخترت {term_key.replace('_', ' ')}. الآن، اختر الإطار الزمني:",
+        text=ui_cfg['MESSAGES']['select_term'].format(term=term_display_name),
         reply_markup=reply_markup
     )
     return TIMEFRAME
@@ -141,26 +158,26 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     query = update.callback_query
     await query.answer()
 
-    context.user_data['timeframe'] = query.data.split('_', 1)[1]
-    symbol = context.user_data['symbol']
-    timeframe = context.user_data['timeframe']
+    config = get_config()
+    ui_cfg = config['ui']
+    cb_data = ui_cfg['CALLBACK_DATA']
 
-    await query.edit_message_text(text=f"✅ شكراً لك! جاري تحليل {symbol} على إطار {timeframe}...")
+    timeframe = query.data.split(cb_data['timeframe_prefix'], 1)[1]
+    context.user_data['timeframe'] = timeframe
+    symbol = context.user_data['symbol']
+
+    await query.edit_message_text(text=ui_cfg['MESSAGES']['analysis_inprogress'].format(symbol=symbol, timeframe=timeframe))
 
     try:
-        config = get_config()
         fetcher = DataFetcher(config)
         analyzer = FiboAnalyzer(config, fetcher)
+        limit = 1000  # Reasonable limit for fast responses
 
-        # Set a reasonable limit for historical data to ensure fast responses.
-        # 1000 candles are more than enough for the implemented analysis.
-        limit = 1000
-
-        await query.edit_message_text(text=f"⏳ شكراً لك! جاري تحميل البيانات التاريخية لعملة {symbol} على إطار {timeframe}...")
+        await query.edit_message_text(text=ui_cfg['MESSAGES']['fetching_data'].format(symbol=symbol, timeframe=timeframe))
 
         data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
         if not data_dict or 'data' not in data_dict or not data_dict['data']:
-            await query.message.reply_text("عذراً، لم أتمكن من جلب البيانات لهذه العملة. يرجى المحاولة مرة أخرى.")
+            await query.message.reply_text(ui_cfg['MESSAGES']['data_fetch_error'])
             await start(update, context)
             return ConversationHandler.END
 
@@ -177,7 +194,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     except Exception as e:
         logger.error(f"An error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
-        await query.message.reply_text("حدث خطأ فني أثناء محاولة التحليل. يرجى مراجعة السجلات.")
+        await query.message.reply_text(ui_cfg['MESSAGES']['analysis_error'])
 
     await start(update, context)
     return ConversationHandler.END
@@ -237,20 +254,25 @@ async def post_init(application: Application) -> None:
     logger.info(f"Scheduler is configured but DISABLED. Automatic analysis will not run.")
 
 # --- Conversation Handler Definition ---
-# Defined at the module level to allow for easier testing and inspection.
-conv_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(analyze_entry, pattern='^analyze_start$')],
-    states={
-        SYMBOL: [CallbackQueryHandler(select_term, pattern='^symbol_')],
-        TERM: [CallbackQueryHandler(select_timeframe, pattern='^term_')],
-        TIMEFRAME: [
-            CallbackQueryHandler(run_analysis, pattern='^timeframe_'),
-            CallbackQueryHandler(select_term, pattern='^symbol_')
-        ],
-    },
-    fallbacks=[CallbackQueryHandler(start, pattern='^main_menu$')],
-    per_message=False
-)
+def setup_conversation_handler(config):
+    """Creates the ConversationHandler using settings from the config."""
+    ui_cfg = config['ui']
+    cb_data = ui_cfg['CALLBACK_DATA']
+
+    return ConversationHandler(
+        entry_points=[CallbackQueryHandler(analyze_entry, pattern=f"^{cb_data['analyze_start']}$")],
+        states={
+            SYMBOL: [CallbackQueryHandler(select_term, pattern=f"^{cb_data['symbol_prefix']}")],
+            TERM: [CallbackQueryHandler(select_timeframe, pattern=f"^{cb_data['term_prefix']}")],
+            TIMEFRAME: [
+                CallbackQueryHandler(run_analysis, pattern=f"^{cb_data['timeframe_prefix']}"),
+                # Allows returning to the term selection from the timeframe selection
+                CallbackQueryHandler(select_term, pattern=f"^{cb_data['symbol_prefix']}")
+            ],
+        },
+        fallbacks=[CallbackQueryHandler(start, pattern=f"^{cb_data['main_menu']}$")],
+        per_message=False
+    )
 
 
 def main() -> None:
@@ -263,9 +285,14 @@ def main() -> None:
 
     application = Application.builder().token(token).post_init(post_init).build()
 
+    ui_cfg = config['ui']
+    cb_data = ui_cfg['CALLBACK_DATA']
+
+    # Setup handlers
+    conv_handler = setup_conversation_handler(config)
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(start, pattern='^main_menu$'))
-    application.add_handler(CallbackQueryHandler(bot_status, pattern='^bot_status$'))
+    application.add_handler(CallbackQueryHandler(start, pattern=f"^{cb_data['main_menu']}$"))
+    application.add_handler(CallbackQueryHandler(bot_status, pattern=f"^{cb_data['bot_status']}$"))
     application.add_handler(conv_handler)
     application.add_error_handler(error_handler)
 
