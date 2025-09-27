@@ -48,6 +48,8 @@ class FiboAnalyzer(BaseStrategy):
             'reversal_pattern': 2, 'volume_confirm': 1
         })
         self.adx_threshold = p.get('adx_trend_threshold', 25)
+        self.signal_threshold = p.get('signal_threshold', 5)
+        self.require_adx_confirmation = p.get('require_adx_confirmation', True)
         self.swing_atr_multiplier = p.get('swing_prominence_atr_multiplier', 0.5)
 
 
@@ -283,9 +285,18 @@ class FiboAnalyzer(BaseStrategy):
         confirm_data = self._calculate_confirmation_score(data, fibo_trend, p_swings, result['confluence_zones'], result['retracements'])
         result.update(confirm_data)
 
-        if fibo_trend == 'up' and result['score'] >= 5:
+        score_met = result['score'] >= self.signal_threshold
+
+        # Check for ADX confirmation if required by the config
+        adx_value = result.get('latest_data', {}).get('adx', 0)
+        adx_confirmed = not self.require_adx_confirmation or (adx_value >= self.adx_threshold)
+
+        if score_met and not adx_confirmed:
+            result['reason'] = f"تم تحقيق النقاط المطلوبة لكن قوة الاتجاه ضعيفة (ADX: {adx_value:.2f})"
+
+        if fibo_trend == 'up' and score_met and adx_confirmed:
             result['signal'] = "BUY"
-        elif fibo_trend == 'down' and result['score'] >= 5:
+        elif fibo_trend == 'down' and score_met and adx_confirmed:
             result['signal'] = "SELL"
 
     def _finalize_analysis(self, result: Dict):
