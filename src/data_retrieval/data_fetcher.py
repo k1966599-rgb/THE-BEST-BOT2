@@ -3,6 +3,9 @@ import pandas as pd
 from typing import Dict, List, Optional
 import logging
 import time
+from requests.exceptions import RequestException
+
+from .exceptions import APIError, NetworkError
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +27,9 @@ class DataFetcher:
             debug=self.debug
         )
 
-    def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 300) -> Optional[Dict]:
+    def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 300) -> Dict:
         """
-        Fetches historical candlestick data for a given symbol and timeframe,
-        handling pagination to retrieve large datasets.
+        Fetches historical candlestick data for a given symbol and timeframe.
 
         Args:
             symbol (str): The trading symbol (e.g., 'BTC-USDT').
@@ -35,13 +37,17 @@ class DataFetcher:
             limit (int): The total number of candles to fetch.
 
         Returns:
-            Optional[Dict]: A dictionary containing the data, or None if an error occurs.
+            Dict: A dictionary containing the data.
+
+        Raises:
+            APIError: If the exchange API returns an error.
+            NetworkError: If a network-related error occurs.
         """
         logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} timeframe...")
 
-        API_MAX_LIMIT = 100  # OKX API limit for historical candles
+        API_MAX_LIMIT = 100
         all_candles = []
-        end_timestamp = '' # Start with no end time
+        end_timestamp = ''
 
         requests_needed = (limit + API_MAX_LIMIT - 1) // API_MAX_LIMIT
         logger.info(f"Need to make {requests_needed} API requests.")
@@ -49,52 +55,41 @@ class DataFetcher:
         for i in range(requests_needed):
             try:
                 logger.info(f"Fetching page {i+1}/{requests_needed} for {symbol}...")
-
                 result = self.market_api.get_history_candlesticks(
-                    instId=symbol,
-                    bar=timeframe,
-                    limit=str(API_MAX_LIMIT),
-                    before=end_timestamp
+                    instId=symbol, bar=timeframe, limit=str(API_MAX_LIMIT), before=end_timestamp
                 )
-
-                if result.get('code') == '0':
-                    data = result.get('data', [])
-                    if not data:
-                        logger.warning(f"No more data returned for {symbol}. Fetched {len(all_candles)} candles in total.")
-                        break
-
-                    # The first element is the newest, last is the oldest.
-                    # We add all but the first one to avoid duplicates if the range overlaps.
-                    all_candles.extend(data)
-
-                    # The timestamp of the oldest candle becomes the 'before' for the next request
-                    end_timestamp = data[-1][0]
-
-                    # Respect API rate limits
-                    time.sleep(0.2) # 200ms delay between requests
-
-                else:
-                    logger.error(f"Error fetching page {i+1} for {symbol}: {result.get('msg')}")
-                    # Don't stop, just return what we have so far
-                    break
-
+            except RequestException as e:
+                logger.error(f"Network error while fetching {symbol}: {e}")
+                raise NetworkError(f"Failed to connect to the exchange: {e}") from e
             except Exception as e:
-                logger.exception(f"An exception occurred while fetching page {i+1} for {symbol}: {e}")
+                logger.exception(f"An unexpected error occurred during API call for {symbol}: {e}")
+                raise
+
+            if result.get('code') != '0':
+                error_msg = result.get('msg', 'Unknown API error')
+                error_code = result.get('code')
+                logger.error(f"API Error for {symbol}: {error_msg} (Code: {error_code})")
+                # Specific check for invalid instrument ID
+                if error_code == '51001':
+                     raise APIError(f"Invalid instrument ID: {symbol}", status_code=error_code)
+                raise APIError(error_msg, status_code=error_code)
+
+            data = result.get('data', [])
+            if not data:
+                logger.warning(f"No more data returned for {symbol}. Fetched {len(all_candles)} candles.")
                 break
 
-        if not all_candles:
-            logger.error(f"Failed to fetch any data for {symbol}.")
-            return None
+            all_candles.extend(data)
+            end_timestamp = data[-1][0]
+            time.sleep(0.2)
 
-        # Convert to DataFrame for easier use later
+        if not all_candles:
+            raise APIError(f"Failed to fetch any data for {symbol}, it might be an invalid symbol or have no trading history.")
+
         df = pd.DataFrame(all_candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'volCcy', 'volCcyQuote', 'confirm'])
         df['timestamp'] = pd.to_numeric(df['timestamp'])
+        df = df.drop_duplicates(subset=['timestamp']).sort_values(by='timestamp', ascending=True).reset_index(drop=True)
 
-        # Remove duplicates that might occur at page boundaries and sort
-        df = df.drop_duplicates(subset=['timestamp'])
-        df = df.sort_values(by='timestamp', ascending=True).reset_index(drop=True)
-
-        # Trim the data to the exact limit requested
         if len(df) > limit:
             df = df.tail(limit)
 
@@ -103,18 +98,23 @@ class DataFetcher:
 
 
 if __name__ == '__main__':
-    # Example usage for testing
     from src.config import get_config
 
     config = get_config()
     fetcher = DataFetcher(config)
 
-    # --- Test fetching BTC data ---
-    btc_data = fetcher.fetch_historical_data('BTC-USDT', '1D', limit=500)
-    if btc_data:
-        print(f"\nSuccessfully fetched BTC-USDT 1D data. Sample:")
-        df = pd.DataFrame(btc_data['data'])
-        print(df.head())
-        print(f"Total rows: {len(df)}")
-    else:
-        print("\nFailed to fetch BTC-USDT 1D data.")
+    try:
+        btc_data = fetcher.fetch_historical_data('BTC-USDT', '1D', limit=500)
+        if btc_data:
+            print(f"\nSuccessfully fetched BTC-USDT 1D data. Sample:")
+            df = pd.DataFrame(btc_data['data'])
+            print(df.head())
+            print(f"Total rows: {len(df)}")
+    except (APIError, NetworkError) as e:
+        print(f"\nFailed to fetch data: {e}")
+
+    try:
+        # Test invalid symbol
+        invalid_data = fetcher.fetch_historical_data('INVALID-SYMBOL', '1D')
+    except APIError as e:
+        print(f"\nCaught expected error for invalid symbol: {e}")
