@@ -61,6 +61,7 @@ STRATEGY_PARAMS = {
         'sma_period_fast': 50,
         'sma_period_slow': 200,
         'fib_lookback': 50,
+        'swing_lookback_period': 100, # Number of candles to look back for swing points
         'adx_trend_threshold': 25,
         'swing_prominence_atr_multiplier': 0.5, # Multiplier for ATR to determine swing point prominence
         'scoring_weights': {

@@ -32,6 +32,7 @@ class FiboAnalyzer(BaseStrategy):
         self.atr_window = p.get('atr_window', 14)
         self.atr_multiplier = p.get('atr_multiplier', 2.0)
         self.fib_lookback = p.get('fib_lookback', 50)
+        self.swing_lookback_period = p.get('swing_lookback_period', 100)
         self.volume_period = p.get('volume_period', 20)
         self.volume_multiplier = p.get('volume_multiplier', 1.5)
         self.weights = p.get('scoring_weights', {
@@ -41,6 +42,20 @@ class FiboAnalyzer(BaseStrategy):
         self.adx_threshold = p.get('adx_trend_threshold', 25)
         self.swing_atr_multiplier = p.get('swing_prominence_atr_multiplier', 0.5)
 
+    @property
+    def required_candlesticks(self) -> int:
+        """
+        Calculate the minimum number of candlesticks required for the analysis.
+        This is based on the longest indicator period plus the swing lookback period,
+        with a small buffer for safety.
+        """
+        longest_indicator = max(
+            self.sma_slow_period, self.sma_fast_period, self.rsi_period,
+            self.adx_window, self.atr_window, self.stoch_window
+        )
+        # We need enough data for the longest indicator AND the swing lookback.
+        # The total required is the indicator warm-up period plus the period to find swings in.
+        return longest_indicator + self.swing_lookback_period + 10 # 10 as a safety buffer
 
     def _initialize_result(self) -> Dict[str, Any]:
         """Initializes a default result dictionary."""
@@ -162,7 +177,8 @@ class FiboAnalyzer(BaseStrategy):
         The prominence is calculated dynamically based on the average ATR to adapt
         to different market volatility conditions.
         """
-        recent_data = data.tail(100).copy()
+        # Use the configurable lookback period
+        recent_data = data.tail(self.swing_lookback_period).copy()
 
         # Dynamic prominence based on volatility (ATR)
         prominence = avg_atr * self.swing_atr_multiplier
@@ -268,11 +284,14 @@ class FiboAnalyzer(BaseStrategy):
         data.dropna(subset=['sma_slow'], inplace=True)
         data.reset_index(drop=True, inplace=True)
 
-        if len(data) < 50:
+        # After warming up indicators, we must have enough data for the swing lookback.
+        if len(data) < self.swing_lookback_period:
             # Instead of returning a failure message, raise a specific exception.
             # This allows the calling layer (the bot) to handle this specific
             # scenario gracefully.
-            raise InsufficientDataError('Not enough data after indicator calculations')
+            raise InsufficientDataError(
+                f'Not enough data for swing analysis ({len(data)} < {self.swing_lookback_period})'
+            )
 
         result = self._initialize_result()
         result.update({"latest_data": data.iloc[-1].to_dict(), "current_price": data.iloc[-1]['close']})

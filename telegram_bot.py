@@ -167,12 +167,15 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
     fetcher = DataFetcher(config)
+    # Instantiate the analyzer first to determine data requirements
     analyzer = FiboAnalyzer(config, fetcher)
+    required_candles = analyzer.required_candlesticks
 
     try:
         await query.edit_message_text(text=get_text("fetching_data").format(symbol=symbol, timeframe=timeframe))
 
-        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=1500)
+        # Fetch data using the dynamically calculated limit
+        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=required_candles)
 
         await query.edit_message_text(text=get_text("analysis_running").format(symbol=symbol, timeframe=timeframe))
         analysis_info = analyzer.get_analysis(df, symbol, timeframe)
@@ -210,6 +213,7 @@ async def run_periodic_analysis(application: Application):
     config = application.bot_data['config']
     fetcher = DataFetcher(config)
     analyzer = FiboAnalyzer(config, fetcher)
+    required_candles = analyzer.required_candlesticks # Get required candles once
     admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
 
     if not admin_chat_id:
@@ -223,7 +227,8 @@ async def run_periodic_analysis(application: Application):
     for symbol in watchlist:
         for timeframe in timeframes:
             try:
-                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=300)
+                # Use the dynamic candle limit for periodic analysis as well
+                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=required_candles)
                 analysis_info = analyzer.get_analysis(df, symbol, timeframe)
 
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
