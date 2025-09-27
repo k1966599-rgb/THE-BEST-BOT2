@@ -51,22 +51,6 @@ class FiboAnalyzer(BaseStrategy):
         self.adx_threshold = p.get('adx_trend_threshold', 25)
         self.swing_atr_multiplier = p.get('swing_prominence_atr_multiplier', 0.5)
 
-    @property
-    def required_candlesticks(self) -> int:
-        """
-        Calculate the minimum number of candlesticks required for the analysis.
-        This is based on the longest indicator period plus the swing lookback period,
-        with a small buffer for safety.
-        """
-        longest_indicator = max(
-            self.sma_slow_period, self.sma_fast_period, self.rsi_period,
-            self.adx_window, self.atr_window, self.stoch_window
-        )
-        # We need enough data for the longest indicator AND the swing lookback.
-        # The total required is the indicator warm-up period plus the period to find swings in.
-        # We add a larger safety buffer to account for potential missing candles from the exchange API.
-        return longest_indicator + self.swing_lookback_period + 50 # 50 as a safety buffer
-
     def _initialize_result(self) -> Dict[str, Any]:
         """Initializes a default result dictionary."""
         return {
