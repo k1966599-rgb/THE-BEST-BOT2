@@ -43,10 +43,10 @@ class FiboAnalyzer(BaseStrategy):
         self.fib_lookback = p.get('fib_lookback', 50)
         self.swing_lookback_period = p.get('swing_lookback_period', 100)
         self.volume_period = p.get('volume_period', 20)
-        self.volume_multiplier = p.get('volume_multiplier', 1.5)
+        self.volume_spike_multiplier = p.get('volume_spike_multiplier', 2.0)
         self.weights = p.get('scoring_weights', {
             'confluence_zone': 2, 'rsi_confirm': 1, 'macd_confirm': 1,
-            'reversal_pattern': 2, 'volume_confirm': 1
+            'reversal_pattern': 2, 'volume_spike': 2
         })
         self.adx_threshold = p.get('adx_trend_threshold', 25)
         self.swing_atr_multiplier = p.get('swing_prominence_atr_multiplier', 0.5)
@@ -109,12 +109,22 @@ class FiboAnalyzer(BaseStrategy):
             fib_618 = retracements.get('fib_618')
             if fib_618 and latest['close'] < fib_618: confirmations["confirmation_break_618"] = True
 
-        # Enhanced Volume Confirmation: Check for high volume only on reversal patterns
-        if is_reversal_pattern:
-            volume_threshold = data['volume_sma'].iloc[-2] * self.volume_multiplier # Use previous candle's SMA
-            if latest['volume'] > volume_threshold:
-                score += self.weights.get('volume_confirm', 1)
-                reasons.append("تأكيد حجم التداول")
+        # --- Volume Spike Analysis ---
+        volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
+        is_volume_spike = latest['volume'] > volume_threshold
+
+        if is_volume_spike:
+            is_bullish_candle = latest['close'] > latest['open']
+            is_bearish_candle = latest['close'] < latest['open']
+
+            # Add points if the volume spike confirms the trend direction
+            if trend == 'up' and is_bullish_candle:
+                score += self.weights.get('volume_spike', 2)
+                reasons.append("✅ تأكيد طفرة حجم تداول صاعدة")
+                confirmations["confirmation_volume"] = True
+            elif trend == 'down' and is_bearish_candle:
+                score += self.weights.get('volume_spike', 2)
+                reasons.append("✅ تأكيد طفرة حجم تداول هابطة")
                 confirmations["confirmation_volume"] = True
 
         return {"score": score, "reasons": reasons, "pattern": pattern, "confirmations": confirmations}

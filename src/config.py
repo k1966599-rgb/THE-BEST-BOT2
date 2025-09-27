@@ -72,11 +72,13 @@ STRATEGY_PARAMS = {
         'swing_lookback_period': 100, # Number of candles to look back for swing points
         'adx_trend_threshold': 25,
         'swing_prominence_atr_multiplier': 0.5, # Multiplier for ATR to determine swing point prominence
+        'volume_spike_multiplier': 2.0, # How much higher volume needs to be than its average to be a "spike"
         'scoring_weights': {
             'confluence_zone': 2,
             'rsi_confirm': 1,
             'macd_confirm': 1,
-            'reversal_pattern': 2
+            'reversal_pattern': 2,
+            'volume_spike': 2 # Extra points for a confirming volume spike
         },
         # --- Timeframe-Specific Overrides ---
         # These settings will override the default parameters for the specified timeframe.
