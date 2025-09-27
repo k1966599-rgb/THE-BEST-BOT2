@@ -167,6 +167,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
     fetcher = DataFetcher(config)
+    # Instantiate the analyzer with the specific timeframe to apply any overrides
     analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
 
     # Get the candle fetch limit from the config based on the current timeframe
