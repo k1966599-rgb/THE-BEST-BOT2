@@ -28,7 +28,6 @@ class FiboAnalyzer(BaseStrategy):
         base_params = config.get('strategy_params', {}).get('fibo_strategy', {})
 
         # Check for timeframe-specific overrides and merge them.
-        # This allows for different parameters on different timeframes (e.g., shorter SMA on 1D).
         timeframe_overrides = base_params.get('timeframe_overrides', {})
         specific_params = timeframe_overrides.get(timeframe, {})
         p = {**base_params, **specific_params}
@@ -43,10 +42,10 @@ class FiboAnalyzer(BaseStrategy):
         self.fib_lookback = p.get('fib_lookback', 50)
         self.swing_lookback_period = p.get('swing_lookback_period', 100)
         self.volume_period = p.get('volume_period', 20)
-        self.volume_spike_multiplier = p.get('volume_spike_multiplier', 2.0)
+        self.volume_multiplier = p.get('volume_multiplier', 1.5)
         self.weights = p.get('scoring_weights', {
             'confluence_zone': 2, 'rsi_confirm': 1, 'macd_confirm': 1,
-            'reversal_pattern': 2, 'volume_spike': 2
+            'reversal_pattern': 2, 'volume_confirm': 1
         })
         self.adx_threshold = p.get('adx_trend_threshold', 25)
         self.swing_atr_multiplier = p.get('swing_prominence_atr_multiplier', 0.5)
@@ -90,41 +89,31 @@ class FiboAnalyzer(BaseStrategy):
             if zones:
                 score += self.weights.get('confluence_zone', 2); reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] > 50:
-                score += self.weights.get('rsi_confirm', 1); reasons.append(f"مؤشر القوة النسبية فوق 50 (القيمة: {latest['rsi']:.2f})"); confirmations["confirmation_rsi"] = True
+                score += self.weights.get('rsi_confirm', 1); reasons.append("RSI > 50"); confirmations["confirmation_rsi"] = True
             if latest['macd'] > latest['signal_line']:
                 score += self.weights.get('macd_confirm', 1); reasons.append("تقاطع MACD إيجابي")
             if pattern in bullish_patterns:
-                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج انعكاسي صاعد: {pattern}"); confirmations["confirmation_reversal_candle"] = True
+                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
             fib_618 = retracements.get('fib_618')
             if fib_618 and latest['close'] > fib_618: confirmations["confirmation_break_618"] = True
         else:  # downtrend
             if zones:
                 score += self.weights.get('confluence_zone', 2); reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] < 50:
-                score += self.weights.get('rsi_confirm', 1); reasons.append(f"مؤشر القوة النسبية تحت 50 (القيمة: {latest['rsi']:.2f})"); confirmations["confirmation_rsi"] = True
+                score += self.weights.get('rsi_confirm', 1); reasons.append("RSI < 50"); confirmations["confirmation_rsi"] = True
             if latest['macd'] < latest['signal_line']:
                 score += self.weights.get('macd_confirm', 1); reasons.append("تقاطع MACD سلبي")
             if pattern in bearish_patterns:
-                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج انعكاسي هابط: {pattern}"); confirmations["confirmation_reversal_candle"] = True
+                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
             fib_618 = retracements.get('fib_618')
             if fib_618 and latest['close'] < fib_618: confirmations["confirmation_break_618"] = True
 
-        # --- Volume Spike Analysis ---
-        volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
-        is_volume_spike = latest['volume'] > volume_threshold
-
-        if is_volume_spike:
-            is_bullish_candle = latest['close'] > latest['open']
-            is_bearish_candle = latest['close'] < latest['open']
-
-            # Add points if the volume spike confirms the trend direction
-            if trend == 'up' and is_bullish_candle:
-                score += self.weights.get('volume_spike', 2)
-                reasons.append("✅ تأكيد طفرة حجم تداول صاعدة")
-                confirmations["confirmation_volume"] = True
-            elif trend == 'down' and is_bearish_candle:
-                score += self.weights.get('volume_spike', 2)
-                reasons.append("✅ تأكيد طفرة حجم تداول هابطة")
+        # Enhanced Volume Confirmation: Check for high volume only on reversal patterns
+        if is_reversal_pattern:
+            volume_threshold = data['volume_sma'].iloc[-2] * self.volume_multiplier # Use previous candle's SMA
+            if latest['volume'] > volume_threshold:
+                score += self.weights.get('volume_confirm', 1)
+                reasons.append("تأكيد حجم التداول")
                 confirmations["confirmation_volume"] = True
 
         return {"score": score, "reasons": reasons, "pattern": pattern, "confirmations": confirmations}
@@ -157,61 +146,21 @@ class FiboAnalyzer(BaseStrategy):
         return result
 
     def _generate_scenarios(self, result: Dict) -> Dict:
-        fibo_trend = result.get('fibo_trend', 'up')
-        signal = result.get('signal', 'HOLD')
-        score = result.get('score', 0)
+        trend = result['trend']
+        score = result['score']
         high, low = result['swing_high']['price'], result['swing_low']['price']
         entry = result['current_price']
         extensions = result['extensions']
 
-        # Probabilities depend on whether we have a confirmed signal or are neutral
-        if signal in ['BUY', 'SELL']:
-            prob_primary = min(60 + (score * 4), 95)  # Capped at 95%
-        else:  # HOLD
-            prob_primary = 50
-
+        prob_primary = min(60 + (score * 5), 90)
         prob_secondary = 100 - prob_primary
 
-        # Define scenarios based on the fibo_trend, which dictates the setup
-        if fibo_trend == 'up':
-            primary = {
-                "title": "صعود نحو الأهداف",
-                "prob": prob_primary,
-                "target": extensions.get('ext_1618', high * 1.05),
-                "entry": entry,
-                "stop_loss": low - (result['latest_data']['atr'] * self.atr_multiplier)
-            }
-            secondary = {
-                "title": "فشل السيناريو والهبوط",
-                "prob": prob_secondary,
-                "target": low,
-                "entry": entry,
-                "stop_loss": high
-            }
-        else:  # fibo_trend is 'down'
-            primary = {
-                "title": "هبوط نحو الأهداف",
-                "prob": prob_primary,
-                "target": extensions.get('ext_1618', low * 0.95),
-                "entry": entry,
-                "stop_loss": high + (result['latest_data']['atr'] * self.atr_multiplier)
-            }
-            secondary = {
-                "title": "فشل السيناريو والصعود",
-                "prob": prob_secondary,
-                "target": high,
-                "entry": entry,
-                "stop_loss": low
-            }
-
-        # If the final signal is HOLD, make the titles more neutral
-        if signal == 'HOLD':
-            if fibo_trend == 'up':
-                primary['title'] = "السيناريو الصاعد المحتمل"
-                secondary['title'] = "السيناريو الهابط المحتمل"
-            else:
-                primary['title'] = "السيناريو الهابط المحتمل"
-                secondary['title'] = "السيناريو الصاعد المحتمل"
+        if trend == 'up':
+            primary = {"title": "صعود نحو الأهداف", "prob": prob_primary, "target": extensions.get('ext_1618', high*1.05), "entry": entry, "stop_loss": low - (result['latest_data']['atr'] * self.atr_multiplier)}
+            secondary = {"title": "فشل السيناريو والهبوط", "prob": prob_secondary, "target": low, "entry": entry, "stop_loss": high}
+        else: #downtrend
+            primary = {"title": "هبوط نحو الأهداف", "prob": prob_primary, "target": extensions.get('ext_1618', low*0.95), "entry": entry, "stop_loss": high + (result['latest_data']['atr'] * self.atr_multiplier)}
+            secondary = {"title": "فشل السيناريو والصعود", "prob": prob_secondary, "target": high, "entry": entry, "stop_loss": low}
 
         return {"scenario1": primary, "scenario2": secondary}
 
@@ -221,8 +170,7 @@ class FiboAnalyzer(BaseStrategy):
         The prominence is calculated dynamically based on the average ATR to adapt
         to different market volatility conditions.
         """
-        # Use the configurable lookback period
-        recent_data = data.tail(self.swing_lookback_period).copy()
+        recent_data = data.tail(100).copy()
 
         # Dynamic prominence based on volatility (ATR)
         prominence = avg_atr * self.swing_atr_multiplier
@@ -294,7 +242,6 @@ class FiboAnalyzer(BaseStrategy):
         p_high = result['swing_high']
         p_low = result['swing_low']
         fibo_trend = 'up' if p_high['index'] > p_low['index'] else 'down'
-        result['fibo_trend'] = fibo_trend # Store for later use in scenario generation
 
         # In this version, primary and secondary swings are the same.
         s_high, s_low = p_high, p_low
@@ -329,17 +276,11 @@ class FiboAnalyzer(BaseStrategy):
         data.dropna(subset=['sma_slow'], inplace=True)
         data.reset_index(drop=True, inplace=True)
 
-        # After warming up indicators, we must have enough data for the swing lookback.
-        if len(data) < self.swing_lookback_period:
-            # Instead of returning a failure message, raise a specific exception
-            # with detailed context for better error reporting.
+        if len(data) < 50:
+            # Instead of returning a failure message, raise a specific exception.
             # This allows the calling layer (the bot) to handle this specific
             # scenario gracefully.
-            raise InsufficientDataError(
-                f'Not enough data for swing analysis.',
-                required=self.swing_lookback_period,
-                available=len(data)
-            )
+            raise InsufficientDataError('Not enough data after indicator calculations')
 
         result = self._initialize_result()
         result.update({"latest_data": data.iloc[-1].to_dict(), "current_price": data.iloc[-1]['close']})
