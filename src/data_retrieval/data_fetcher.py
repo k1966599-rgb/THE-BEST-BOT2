@@ -1,4 +1,5 @@
 import okx.MarketData as MarketData
+import okx.Account as Account
 import pandas as pd
 from typing import Dict, List, Optional
 import logging
@@ -26,6 +27,86 @@ class DataFetcher:
             flag=flag,
             debug=self.debug
         )
+
+        self.account_api = Account.AccountAPI(
+            api_key=self.config.get('API_KEY'),
+            api_secret_key=self.config.get('API_SECRET'),
+            passphrase=self.config.get('PASSWORD'),
+            use_server_time=False,
+            flag=flag,
+            debug=self.debug
+        )
+
+    def get_account_balance(self) -> Dict:
+        """
+        Fetches the account balance, filtering for non-zero assets.
+
+        Returns:
+            Dict: A dictionary containing a list of balance details.
+
+        Raises:
+            APIError: If the exchange API returns an error.
+            NetworkError: If a network-related error occurs.
+        """
+        logger.info("Fetching account balance...")
+        try:
+            result = self.account_api.get_account_balance()
+        except RequestException as e:
+            logger.error(f"Network error while fetching account balance: {e}")
+            raise NetworkError(f"Failed to connect to the exchange: {e}") from e
+
+        if result.get('code') != '0':
+            error_msg = result.get('msg', 'Unknown API error')
+            error_code = result.get('code')
+            logger.error(f"API Error fetching balance: {error_msg} (Code: {error_code})")
+            raise APIError(error_msg, status_code=error_code)
+
+        all_details = result.get('data', [{}])[0].get('details', [])
+
+        # Filter for assets where there is an available or frozen balance
+        non_zero_balances = [
+            detail for detail in all_details
+            if float(detail.get('availBal', 0)) > 0 or float(detail.get('frozenBal', 0)) > 0
+        ]
+
+        logger.info(f"Successfully fetched and filtered balances. Found {len(non_zero_balances)} non-zero assets.")
+        return {"data": non_zero_balances}
+
+    def get_positions(self) -> Dict:
+        """
+        Fetches open positions for the account (specifically for SWAP instruments).
+
+        Returns:
+            Dict: A dictionary containing a list of open positions.
+
+        Raises:
+            APIError: If the exchange API returns an error.
+            NetworkError: If a network-related error occurs.
+        """
+        logger.info("Fetching open positions...")
+        try:
+            # We specify SWAP as the instrument type, which is common for futures trading.
+            result = self.account_api.get_positions(instType='SWAP')
+        except RequestException as e:
+            logger.error(f"Network error while fetching positions: {e}")
+            raise NetworkError(f"Failed to connect to the exchange: {e}") from e
+
+        if result.get('code') != '0':
+            error_msg = result.get('msg', 'Unknown API error')
+            error_code = result.get('code')
+            logger.error(f"API Error fetching positions: {error_msg} (Code: {error_code})")
+            raise APIError(error_msg, status_code=error_code)
+
+        positions = result.get('data', [])
+
+        # The API returns all positions, even those with 0 size. We filter for open ones.
+        open_positions = [
+            pos for pos in positions
+            if float(pos.get('pos', 0)) != 0
+        ]
+
+        logger.info(f"Successfully fetched positions. Found {len(open_positions)} open positions.")
+        return {"data": open_positions}
 
     def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 300) -> Dict:
         """

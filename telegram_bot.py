@@ -254,6 +254,88 @@ async def post_init(application: Application) -> None:
 
     logger.info(get_text("scheduler_disabled_log"))
 
+# --- Account Information Commands ---
+async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetches and displays the user's account balance for non-zero assets."""
+    chat_id = update.message.chat_id
+    await context.bot.send_message(chat_id=chat_id, text=get_text("fetching_balance"))
+
+    config = context.bot_data['config']
+    fetcher = DataFetcher(config)
+
+    try:
+        balance_info = fetcher.get_account_balance()
+        balances = balance_info.get('data', [])
+
+        if not balances:
+            await context.bot.send_message(chat_id=chat_id, text=get_text("no_assets_found"))
+            return
+
+        message = get_text("balance_header") + "\n"
+        for asset in balances:
+            ccy = asset.get('ccy', 'N/A')
+            avail = float(asset.get('availBal', 0))
+            frozen = float(asset.get('frozenBal', 0))
+            total = avail + frozen
+            message += get_text("balance_line_item").format(
+                asset=ccy,
+                total=f"{total:.6f}", # Format to 6 decimal places
+                available=f"{avail:.6f}",
+                frozen=f"{frozen:.6f}"
+            )
+
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+
+    except (APIError, NetworkError) as e:
+        logger.error(f"Error fetching balance for user {chat_id}: {e}")
+        await context.bot.send_message(chat_id=chat_id, text=get_text("error_fetching_balance"))
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in show_balance: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text=get_text("error_generic"))
+
+
+async def show_positions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetches and displays the user's open positions."""
+    chat_id = update.message.chat_id
+    await context.bot.send_message(chat_id=chat_id, text=get_text("fetching_positions"))
+
+    config = context.bot_data['config']
+    fetcher = DataFetcher(config)
+
+    try:
+        positions_info = fetcher.get_positions()
+        positions = positions_info.get('data', [])
+
+        if not positions:
+            await context.bot.send_message(chat_id=chat_id, text=get_text("no_open_positions"))
+            return
+
+        message = get_text("positions_header") + "\n"
+        for pos in positions:
+            side = get_text(f"position_side_{pos.get('posSide', 'net')}")
+            unrealized_pnl = float(pos.get('upl', 0))
+            pnl_sign = "✅" if unrealized_pnl >= 0 else "🔻"
+
+            message += get_text("position_line_item").format(
+                instrument=pos.get('instId', 'N/A'),
+                side=side,
+                size=pos.get('pos', '0'),
+                entry_price=pos.get('avgPx', '0'),
+                leverage=pos.get('lever', '1'),
+                pnl=f"{unrealized_pnl:,.2f}", # Format with commas and 2 decimal places
+                pnl_sign=pnl_sign
+            )
+
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+
+    except (APIError, NetworkError) as e:
+        logger.error(f"Error fetching positions for user {chat_id}: {e}")
+        await context.bot.send_message(chat_id=chat_id, text=get_text("error_fetching_positions"))
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in show_positions: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text=get_text("error_generic"))
+
+
 # --- Conversation Handler Definition ---
 conv_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(analyze_entry, pattern='^analyze_start$')],
@@ -288,6 +370,10 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(bot_status, pattern='^bot_status$'))
     application.add_handler(conv_handler)
     application.add_error_handler(error_handler)
+
+    # --- New Command Handlers for Account Info ---
+    application.add_handler(CommandHandler("balance", show_balance))
+    application.add_handler(CommandHandler("positions", show_positions))
 
     logger.info(get_text("bot_starting_log"))
     application.run_polling()
