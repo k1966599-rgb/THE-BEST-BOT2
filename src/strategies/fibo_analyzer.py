@@ -60,7 +60,7 @@ class FiboAnalyzer(BaseStrategy):
             "swing_high": {}, "swing_low": {}, "retracements": {}, "extensions": {},
             "confluence_zones": [], "pattern": "N/A", "risk_levels": {},
             "scenarios": {}, "latest_data": {}, "current_price": 0,
-            "confidence": 0, "rr_ratio": 0.0
+            "confidence": 0, "rr_ratio": 0.0, "weights": {}
         }
 
     def _find_confluence_zones(self, p_lvls: Dict, s_lvls: Dict, tol: float=0.005) -> List[Dict]:
@@ -71,7 +71,7 @@ class FiboAnalyzer(BaseStrategy):
                     zones.append({"level": (pv + sv) / 2, "p_level": pk, "s_level": sk})
         return zones
 
-    def _calculate_confirmation_score(self, data: pd.DataFrame, trend: str, swings: Dict, zones: List, retracements: Dict) -> Dict[str, Any]:
+    def _calculate_confirmation_score(self, data: pd.DataFrame, fibo_trend: str) -> Dict[str, Any]:
         score, reasons = 0, []
         data['volume_sma'] = data['volume'].rolling(window=self.volume_period).mean()
         latest = data.iloc[-1]
@@ -80,9 +80,7 @@ class FiboAnalyzer(BaseStrategy):
         bearish_patterns = ["Bearish Engulfing", "Shooting Star", "Evening Star", "Dark Cloud Cover", "Three Black Crows", "Tweezer Top"]
         pattern = get_candlestick_pattern(data.tail(3))
 
-        if trend == 'up':
-            if zones:
-                score += self.weights.get('confluence_zone', 2); reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
+        if fibo_trend == 'up':
             if latest['rsi'] > 50:
                 score += self.weights.get('rsi_confirm', 1); reasons.append(f"مؤشر القوة النسبية فوق 50 (القيمة: {latest['rsi']:.2f})")
             if latest['macd'] > latest['signal_line']:
@@ -92,8 +90,6 @@ class FiboAnalyzer(BaseStrategy):
             if pattern in bullish_patterns:
                 score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج انعكاسي صاعد: {pattern}")
         else:
-            if zones:
-                score += self.weights.get('confluence_zone', 2); reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] < 50:
                 score += self.weights.get('rsi_confirm', 1); reasons.append(f"مؤشر القوة النسبية تحت 50 (القيمة: {latest['rsi']:.2f})")
             if latest['macd'] < latest['signal_line']:
@@ -105,13 +101,10 @@ class FiboAnalyzer(BaseStrategy):
 
         volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
         if latest['volume'] > volume_threshold:
-            # Add points only if the volume spike confirms the trend direction
-            if trend == 'up' and latest['close'] > latest['open']:
-                score += self.weights.get('volume_spike', 2)
-                reasons.append("✅ تأكيد طفرة حجم تداول صاعدة")
-            elif trend == 'down' and latest['close'] < latest['open']:
-                score += self.weights.get('volume_spike', 2)
-                reasons.append("✅ تأكيد طفرة حجم تداول هابطة")
+            if fibo_trend == 'up' and latest['close'] > latest['open']:
+                score += self.weights.get('volume_spike', 2); reasons.append("✅ تأكيد طفرة حجم تداول صاعدة")
+            elif fibo_trend == 'down' and latest['close'] < latest['open']:
+                score += self.weights.get('volume_spike', 2); reasons.append("✅ تأكيد طفرة حجم تداول هابطة")
 
         return {"score": score, "reasons": reasons, "pattern": pattern}
 
@@ -197,7 +190,7 @@ class FiboAnalyzer(BaseStrategy):
         result['extensions'] = calculate_fib_extensions(p_high['price'], p_low['price'], fibo_trend)
         result['confluence_zones'] = self._find_confluence_zones(result['retracements'], result['retracements'])
 
-        confirm_data = self._calculate_confirmation_score(data, fibo_trend, {'highs': [p_high], 'lows': [p_low]}, result['confluence_zones'], result['retracements'])
+        confirm_data = self._calculate_confirmation_score(data, fibo_trend)
         result.update(confirm_data)
 
         score_met = result['score'] >= self.signal_threshold
@@ -232,5 +225,5 @@ class FiboAnalyzer(BaseStrategy):
 
         self._analyze_fibonacci_and_score(data, result)
         self._finalize_analysis(result)
-        result['weights'] = self.weights  # Pass weights for correct score formatting
+        result['weights'] = self.weights
         return result

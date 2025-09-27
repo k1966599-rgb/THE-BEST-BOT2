@@ -61,6 +61,8 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     scenarios = analysis_data.get('scenarios', {})
     scenario1 = scenarios.get('scenario1', {})
     scenario2 = scenarios.get('scenario2', {})
+    weights = analysis_data.get('weights', {})
+    max_score = sum(weights.values()) if weights else 10 # Fallback max score
 
     # --- Dynamically build the suggested trade section ---
     suggested_trade_section = ""
@@ -100,7 +102,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "fib_618": format_dynamic_price(retracements.get('fib_618', 0.0)),
         "confluence_zones_text": confluence_zones_text,
         "pattern": analysis_data.get('pattern', 'لا يوجد'),
-        "score": f"{analysis_data.get('score', 0)}/{sum(analysis_data.get('weights', {}).values())}",
+        "score": f"{analysis_data.get('score', 0)}/{max_score}",
         "reasons_text": reasons_text,
         "final_reason": analysis_data.get('final_reason', 'لا يوجد سبب محدد.'),
         "suggested_trade_section": suggested_trade_section,
