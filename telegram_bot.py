@@ -167,7 +167,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     try:
         await query.edit_message_text(text=get_text("fetching_data").format(symbol=symbol, timeframe=timeframe))
 
-        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=1000)
+        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=1500)
 
         await query.edit_message_text(text=get_text("analysis_running").format(symbol=symbol, timeframe=timeframe))
         analysis_info = analyzer.get_analysis(df, symbol, timeframe)
