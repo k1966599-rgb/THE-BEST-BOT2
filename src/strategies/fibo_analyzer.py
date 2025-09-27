@@ -5,6 +5,7 @@ from scipy.signal import find_peaks
 from src.data_retrieval.data_fetcher import DataFetcher
 
 from .base_strategy import BaseStrategy
+from .exceptions import InsufficientDataError
 from ..utils.indicators import (
     calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
@@ -257,13 +258,18 @@ class FiboAnalyzer(BaseStrategy):
         self._calculate_risk_metrics(result) # This function modifies result in-place
 
     def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
-        result = self._initialize_result()
-
+        """
+        Main analysis function. It processes the data, and if insufficient data is found
+        after calculations, it raises a specific error to be handled by the caller.
+        """
         data = self._prepare_data(data)
         if len(data) < 50:
-            result['reason'] = 'Not enough data after indicator calculations'
-            return result
+            # Instead of returning a failure message, raise a specific exception.
+            # This allows the calling layer (the bot) to handle this specific
+            # scenario gracefully.
+            raise InsufficientDataError('Not enough data after indicator calculations')
 
+        result = self._initialize_result()
         result.update({"latest_data": data.iloc[-1].to_dict(), "current_price": data.iloc[-1]['close']})
 
         if not self._analyze_trend_and_swings(data, result):
