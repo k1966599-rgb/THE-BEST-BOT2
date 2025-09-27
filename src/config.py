@@ -76,7 +76,8 @@ STRATEGY_PARAMS = {
         # different timeframes (e.g., using a shorter SMA on daily charts if data is limited).
         'timeframe_overrides': {
             '1D': {
-                'sma_period_slow': 100
+                'sma_period_slow': 50,
+                'swing_lookback_period': 40
             }
         }
     }
