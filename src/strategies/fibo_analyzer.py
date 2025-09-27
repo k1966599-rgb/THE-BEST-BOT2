@@ -105,10 +105,13 @@ class FiboAnalyzer(BaseStrategy):
 
         volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
         if latest['volume'] > volume_threshold:
-            if latest['close'] > latest['open']:
-                score += self.weights.get('volume_spike', 2); reasons.append("✅ تأكيد طفرة حجم تداول صاعدة")
-            else:
-                score += self.weights.get('volume_spike', 2); reasons.append("✅ تأكيد طفرة حجم تداول هابطة")
+            # Add points only if the volume spike confirms the trend direction
+            if trend == 'up' and latest['close'] > latest['open']:
+                score += self.weights.get('volume_spike', 2)
+                reasons.append("✅ تأكيد طفرة حجم تداول صاعدة")
+            elif trend == 'down' and latest['close'] < latest['open']:
+                score += self.weights.get('volume_spike', 2)
+                reasons.append("✅ تأكيد طفرة حجم تداول هابطة")
 
         return {"score": score, "reasons": reasons, "pattern": pattern}
 
@@ -229,4 +232,5 @@ class FiboAnalyzer(BaseStrategy):
 
         self._analyze_fibonacci_and_score(data, result)
         self._finalize_analysis(result)
+        result['weights'] = self.weights  # Pass weights for correct score formatting
         return result
