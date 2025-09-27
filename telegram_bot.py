@@ -167,17 +167,12 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
     fetcher = DataFetcher(config)
-    # Instantiate the analyzer with the specific timeframe to apply any overrides
-    analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
-
-    # Get the candle fetch limit from the config based on the current timeframe
-    candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
-    limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
+    analyzer = FiboAnalyzer(config, fetcher)
 
     try:
         await query.edit_message_text(text=get_text("fetching_data").format(symbol=symbol, timeframe=timeframe))
 
-        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
+        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=1500)
 
         await query.edit_message_text(text=get_text("analysis_running").format(symbol=symbol, timeframe=timeframe))
         analysis_info = analyzer.get_analysis(df, symbol, timeframe)
@@ -185,22 +180,11 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
 
-    except InsufficientDataError as e:
-        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}: {e}")
-        # The new exception in fibo_analyzer passes more context
-        if hasattr(e, 'required') and hasattr(e, 'available'):
-             await query.message.reply_text(
-                get_text("error_not_enough_data_detailed").format(
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    required=e.required,
-                    available=e.available
-                )
-            )
-        else:
-            await query.message.reply_text(
-                get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
-            )
+    except InsufficientDataError:
+        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}.")
+        await query.message.reply_text(
+            get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
+        )
     except NetworkError as e:
         logger.error(f"Network error for {symbol} on {timeframe}: {e}")
         await query.message.reply_text(get_text("error_api_connection"))
@@ -225,6 +209,7 @@ async def run_periodic_analysis(application: Application):
     """Runs analysis periodically and sends formatted alerts."""
     config = application.bot_data['config']
     fetcher = DataFetcher(config)
+    analyzer = FiboAnalyzer(config, fetcher)
     admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
 
     if not admin_chat_id:
@@ -233,16 +218,12 @@ async def run_periodic_analysis(application: Application):
 
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
     timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
-    candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
     logger.info(get_text("periodic_start_log").format(count=len(watchlist)))
 
     for symbol in watchlist:
         for timeframe in timeframes:
             try:
-                analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
-                limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
-
-                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
+                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=300)
                 analysis_info = analyzer.get_analysis(df, symbol, timeframe)
 
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
