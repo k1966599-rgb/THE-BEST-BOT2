@@ -90,22 +90,22 @@ class FiboAnalyzer(BaseStrategy):
             if zones:
                 score += self.weights.get('confluence_zone', 2); reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] > 50:
-                score += self.weights.get('rsi_confirm', 1); reasons.append("RSI > 50"); confirmations["confirmation_rsi"] = True
+                score += self.weights.get('rsi_confirm', 1); reasons.append(f"مؤشر القوة النسبية فوق 50 (القيمة: {latest['rsi']:.2f})"); confirmations["confirmation_rsi"] = True
             if latest['macd'] > latest['signal_line']:
                 score += self.weights.get('macd_confirm', 1); reasons.append("تقاطع MACD إيجابي")
             if pattern in bullish_patterns:
-                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
+                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج انعكاسي صاعد: {pattern}"); confirmations["confirmation_reversal_candle"] = True
             fib_618 = retracements.get('fib_618')
             if fib_618 and latest['close'] > fib_618: confirmations["confirmation_break_618"] = True
         else:  # downtrend
             if zones:
                 score += self.weights.get('confluence_zone', 2); reasons.append(f"منطقة توافق قرب ${zones[0]['level']:.2f}")
             if latest['rsi'] < 50:
-                score += self.weights.get('rsi_confirm', 1); reasons.append("RSI < 50"); confirmations["confirmation_rsi"] = True
+                score += self.weights.get('rsi_confirm', 1); reasons.append(f"مؤشر القوة النسبية تحت 50 (القيمة: {latest['rsi']:.2f})"); confirmations["confirmation_rsi"] = True
             if latest['macd'] < latest['signal_line']:
                 score += self.weights.get('macd_confirm', 1); reasons.append("تقاطع MACD سلبي")
             if pattern in bearish_patterns:
-                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج {pattern}"); confirmations["confirmation_reversal_candle"] = True
+                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج انعكاسي هابط: {pattern}"); confirmations["confirmation_reversal_candle"] = True
             fib_618 = retracements.get('fib_618')
             if fib_618 and latest['close'] < fib_618: confirmations["confirmation_break_618"] = True
 
