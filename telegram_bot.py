@@ -18,6 +18,8 @@ from src.strategies.fibo_analyzer import FiboAnalyzer
 from src.strategies.exceptions import InsufficientDataError
 from src.utils.formatter import format_analysis_from_template
 from src.localization import get_text
+from src.realtime.websocket_client import OKXWebSocketClient
+from src.realtime.monitoring_manager import monitoring_manager
 import pandas as pd
 
 # --- Basic Logging ---
@@ -28,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- Conversation States ---
-SYMBOL, TERM, TIMEFRAME = range(3)
+SYMBOL, TERM, TIMEFRAME, MONITOR_DECISION = range(4)
 
 # --- Main Menu ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -197,9 +199,28 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     except Exception as e:
         logger.error(f"An unexpected error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
         await query.message.reply_text(get_text("error_generic"))
+        # End conversation on error
+        await start(update, context)
+        return ConversationHandler.END
 
-    await start(update, context)
-    return ConversationHandler.END
+    # --- If analysis is successful, ask the user what to do next ---
+    context.user_data['last_analysis'] = analysis_info
+
+    keyboard = [
+        [
+            InlineKeyboardButton(get_text("button_monitor_follow"), callback_data=f'monitor_follow_{symbol}'),
+            InlineKeyboardButton(get_text("button_monitor_ignore"), callback_data='monitor_ignore')
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Use reply_text on the original message to add a new message with buttons
+    await query.message.reply_text(
+        text=get_text("ask_what_to_do"),
+        reply_markup=reply_markup
+    )
+
+    return MONITOR_DECISION
 
 # --- Periodic & Error Handlers ---
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -240,14 +261,100 @@ async def run_periodic_analysis(application: Application):
     logger.info(get_text("periodic_end_log"))
 
 async def post_init(application: Application) -> None:
-    """Initializes the background scheduler and loads config."""
+    """Initializes background tasks like the scheduler and WebSocket client."""
     config = application.bot_data.get('config', get_config())
     application.bot_data['config'] = config
 
+    # --- Define the WebSocket message handler inside post_init to access 'application' ---
+    async def on_ws_message(message: dict):
+        """
+        This function is called by the WebSocket client for each new ticker message.
+        It checks the price against any monitored levels.
+        """
+        symbol = message.get('instId')
+        price_str = message.get('last')
+        if not symbol or not price_str:
+            return
+
+        try:
+            price = float(price_str)
+            alerts_to_send = monitoring_manager.check_price(symbol, price)
+
+            for alert in alerts_to_send:
+                level_name = alert.get('level_name', 'N/A').replace('_', ' ').title()
+                alert_text = get_text("alert_level_hit").format(
+                    symbol=alert['symbol'],
+                    level_name=level_name,
+                    level_price=alert['level_price'],
+                    current_price=alert['current_price']
+                )
+                await application.bot.send_message(
+                    chat_id=alert['chat_id'],
+                    text=alert_text,
+                    parse_mode='Markdown'
+                )
+        except (ValueError, TypeError) as e:
+            logger.error(f"Error processing WebSocket message: {e} | Message: {message}")
+
+    # --- Initialize Periodic Analysis Scheduler (as before) ---
     interval = config.get('trading', {}).get('ANALYSIS_INTERVAL_MINUTES', 15)
     scheduler = AsyncIOScheduler(timezone="UTC")
-
     logger.info(get_text("scheduler_disabled_log"))
+
+    # --- Initialize and run WebSocket Client in the background ---
+    exchange_config = config.get('exchange', {})
+    api_key = exchange_config.get('API_KEY')
+    api_secret = exchange_config.get('API_SECRET')
+    passphrase = exchange_config.get('PASSWORD')
+    watchlist = config.get('trading', {}).get('WATCHLIST', [])
+    sandbox_mode = exchange_config.get('SANDBOX_MODE', True)
+
+    if api_key and api_secret and passphrase:
+        logger.info("API credentials found, starting WebSocket client...")
+        ws_client = OKXWebSocketClient(
+            api_key, api_secret, passphrase,
+            watchlist,
+            on_message_callback=on_ws_message,
+            sandbox_mode=sandbox_mode
+        )
+        # Run the websocket listener as a background task
+        asyncio.create_task(ws_client.listen())
+    else:
+        logger.warning("WebSocket client not started: Missing API Key, Secret, or Passphrase.")
+
+# --- Monitoring Decision Handlers ---
+async def handle_follow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handles the 'Follow' button press. Adds the analysis to the monitoring manager."""
+    query = update.callback_query
+    await query.answer()
+
+    symbol = query.data.split('_', 2)[2]
+    analysis_data = context.user_data.get('last_analysis')
+    chat_id = query.message.chat_id
+
+    if not analysis_data:
+        await query.edit_message_text(text=get_text("error_generic"))
+        return ConversationHandler.END
+
+    monitoring_manager.add_monitoring(symbol, analysis_data, chat_id)
+
+    await query.edit_message_text(
+        text=get_text("monitoring_started").format(symbol=symbol)
+    )
+
+    # We don't call start() here, just end the conversation.
+    # The user can start a new action from the main menu when ready.
+    return ConversationHandler.END
+
+async def handle_ignore(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handles the 'Ignore' button press."""
+    query = update.callback_query
+    await query.answer()
+
+    await query.edit_message_text(text=get_text("monitoring_ignored"))
+
+    return ConversationHandler.END
+
 
 # --- Conversation Handler Definition ---
 conv_handler = ConversationHandler(
@@ -259,6 +366,10 @@ conv_handler = ConversationHandler(
             CallbackQueryHandler(run_analysis, pattern='^timeframe_'),
             CallbackQueryHandler(select_term, pattern='^symbol_')
         ],
+        MONITOR_DECISION: [
+            CallbackQueryHandler(handle_follow, pattern='^monitor_follow_'),
+            CallbackQueryHandler(handle_ignore, pattern='^monitor_ignore$')
+        ]
     },
     fallbacks=[CallbackQueryHandler(start, pattern='^main_menu$')],
     per_message=False
