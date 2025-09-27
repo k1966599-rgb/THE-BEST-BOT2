@@ -118,39 +118,6 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "scenario2_target": format_dynamic_price(scenario2.get('target', 0.0)),
     }
 
-    # --- Dynamically build the suggested trade section ---
-    suggested_trade_section = ""
-    if signal in ['BUY', 'SELL']:
-        rr_ratio = analysis_data.get('rr_ratio', 0.0)
-        rr_ratio_text = f"{rr_ratio}:1" if rr_ratio > 0 else "N/A"
-        suggested_trade_section = (
-            f"**نوع الإشارة: {signal_emoji} {signal}**\n\n"
-            f"**السيناريو الأساسي ({replacements['scenario1_title']})**\n"
-            f"- **نقطة الدخول المقترحة:** {replacements['scenario1_entry']}\n"
-            f"- **وقف الخسارة (SL):** {replacements['scenario1_stop_loss']}\n"
-            f"- **الهدف (TP):** {replacements['scenario1_target']}\n"
-            f"- **المخاطرة/العائد (RRR):** `{rr_ratio_text}`\n"
-            f"- *نسبة النجاح المتوقعة: {replacements['scenario1_prob']}*\n\n"
-            f"**السيناريو البديل ({replacements['scenario2_title']})**\n"
-            f"- **نقطة التحول:** كسر مستوى {replacements['scenario2_stop_loss']}\n"
-            f"- **الهدف في حالة الانعكاس:** {replacements['scenario2_target']}"
-        )
-    else: # HOLD signal
-        suggested_trade_section = (
-            f"**نوع الإشارة: {signal_emoji} {signal}**\n\n"
-            "التحليل يشير إلى وضع محايد في الوقت الحالي. لا توجد إشارة واضحة للشراء أو البيع. "
-            "فيما يلي السيناريوهات المحتملة:\n\n"
-            f"**1. {replacements['scenario1_title']} ({replacements['scenario1_prob']})**\n"
-            f"- **الهدف:** {replacements['scenario1_target']}\n"
-            f"- **نقطة إبطال السيناريو:** {replacements['scenario1_stop_loss']}\n\n"
-            f"**2. {replacements['scenario2_title']} ({100 - scenario1.get('prob', 0)}%)**\n"
-            f"- **الهدف:** {replacements['scenario2_target']}\n"
-            f"- **نقطة إبطال السيناريو:** {replacements['scenario2_stop_loss']}"
-        )
-
-    replacements['suggested_trade_section'] = suggested_trade_section
-
-
     # Using format_map with a custom dict to avoid crashing on any other missing keys
     class SafeFormatter(dict):
         def __missing__(self, key):
