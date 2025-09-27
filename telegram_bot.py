@@ -167,8 +167,8 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
     fetcher = DataFetcher(config)
-    # Instantiate the analyzer first to determine data requirements
-    analyzer = FiboAnalyzer(config, fetcher)
+    # Instantiate the analyzer with the specific timeframe to apply any overrides
+    analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
     required_candles = analyzer.required_candlesticks
 
     try:
@@ -224,8 +224,6 @@ async def run_periodic_analysis(application: Application):
     """Runs analysis periodically and sends formatted alerts."""
     config = application.bot_data['config']
     fetcher = DataFetcher(config)
-    analyzer = FiboAnalyzer(config, fetcher)
-    required_candles = analyzer.required_candlesticks # Get required candles once
     admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
 
     if not admin_chat_id:
@@ -239,7 +237,10 @@ async def run_periodic_analysis(application: Application):
     for symbol in watchlist:
         for timeframe in timeframes:
             try:
-                # Use the dynamic candle limit for periodic analysis as well
+                # CORRECTED: Create a new analyzer for each timeframe to apply specific overrides
+                analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
+                required_candles = analyzer.required_candlesticks
+
                 df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=required_candles)
                 analysis_info = analyzer.get_analysis(df, symbol, timeframe)
 

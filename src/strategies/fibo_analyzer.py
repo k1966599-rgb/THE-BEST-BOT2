@@ -20,10 +20,19 @@ class FiboAnalyzer(BaseStrategy):
     confirmation scoring system, dynamic risk levels, and intelligent scenarios.
     """
 
-    def __init__(self, config: Dict[str, Any], fetcher: DataFetcher):
+    def __init__(self, config: Dict[str, Any], fetcher: DataFetcher, timeframe: str = None):
         super().__init__(config)
         self.fetcher = fetcher
-        p = config.get('strategy_params', {}).get('fibo_strategy', {})
+
+        # Get base strategy parameters
+        base_params = config.get('strategy_params', {}).get('fibo_strategy', {})
+
+        # Check for timeframe-specific overrides and merge them.
+        # This allows for different parameters on different timeframes (e.g., shorter SMA on 1D).
+        timeframe_overrides = base_params.get('timeframe_overrides', {})
+        specific_params = timeframe_overrides.get(timeframe, {})
+        p = {**base_params, **specific_params}
+
         self.sma_fast_period = p.get('sma_period_fast', 50)
         self.sma_slow_period = p.get('sma_period_slow', 200)
         self.rsi_period = p.get('rsi_period', 14)
