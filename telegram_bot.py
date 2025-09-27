@@ -167,15 +167,17 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
     fetcher = DataFetcher(config)
-    # Instantiate the analyzer with the specific timeframe to apply any overrides
     analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
-    required_candles = analyzer.required_candlesticks
+
+    # Get the candle fetch limit from the config based on user's request
+    candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
+    limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
 
     try:
         await query.edit_message_text(text=get_text("fetching_data").format(symbol=symbol, timeframe=timeframe))
 
-        # Fetch data using the dynamically calculated limit
-        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=required_candles)
+        # CORRECTED: Fetch data using the user-defined limit from config
+        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
 
         await query.edit_message_text(text=get_text("analysis_running").format(symbol=symbol, timeframe=timeframe))
         analysis_info = analyzer.get_analysis(df, symbol, timeframe)
@@ -232,16 +234,16 @@ async def run_periodic_analysis(application: Application):
 
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
     timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
+    candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
     logger.info(get_text("periodic_start_log").format(count=len(watchlist)))
 
     for symbol in watchlist:
         for timeframe in timeframes:
             try:
-                # CORRECTED: Create a new analyzer for each timeframe to apply specific overrides
                 analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
-                required_candles = analyzer.required_candlesticks
+                limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
 
-                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=required_candles)
+                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
                 analysis_info = analyzer.get_analysis(df, symbol, timeframe)
 
                 if analysis_info.get('signal') in ['BUY', 'SELL']:

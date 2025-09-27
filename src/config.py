@@ -32,7 +32,15 @@ TRADING_CONFIG = {
     'TRADE_AMOUNT': '0.001',
 
     # Interval for periodic analysis in minutes
-    'ANALYSIS_INTERVAL_MINUTES': 15
+    'ANALYSIS_INTERVAL_MINUTES': 15,
+
+    # --- Candle Fetching Limits ---
+    # Defines how many candles to fetch for analysis.
+    # 'default' is used for any timeframe not explicitly listed.
+    'CANDLE_FETCH_LIMITS': {
+        'default': 1000,
+        '1D': 360
+    }
 }
 
 # --- Exchange Connection ---
