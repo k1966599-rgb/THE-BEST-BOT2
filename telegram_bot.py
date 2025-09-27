@@ -149,7 +149,7 @@ async def _fetch_and_prepare_data(fetcher: DataFetcher, symbol: str, timeframe: 
     numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
-    df.dropna(inplace=True)
+    # df.dropna(inplace=True) # This premature cleaning is the root cause of the issue.
     return df
 
 async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
