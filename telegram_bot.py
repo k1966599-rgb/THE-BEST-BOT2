@@ -183,11 +183,23 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
 
-    except InsufficientDataError:
-        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}.")
-        await query.message.reply_text(
-            get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
-        )
+    except InsufficientDataError as e:
+        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}: Required={e.required}, Available={e.available}")
+        # Check if the exception has the detailed context
+        if e.required is not None and e.available is not None:
+            await query.message.reply_text(
+                get_text("error_not_enough_data_detailed").format(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    required=e.required,
+                    available=e.available
+                )
+            )
+        else:
+            # Fallback to the generic message if details are not available
+            await query.message.reply_text(
+                get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
+            )
     except NetworkError as e:
         logger.error(f"Network error for {symbol} on {timeframe}: {e}")
         await query.message.reply_text(get_text("error_api_connection"))
@@ -237,6 +249,12 @@ async def run_periodic_analysis(application: Application):
                     logger.info(get_text("periodic_sent_alert_log").format(
                         signal=analysis_info['signal'], symbol=symbol, timeframe=timeframe
                     ))
+            except InsufficientDataError as e:
+                # Log with details but don't send a message to the user, as this is a background task.
+                logger.warning(
+                    f"Skipping periodic analysis for {symbol}/{timeframe} due to insufficient data. "
+                    f"Required: {e.required}, Available: {e.available}"
+                )
             except (APIError, NetworkError) as e:
                  logger.error(f"Error in periodic analysis for {symbol} on {timeframe}: {e}")
             except Exception as e:
