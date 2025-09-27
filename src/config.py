@@ -69,6 +69,15 @@ STRATEGY_PARAMS = {
             'rsi_confirm': 1,
             'macd_confirm': 1,
             'reversal_pattern': 2
+        },
+        # --- Timeframe-Specific Overrides ---
+        # These settings will override the default parameters for the specified timeframe.
+        # This is useful for adapting the strategy to different market conditions on
+        # different timeframes (e.g., using a shorter SMA on daily charts if data is limited).
+        'timeframe_overrides': {
+            '1D': {
+                'sma_period_slow': 100
+            }
         }
     }
     # Future strategies can be added here
