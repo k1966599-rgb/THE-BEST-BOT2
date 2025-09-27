@@ -147,21 +147,61 @@ class FiboAnalyzer(BaseStrategy):
         return result
 
     def _generate_scenarios(self, result: Dict) -> Dict:
-        trend = result['trend']
-        score = result['score']
+        fibo_trend = result.get('fibo_trend', 'up')
+        signal = result.get('signal', 'HOLD')
+        score = result.get('score', 0)
         high, low = result['swing_high']['price'], result['swing_low']['price']
         entry = result['current_price']
         extensions = result['extensions']
 
-        prob_primary = min(60 + (score * 5), 90)
+        # Probabilities depend on whether we have a confirmed signal or are neutral
+        if signal in ['BUY', 'SELL']:
+            prob_primary = min(60 + (score * 4), 95)  # Capped at 95%
+        else:  # HOLD
+            prob_primary = 50
+
         prob_secondary = 100 - prob_primary
 
-        if trend == 'up':
-            primary = {"title": "صعود نحو الأهداف", "prob": prob_primary, "target": extensions.get('ext_1618', high*1.05), "entry": entry, "stop_loss": low - (result['latest_data']['atr'] * self.atr_multiplier)}
-            secondary = {"title": "فشل السيناريو والهبوط", "prob": prob_secondary, "target": low, "entry": entry, "stop_loss": high}
-        else: #downtrend
-            primary = {"title": "هبوط نحو الأهداف", "prob": prob_primary, "target": extensions.get('ext_1618', low*0.95), "entry": entry, "stop_loss": high + (result['latest_data']['atr'] * self.atr_multiplier)}
-            secondary = {"title": "فشل السيناريو والصعود", "prob": prob_secondary, "target": high, "entry": entry, "stop_loss": low}
+        # Define scenarios based on the fibo_trend, which dictates the setup
+        if fibo_trend == 'up':
+            primary = {
+                "title": "صعود نحو الأهداف",
+                "prob": prob_primary,
+                "target": extensions.get('ext_1618', high * 1.05),
+                "entry": entry,
+                "stop_loss": low - (result['latest_data']['atr'] * self.atr_multiplier)
+            }
+            secondary = {
+                "title": "فشل السيناريو والهبوط",
+                "prob": prob_secondary,
+                "target": low,
+                "entry": entry,
+                "stop_loss": high
+            }
+        else:  # fibo_trend is 'down'
+            primary = {
+                "title": "هبوط نحو الأهداف",
+                "prob": prob_primary,
+                "target": extensions.get('ext_1618', low * 0.95),
+                "entry": entry,
+                "stop_loss": high + (result['latest_data']['atr'] * self.atr_multiplier)
+            }
+            secondary = {
+                "title": "فشل السيناريو والصعود",
+                "prob": prob_secondary,
+                "target": high,
+                "entry": entry,
+                "stop_loss": low
+            }
+
+        # If the final signal is HOLD, make the titles more neutral
+        if signal == 'HOLD':
+            if fibo_trend == 'up':
+                primary['title'] = "السيناريو الصاعد المحتمل"
+                secondary['title'] = "السيناريو الهابط المحتمل"
+            else:
+                primary['title'] = "السيناريو الهابط المحتمل"
+                secondary['title'] = "السيناريو الصاعد المحتمل"
 
         return {"scenario1": primary, "scenario2": secondary}
 
@@ -244,6 +284,7 @@ class FiboAnalyzer(BaseStrategy):
         p_high = result['swing_high']
         p_low = result['swing_low']
         fibo_trend = 'up' if p_high['index'] > p_low['index'] else 'down'
+        result['fibo_trend'] = fibo_trend # Store for later use in scenario generation
 
         # In this version, primary and secondary swings are the same.
         s_high, s_low = p_high, p_low
