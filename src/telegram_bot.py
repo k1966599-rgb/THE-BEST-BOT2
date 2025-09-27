@@ -151,10 +151,7 @@ async def _fetch_and_prepare_data(fetcher: DataFetcher, symbol: str, timeframe: 
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # Ensure essential candle data is present before sending to the analyzer.
-    # This prevents errors from corrupted data fetched from the exchange.
     df.dropna(subset=['timestamp', 'open', 'high', 'low', 'close', 'volume'], inplace=True)
-
     return df
 
 async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -167,12 +164,14 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
     fetcher = DataFetcher(config)
-    analyzer = FiboAnalyzer(config, fetcher)
+    analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
+
+    candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
+    limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
 
     try:
         await query.edit_message_text(text=get_text("fetching_data").format(symbol=symbol, timeframe=timeframe))
-
-        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=1500)
+        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
 
         await query.edit_message_text(text=get_text("analysis_running").format(symbol=symbol, timeframe=timeframe))
         analysis_info = analyzer.get_analysis(df, symbol, timeframe)
@@ -180,20 +179,21 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
 
-    except InsufficientDataError:
-        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}.")
-        await query.message.reply_text(
-            get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
-        )
-    except NetworkError as e:
+    except InsufficientDataError as e:
+        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}: {e}")
+        if hasattr(e, 'required') and hasattr(e, 'available'):
+             await query.message.reply_text(
+                get_text("error_not_enough_data_detailed").format(
+                    symbol=symbol, timeframe=timeframe, required=e.required, available=e.available
+                )
+            )
+        else:
+            await query.message.reply_text(
+                get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
+            )
+    except (APIError, NetworkError) as e:
         logger.error(f"Network error for {symbol} on {timeframe}: {e}")
         await query.message.reply_text(get_text("error_api_connection"))
-    except APIError as e:
-        logger.error(f"API error for {symbol} on {timeframe}: {e}")
-        if e.status_code == '51001':
-            await query.message.reply_text(get_text("error_invalid_symbol").format(symbol=symbol))
-        else:
-            await query.message.reply_text(get_text("error_unknown_api").format(status_code=e.status_code))
     except Exception as e:
         logger.error(f"An unexpected error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
         await query.message.reply_text(get_text("error_generic"))
@@ -201,7 +201,6 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     await start(update, context)
     return ConversationHandler.END
 
-# --- Periodic & Error Handlers ---
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Exception while handling an update:", exc_info=context.error)
 
@@ -209,21 +208,22 @@ async def run_periodic_analysis(application: Application):
     """Runs analysis periodically and sends formatted alerts."""
     config = application.bot_data['config']
     fetcher = DataFetcher(config)
-    analyzer = FiboAnalyzer(config, fetcher)
     admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
-
     if not admin_chat_id:
         logger.warning(get_text("warning_no_admin_id"))
         return
 
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
     timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
+    candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
     logger.info(get_text("periodic_start_log").format(count=len(watchlist)))
 
     for symbol in watchlist:
         for timeframe in timeframes:
             try:
-                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=300)
+                analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
+                limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
+                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
                 analysis_info = analyzer.get_analysis(df, symbol, timeframe)
 
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
@@ -232,10 +232,8 @@ async def run_periodic_analysis(application: Application):
                     logger.info(get_text("periodic_sent_alert_log").format(
                         signal=analysis_info['signal'], symbol=symbol, timeframe=timeframe
                     ))
-            except (APIError, NetworkError) as e:
-                 logger.error(f"Error in periodic analysis for {symbol} on {timeframe}: {e}")
             except Exception as e:
-                logger.error(f"Unexpected error in periodic analysis for {symbol} on {timeframe}: {e}")
+                logger.error(f"Error in periodic analysis for {symbol} on {timeframe}: {e}")
             await asyncio.sleep(2)
     logger.info(get_text("periodic_end_log"))
 
@@ -243,13 +241,9 @@ async def post_init(application: Application) -> None:
     """Initializes the background scheduler and loads config."""
     config = application.bot_data.get('config', get_config())
     application.bot_data['config'] = config
-
-    interval = config.get('trading', {}).get('ANALYSIS_INTERVAL_MINUTES', 15)
     scheduler = AsyncIOScheduler(timezone="UTC")
-
     logger.info(get_text("scheduler_disabled_log"))
 
-# --- Conversation Handler Definition ---
 conv_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(analyze_entry, pattern='^analyze_start$')],
     states={
@@ -264,9 +258,7 @@ conv_handler = ConversationHandler(
     per_message=False
 )
 
-
 def main() -> None:
-    """Start the bot."""
     config = get_config()
     token = config.get('telegram', {}).get('TOKEN')
     if not token:
@@ -274,8 +266,6 @@ def main() -> None:
         return
 
     application = Application.builder().token(token).post_init(post_init).build()
-
-    # Store the config in bot_data for easy access
     application.bot_data['config'] = config
 
     application.add_handler(CommandHandler("start", start))

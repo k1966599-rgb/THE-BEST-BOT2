@@ -32,7 +32,15 @@ TRADING_CONFIG = {
     'TRADE_AMOUNT': '0.001',
 
     # Interval for periodic analysis in minutes
-    'ANALYSIS_INTERVAL_MINUTES': 15
+    'ANALYSIS_INTERVAL_MINUTES': 15,
+
+    # --- Candle Fetching Limits ---
+    # Defines how many candles to fetch for analysis.
+    # 'default' is used for any timeframe not explicitly listed.
+    'CANDLE_FETCH_LIMITS': {
+        'default': 1000,
+        '1D': 360
+    }
 }
 
 # --- Exchange Connection ---
@@ -61,6 +69,7 @@ STRATEGY_PARAMS = {
         'sma_period_fast': 50,
         'sma_period_slow': 200,
         'fib_lookback': 50,
+        'swing_lookback_period': 100,
         'adx_trend_threshold': 25,
         'signal_threshold': 5, # Minimum score required to generate a BUY/SELL signal
         'require_adx_confirmation': True, # If True, a signal is only generated if ADX is above the threshold
@@ -70,12 +79,11 @@ STRATEGY_PARAMS = {
             'confluence_zone': 2,
             'rsi_confirm': 1,
             'macd_confirm': 1,
-            'stoch_confirm': 1, # Points for stochastic confirmation
+            'stoch_confirm': 1,
             'reversal_pattern': 2,
-            'volume_spike': 2 # Extra points for a confirming volume spike
+            'volume_spike': 2
         },
         # --- Timeframe-Specific Overrides ---
-        # These settings will override the default parameters for the specified timeframe.
         'timeframe_overrides': {
             '1D': {
                 'sma_period_slow': 50,
@@ -83,8 +91,6 @@ STRATEGY_PARAMS = {
             }
         }
     }
-    # Future strategies can be added here
-    # 'another_strategy': { ... }
 }
 
 
