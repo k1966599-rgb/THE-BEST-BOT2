@@ -195,7 +195,8 @@ class FiboAnalyzer(BaseStrategy):
         return p_high, p_low
 
     def _prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Calculates all technical indicators and cleans the data."""
+        """Calculates all technical indicators."""
+        # This function now ONLY calculates indicators. Cleaning is handled in the main method.
         data['adx'] = calculate_adx(data, window=self.adx_window)
         data['atr'] = calculate_atr(data, window=self.atr_window)
         data['sma_fast'] = calculate_sma(data, window=self.sma_fast_period)
@@ -203,8 +204,6 @@ class FiboAnalyzer(BaseStrategy):
         data['rsi'] = calculate_rsi(data, window=self.rsi_period)
         data = data.join(calculate_macd(data))
         data = data.join(calculate_stochastic(data, window=self.stoch_window))
-        data.dropna(inplace=True)
-        data.reset_index(drop=True, inplace=True)
         return data
 
     def _analyze_trend_and_swings(self, data: pd.DataFrame, result: Dict) -> bool:
@@ -263,6 +262,12 @@ class FiboAnalyzer(BaseStrategy):
         after calculations, it raises a specific error to be handled by the caller.
         """
         data = self._prepare_data(data)
+
+        # Smartly drop rows with NaNs only from indicator warm-up period.
+        # 'sma_slow' has the longest period, so we use it as the reference.
+        data.dropna(subset=['sma_slow'], inplace=True)
+        data.reset_index(drop=True, inplace=True)
+
         if len(data) < 50:
             # Instead of returning a failure message, raise a specific exception.
             # This allows the calling layer (the bot) to handle this specific
