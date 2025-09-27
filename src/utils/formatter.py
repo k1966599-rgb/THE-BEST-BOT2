@@ -113,12 +113,6 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "scenario1_target": format_dynamic_price(scenario1.get('target', 0.0)),
         "scenario1_prob": f"{scenario1.get('prob', 0)}%",
 
-        "scenario1_title": scenario1.get('title', 'N/A'),
-        "scenario1_entry": format_dynamic_price(scenario1.get('entry', 0.0)),
-        "scenario1_stop_loss": format_dynamic_price(scenario1.get('stop_loss', 0.0)),
-        "scenario1_target": format_dynamic_price(scenario1.get('target', 0.0)),
-        "scenario1_prob": f"{scenario1.get('prob', 0)}%",
-
         "scenario2_title": scenario2.get('title', 'N/A'),
         "scenario2_stop_loss": format_dynamic_price(scenario2.get('stop_loss', 0.0)),
         "scenario2_target": format_dynamic_price(scenario2.get('target', 0.0)),
