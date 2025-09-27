@@ -55,7 +55,8 @@ class FiboAnalyzer(BaseStrategy):
         )
         # We need enough data for the longest indicator AND the swing lookback.
         # The total required is the indicator warm-up period plus the period to find swings in.
-        return longest_indicator + self.swing_lookback_period + 10 # 10 as a safety buffer
+        # We add a larger safety buffer to account for potential missing candles from the exchange API.
+        return longest_indicator + self.swing_lookback_period + 50 # 50 as a safety buffer
 
     def _initialize_result(self) -> Dict[str, Any]:
         """Initializes a default result dictionary."""
@@ -286,11 +287,14 @@ class FiboAnalyzer(BaseStrategy):
 
         # After warming up indicators, we must have enough data for the swing lookback.
         if len(data) < self.swing_lookback_period:
-            # Instead of returning a failure message, raise a specific exception.
+            # Instead of returning a failure message, raise a specific exception
+            # with detailed context for better error reporting.
             # This allows the calling layer (the bot) to handle this specific
             # scenario gracefully.
             raise InsufficientDataError(
-                f'Not enough data for swing analysis ({len(data)} < {self.swing_lookback_period})'
+                f'Not enough data for swing analysis.',
+                required=self.swing_lookback_period,
+                available=len(data)
             )
 
         result = self._initialize_result()
