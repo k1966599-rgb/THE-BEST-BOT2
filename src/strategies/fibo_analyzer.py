@@ -50,6 +50,7 @@ class FiboAnalyzer(BaseStrategy):
         self.adx_threshold = p.get('adx_trend_threshold', 25)
         self.swing_atr_multiplier = p.get('swing_prominence_atr_multiplier', 0.5)
 
+
     def _initialize_result(self) -> Dict[str, Any]:
         """Initializes a default result dictionary."""
         return {
@@ -170,7 +171,8 @@ class FiboAnalyzer(BaseStrategy):
         The prominence is calculated dynamically based on the average ATR to adapt
         to different market volatility conditions.
         """
-        recent_data = data.tail(100).copy()
+        # Use the configurable lookback period
+        recent_data = data.tail(self.swing_lookback_period).copy()
 
         # Dynamic prominence based on volatility (ATR)
         prominence = avg_atr * self.swing_atr_multiplier
@@ -276,11 +278,11 @@ class FiboAnalyzer(BaseStrategy):
         data.dropna(subset=['sma_slow'], inplace=True)
         data.reset_index(drop=True, inplace=True)
 
-        if len(data) < 50:
+        if len(data) < self.swing_lookback_period:
             # Instead of returning a failure message, raise a specific exception.
             # This allows the calling layer (the bot) to handle this specific
             # scenario gracefully.
-            raise InsufficientDataError('Not enough data after indicator calculations')
+            raise InsufficientDataError(f'Not enough data for swing analysis ({len(data)} < {self.swing_lookback_period})')
 
         result = self._initialize_result()
         result.update({"latest_data": data.iloc[-1].to_dict(), "current_price": data.iloc[-1]['close']})
