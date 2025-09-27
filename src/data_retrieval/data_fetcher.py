@@ -49,12 +49,12 @@ class DataFetcher:
         all_candles = []
         end_timestamp = ''
 
-        requests_needed = (limit + API_MAX_LIMIT - 1) // API_MAX_LIMIT
-        logger.info(f"Need to make {requests_needed} API requests.")
+        logger.info(f"Starting paginated data fetch for {symbol} to get {limit} candles...")
 
-        for i in range(requests_needed):
+        while len(all_candles) < limit:
             try:
-                logger.info(f"Fetching page {i+1}/{requests_needed} for {symbol}...")
+                # Always fetch the max allowed per request to be efficient
+                logger.info(f"Requesting batch of up to {API_MAX_LIMIT}. Have {len(all_candles)}/{limit} candles.")
                 result = self.market_api.get_history_candlesticks(
                     instId=symbol, bar=timeframe, limit=str(API_MAX_LIMIT), before=end_timestamp
                 )
@@ -76,12 +76,12 @@ class DataFetcher:
 
             data = result.get('data', [])
             if not data:
-                logger.warning(f"No more data returned for {symbol}. Fetched {len(all_candles)} candles.")
-                break
+                logger.warning(f"No more data returned from API for {symbol}. Fetched {len(all_candles)} candles.")
+                break # Exit loop if API returns no more data
 
             all_candles.extend(data)
-            end_timestamp = data[-1][0]
-            time.sleep(0.2)
+            end_timestamp = data[-1][0] # Timestamp of the last candle for the next 'before' request
+            time.sleep(0.2) # Small delay to respect API rate limits
 
         if not all_candles:
             raise APIError(f"Failed to fetch any data for {symbol}, it might be an invalid symbol or have no trading history.")
