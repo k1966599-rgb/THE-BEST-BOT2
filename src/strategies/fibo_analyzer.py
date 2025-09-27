@@ -171,7 +171,6 @@ class FiboAnalyzer(BaseStrategy):
         The prominence is calculated dynamically based on the average ATR to adapt
         to different market volatility conditions.
         """
-        # Use the configurable lookback period
         recent_data = data.tail(self.swing_lookback_period).copy()
 
         # Dynamic prominence based on volatility (ATR)

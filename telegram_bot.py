@@ -185,11 +185,22 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
 
-    except InsufficientDataError:
-        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}.")
-        await query.message.reply_text(
-            get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
-        )
+    except InsufficientDataError as e:
+        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}: {e}")
+        # The new exception in fibo_analyzer passes more context
+        if hasattr(e, 'required') and hasattr(e, 'available'):
+             await query.message.reply_text(
+                get_text("error_not_enough_data_detailed").format(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    required=e.required,
+                    available=e.available
+                )
+            )
+        else:
+            await query.message.reply_text(
+                get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
+            )
     except NetworkError as e:
         logger.error(f"Network error for {symbol} on {timeframe}: {e}")
         await query.message.reply_text(get_text("error_api_connection"))
