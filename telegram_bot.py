@@ -15,6 +15,7 @@ from src.config import get_config
 from src.data_retrieval.data_fetcher import DataFetcher
 from src.data_retrieval.exceptions import APIError, NetworkError
 from src.strategies.fibo_analyzer import FiboAnalyzer
+from src.strategies.exceptions import InsufficientDataError
 from src.utils.formatter import format_analysis_from_template
 from src.localization import get_text
 import pandas as pd
@@ -175,6 +176,11 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
 
+    except InsufficientDataError:
+        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}.")
+        await query.message.reply_text(
+            get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
+        )
     except NetworkError as e:
         logger.error(f"Network error for {symbol} on {timeframe}: {e}")
         await query.message.reply_text(get_text("error_api_connection"))

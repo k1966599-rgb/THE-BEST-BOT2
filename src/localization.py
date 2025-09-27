@@ -39,6 +39,7 @@ TEXTS = {
         "error_api_connection": "لا يمكن الوصول إلى خادم البيانات حاليًا. يرجى المحاولة مرة أخرى لاحقًا.",
         "error_invalid_symbol": "الرمز '{symbol}' غير صالح أو غير مدعوم من قبل مزود البيانات.",
         "error_unknown_api": "حدث خطأ غير متوقع من مزود البيانات. ({status_code})",
+        "error_not_enough_historical_data": "⚠️ عذراً، لا توجد بيانات تاريخية كافية لتحليل {symbol} على إطار {timeframe}.\n\nيرجى محاولة استخدام إطار زمني أطول (مثل 1D أو 1W).",
 
         # --- Bot Control ---
         "bot_starting_log": "Starting Telegram bot...",
