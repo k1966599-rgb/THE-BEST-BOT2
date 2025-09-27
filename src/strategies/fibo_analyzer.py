@@ -73,8 +73,8 @@ class FiboAnalyzer(BaseStrategy):
 
     def _calculate_confirmation_score(self, data: pd.DataFrame, trend: str, swings: Dict, zones: List, retracements: Dict) -> Dict[str, Any]:
         score, reasons = 0, []
-        latest = data.iloc[-1]
         data['volume_sma'] = data['volume'].rolling(window=self.volume_period).mean()
+        latest = data.iloc[-1]
 
         bullish_patterns = ["Bullish Engulfing", "Hammer", "Morning Star", "Piercing Pattern", "Three White Soldiers", "Tweezer Bottom"]
         bearish_patterns = ["Bearish Engulfing", "Shooting Star", "Evening Star", "Dark Cloud Cover", "Three Black Crows", "Tweezer Top"]
