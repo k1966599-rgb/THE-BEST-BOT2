@@ -37,6 +37,7 @@ class FiboAnalyzer(BaseStrategy):
         self.atr_window = p.get('atr_window', 14)
         self.fib_lookback = p.get('fib_lookback', 50)
         self.swing_lookback_period = p.get('swing_lookback_period', 100)
+        self.swing_comparison_window = p.get('swing_comparison_window', 5)
         self.volume_period = p.get('volume_period', 20)
 
         risk_config = config.get('risk_management', {})
@@ -156,46 +157,61 @@ class FiboAnalyzer(BaseStrategy):
 
         return {"scenario1": primary, "scenario2": secondary}
 
-    def _find_recent_swing_points(self, data: pd.DataFrame, avg_atr: float) -> (Dict, Dict):
+    def _find_recent_swing_points(self, data: pd.DataFrame) -> (Dict, Dict):
+        """
+        Finds the most recent valid swing high and swing low based on a simple
+        comparison with neighboring candles. A swing high is a candle with a high
+        greater than the N candles before and after it. A swing low is the inverse.
+        """
         recent_data = data.tail(self.swing_lookback_period).copy()
-        prominence = avg_atr * self.swing_atr_multiplier
-        high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=prominence)
-        low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=prominence)
+        window = self.swing_comparison_window
 
-        # Fallback to absolute max/min if no significant peaks are found
-        if high_peaks_indices.size == 0 or low_peaks_indices.size == 0:
-            high_idx, low_idx = recent_data['high'].idxmax(), recent_data['low'].idxmin()
-            if recent_data.loc[high_idx, 'high'] <= recent_data.loc[low_idx, 'low']:
-                return None, None
-            return {'price': recent_data.loc[high_idx, 'high'], 'index': high_idx}, {'price': recent_data.loc[low_idx, 'low'], 'index': low_idx}
+        swing_highs_indices = []
+        swing_lows_indices = []
 
-        high_peak_indices_orig = recent_data.index[high_peaks_indices]
-        low_peak_indices_orig = recent_data.index[low_peaks_indices]
+        # Iterate through the data, avoiding the edges where the window doesn't fit
+        for i in range(window, len(recent_data) - window):
+            # Check for Swing High
+            is_swing_high = all(
+                recent_data['high'].iloc[i] > recent_data['high'].iloc[i-j] and \
+                recent_data['high'].iloc[i] > recent_data['high'].iloc[i+j]
+                for j in range(1, window + 1)
+            )
+            if is_swing_high:
+                swing_highs_indices.append(recent_data.index[i])
 
-        latest_high_peak_idx = high_peak_indices_orig[-1]
-        latest_low_peak_idx = low_peak_indices_orig[-1]
+            # Check for Swing Low
+            is_swing_low = all(
+                recent_data['low'].iloc[i] < recent_data['low'].iloc[i-j] and \
+                recent_data['low'].iloc[i] < recent_data['low'].iloc[i+j]
+                for j in range(1, window + 1)
+            )
+            if is_swing_low:
+                swing_lows_indices.append(recent_data.index[i])
 
-        # Determine the most recent swing by finding the last peak (high or low)
-        # and then finding the preceding opposite peak.
-        if latest_high_peak_idx > latest_low_peak_idx:
-            # Last significant move was up. The swing is from a low to a high.
-            final_swing_high_idx = latest_high_peak_idx
-            prior_low_peaks = low_peak_indices_orig[low_peak_indices_orig < final_swing_high_idx]
-            if prior_low_peaks.size == 0:
-                return None, None
-            final_swing_low_idx = prior_low_peaks[-1]
+        if not swing_highs_indices or not swing_lows_indices:
+            return None, None # Return nothing if no clear swings are found
+
+        # Find the most recent valid pair
+        latest_high_idx = swing_highs_indices[-1]
+        latest_low_idx = swing_lows_indices[-1]
+
+        if latest_high_idx > latest_low_idx:
+            # Last swing was a high. Find the last low before it.
+            prior_lows = [idx for idx in swing_lows_indices if idx < latest_high_idx]
+            if not prior_lows: return None, None
+            final_low_idx = prior_lows[-1]
+            final_high_idx = latest_high_idx
         else:
-            # Last significant move was down. The swing is from a high to a low.
-            final_swing_low_idx = latest_low_peak_idx
-            prior_high_peaks = high_peak_indices_orig[high_peak_indices_orig < final_swing_low_idx]
-            if prior_high_peaks.size == 0:
-                return None, None
-            final_swing_high_idx = prior_high_peaks[-1]
+            # Last swing was a low. Find the last high before it.
+            prior_highs = [idx for idx in swing_highs_indices if idx < latest_low_idx]
+            if not prior_highs: return None, None
+            final_high_idx = prior_highs[-1]
+            final_low_idx = latest_low_idx
 
-        swing_high = {'price': recent_data.loc[final_swing_high_idx, 'high'], 'index': final_swing_high_idx}
-        swing_low = {'price': recent_data.loc[final_swing_low_idx, 'low'], 'index': final_swing_low_idx}
+        swing_high = {'price': recent_data.loc[final_high_idx, 'high'], 'index': final_high_idx}
+        swing_low = {'price': recent_data.loc[final_low_idx, 'low'], 'index': final_low_idx}
 
-        # Final sanity check
         if swing_high['price'] <= swing_low['price']:
             return None, None
 
@@ -215,7 +231,7 @@ class FiboAnalyzer(BaseStrategy):
         latest = data.iloc[-1]
         result['trend'] = 'up' if latest['sma_fast'] > latest['sma_slow'] else 'down'
         if latest['adx'] < self.adx_threshold: result['trend'] = 'Sideways'
-        p_high, p_low = self._find_recent_swing_points(data, data['atr'].mean())
+        p_high, p_low = self._find_recent_swing_points(data)
         if p_high is None or p_low is None or p_high['price'] <= p_low['price']:
             result['reason'] = "لم يتم تحديد نقاط انعكاس صالحة."
             return False
