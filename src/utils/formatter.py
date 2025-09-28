@@ -4,10 +4,10 @@ from typing import Dict, Any
 
 def format_dynamic_price(price: float) -> str:
     """
-    Formats a price with a dynamic number of decimal places and wraps it in bold markdown.
+    Formats a price with a dynamic number of decimal places and wraps it in backticks.
     """
     if not isinstance(price, (int, float)):
-        return '**N/A**'
+        return '`N/A`'
 
     if price > 10000:
         formatted_price = f"{price:,.0f}"
@@ -18,7 +18,7 @@ def format_dynamic_price(price: float) -> str:
     else:
         formatted_price = f"{price:,.5f}"
 
-    return f"**{formatted_price}**"
+    return f"`{formatted_price}`"
 
 
 def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, timeframe: str) -> str:
@@ -91,7 +91,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     # --- Dynamically build the suggested trade section ---
     suggested_trade_section = ""
     if signal in ['BUY', 'SELL']:
-        rr_ratio_text = f"**{analysis_data.get('rr_ratio', 0.0):.2f}:1**" if analysis_data.get('rr_ratio', 0.0) > 0 else "**N/A**"
+        rr_ratio_text = f"`{analysis_data.get('rr_ratio', 0.0):.2f}:1`" if analysis_data.get('rr_ratio', 0.0) > 0 else "`N/A`"
         suggested_trade_section = (
             f"**نوع الإشارة: {signal_emoji} {signal}**\n\n"
             f"**السيناريو الأساسي ({scenario1.get('title', 'N/A')})**\n"
@@ -121,7 +121,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
 
         profit_bullish = abs(target_bullish - entry_bullish)
         loss_bullish = abs(entry_bullish - sl_bullish)
-        rr_bullish = f"**{profit_bullish / loss_bullish:.2f}:1**" if loss_bullish > 0 else "**N/A**"
+        rr_bullish = f"`{profit_bullish / loss_bullish:.2f}:1`" if loss_bullish > 0 else "`N/A`"
 
         entry_bearish = swing_low.get('price', 0.0)
         target_bearish = scenario2.get('target', 0.0)
@@ -129,7 +129,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
 
         profit_bearish = abs(entry_bearish - target_bearish)
         loss_bearish = abs(sl_bearish - entry_bearish)
-        rr_bearish = f"**{profit_bearish / loss_bearish:.2f}:1**" if loss_bearish > 0 else "**N/A**"
+        rr_bearish = f"`{profit_bearish / loss_bearish:.2f}:1`" if loss_bearish > 0 else "`N/A`"
 
         suggested_trade_section = (
             f"**نوع الإشارة: {signal_emoji} {signal_text}**\n\n"
@@ -151,14 +151,14 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "current_price": format_dynamic_price(analysis_data.get('current_price', 0.0)),
         "trend_emoji": trend_emoji, "trend_text": trend_text,
         "mta_section": mta_section,
-        "adx": f"**{latest_data.get('adx', 0.0):.2f}**", "rsi": f"**{latest_data.get('rsi', 0.0):.2f}**",
+        "adx": f"`{latest_data.get('adx', 0.0):.2f}`", "rsi": f"`{latest_data.get('rsi', 0.0):.2f}`",
         "swing_high_price": format_dynamic_price(swing_high.get('price', 0.0)),
         "swing_low_price": format_dynamic_price(swing_low.get('price', 0.0)),
         "fib_618": format_dynamic_price(retracements.get('fib_618', 0.0)),
         "confluence_zones_text": confluence_zones_text,
         "key_levels_text": key_levels_text,
         "pattern": analysis_data.get('pattern', 'لا يوجد'),
-        "score": f"{analysis_data.get('score', 0)}/{max_score}",
+        "score": f"`{analysis_data.get('score', 0)}/{max_score}`",
         "reasons_text": reasons_text,
         "final_reason": final_reason_text,
         "suggested_trade_section": suggested_trade_section,
