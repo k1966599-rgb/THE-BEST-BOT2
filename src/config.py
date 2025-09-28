@@ -40,6 +40,18 @@ TRADING_CONFIG = {
     'CANDLE_FETCH_LIMITS': {
         'default': 1000,
         '1D': 360
+    },
+
+    # Defines the parent timeframe for Multi-Timeframe Analysis (MTA)
+    # The key is the child, the value is the parent.
+    # Timeframes without a parent (e.g., '1D') are considered the highest level.
+    'TIMEFRAME_HIERARCHY': {
+        '3m': '15m',
+        '5m': '30m',
+        '15m': '1H',
+        '30m': '4H',
+        '1H': '4H',
+        '4H': '1D',
     }
 }
 

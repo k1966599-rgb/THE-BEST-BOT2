@@ -155,7 +155,7 @@ async def _fetch_and_prepare_data(fetcher: DataFetcher, symbol: str, timeframe: 
     return df
 
 async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Runs the analysis and sends the formatted result."""
+    """Runs the Multi-Timeframe-Aware analysis and sends the formatted result."""
     query = update.callback_query
     await query.answer()
 
@@ -164,19 +164,37 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
     fetcher = DataFetcher(config)
-    analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
 
-    candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
+    trading_config = config.get('trading', {})
+    candle_limits = trading_config.get('CANDLE_FETCH_LIMITS', {})
+    hierarchy = trading_config.get('TIMEFRAME_HIERARCHY', {})
+
     limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
+    parent_timeframe = hierarchy.get(timeframe)
+    higher_tf_trend_info = None
 
     try:
+        if parent_timeframe:
+            await query.edit_message_text(text=get_text("fetching_parent_data").format(timeframe=parent_timeframe))
+            parent_limit = candle_limits.get(parent_timeframe, candle_limits.get('default', 1000))
+            parent_df = await _fetch_and_prepare_data(fetcher, symbol, parent_timeframe, limit=parent_limit)
+
+            parent_analyzer = FiboAnalyzer(config, fetcher, timeframe=parent_timeframe)
+            parent_analysis = parent_analyzer.get_analysis(parent_df, symbol, parent_timeframe)
+            higher_tf_trend_info = {
+                'trend': parent_analysis.get('trend', 'N/A'),
+                'timeframe': parent_timeframe
+            }
+
         await query.edit_message_text(text=get_text("fetching_data").format(symbol=symbol, timeframe=timeframe))
         df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
 
         await query.edit_message_text(text=get_text("analysis_running").format(symbol=symbol, timeframe=timeframe))
-        analysis_info = analyzer.get_analysis(df, symbol, timeframe)
-        formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
 
+        analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
+        analysis_info = analyzer.get_analysis(df, symbol, timeframe, higher_tf_trend_info=higher_tf_trend_info)
+
+        formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
         await query.message.reply_text(formatted_report, parse_mode='Markdown')
 
     except InsufficientDataError as e:

@@ -60,7 +60,8 @@ class FiboAnalyzer(BaseStrategy):
             "swing_high": {}, "swing_low": {}, "retracements": {}, "extensions": {},
             "confluence_zones": [], "pattern": "N/A", "risk_levels": {},
             "scenarios": {}, "latest_data": {}, "current_price": 0,
-            "confidence": 0, "rr_ratio": 0.0, "weights": {}
+            "confidence": 0, "rr_ratio": 0.0, "weights": {},
+            "higher_tf_trend_info": None, "mta_override": False
         }
 
     def _find_confluence_zones(self, p_lvls: Dict, s_lvls: Dict, tol: float=0.005) -> List[Dict]:
@@ -244,6 +245,29 @@ class FiboAnalyzer(BaseStrategy):
         else:
             result['final_reason'] = f"لعدم تحقيق الحد الأدنى من نقاط القوة ({result['score']}/{self.signal_threshold})"
 
+        # --- MTA Confirmation ---
+        higher_tf_trend_info = result.get('higher_tf_trend_info')
+        if higher_tf_trend_info and result['signal'] != 'HOLD':
+            higher_trend = higher_tf_trend_info.get('trend')
+            higher_tf = higher_tf_trend_info.get('timeframe')
+
+            override = False
+            reason = ""
+            # Override BUY signal if higher trend is down
+            if higher_trend == 'down' and result['signal'] == 'BUY':
+                override = True
+                reason = "هابط"
+            # Override SELL signal if higher trend is up
+            elif higher_trend == 'up' and result['signal'] == 'SELL':
+                override = True
+                reason = "صاعد"
+
+            if override:
+                original_signal = result['signal']
+                result['signal'] = 'HOLD'
+                result['final_reason'] = f"تم إلغاء إشارة {original_signal} لأن الاتجاه على الإطار الأعلى ({higher_tf}) {reason}."
+                result['mta_override'] = True
+
     def _finalize_analysis(self, result: Dict):
         result['scenarios'] = self._generate_scenarios(result)
         self._calculate_risk_metrics(result)
@@ -269,7 +293,7 @@ class FiboAnalyzer(BaseStrategy):
         levels.sort(key=lambda x: x['level'], reverse=True)
         result['key_levels'] = levels
 
-    def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
+    def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str, higher_tf_trend_info: Dict[str, Any] = None) -> Dict[str, Any]:
         data = self._prepare_data(data)
         data.dropna(subset=['sma_slow'], inplace=True)
         data.reset_index(drop=True, inplace=True)
@@ -278,7 +302,11 @@ class FiboAnalyzer(BaseStrategy):
             raise InsufficientDataError(f'Not enough data for swing analysis.', required=self.swing_lookback_period, available=len(data))
 
         result = self._initialize_result()
-        result.update({"latest_data": data.iloc[-1].to_dict(), "current_price": data.iloc[-1]['close']})
+        result.update({
+            "latest_data": data.iloc[-1].to_dict(),
+            "current_price": data.iloc[-1]['close'],
+            "higher_tf_trend_info": higher_tf_trend_info
+        })
 
         if not self._analyze_trend_and_swings(data, result):
             return result

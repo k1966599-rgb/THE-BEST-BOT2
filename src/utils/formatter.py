@@ -46,6 +46,15 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     trend_map = {'up': ('🔼', 'صاعد'), 'down': ('🔽', 'هابط')}
     trend_emoji, trend_text = trend_map.get(trend, ('↔️', 'عرضي'))
 
+    # --- MTA Section ---
+    mta_section = ""
+    higher_tf_info = analysis_data.get('higher_tf_trend_info')
+    if higher_tf_info:
+        higher_tf_trend = higher_tf_info.get('trend', 'N/A')
+        higher_tf_timeframe = higher_tf_info.get('timeframe', 'N/A')
+        mta_emoji, mta_text = trend_map.get(higher_tf_trend, ('↔️', 'عرضي'))
+        mta_section = f"- **الاتجاه على الإطار الأعلى ({higher_tf_timeframe}):** {mta_emoji} {mta_text}"
+
     signal = analysis_data.get('signal', 'HOLD')
     signal_map = {'BUY': ('🟢', 'شراء'), 'SELL': ('🔴', 'بيع'), 'HOLD': ('🟡', 'محايد')}
     signal_emoji, signal_text = signal_map.get(signal, ('⚪️', 'غير محدد'))
@@ -141,7 +150,8 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "symbol": symbol, "timeframe": timeframe, "date": now.strftime('%Y/%m/%d'), "time": now.strftime('%H:%M:%S'),
         "current_price": format_dynamic_price(analysis_data.get('current_price', 0.0)),
         "trend_emoji": trend_emoji, "trend_text": trend_text,
-        "adx": f"`{latest_data.get('adx', 0.0):.2f}`", "rsi": f"`{latest_data.get('rsi', 0.0):.2f}`",
+        "mta_section": mta_section,
+        "adx": f"**`{latest_data.get('adx', 0.0):.2f}`**", "rsi": f"**`{latest_data.get('rsi', 0.0):.2f}`**",
         "swing_high_price": format_dynamic_price(swing_high.get('price', 0.0)),
         "swing_low_price": format_dynamic_price(swing_low.get('price', 0.0)),
         "fib_618": format_dynamic_price(retracements.get('fib_618', 0.0)),

@@ -19,6 +19,7 @@ TEXTS = {
         "ask_timeframe": "اخترت {term}. الآن، اختر الإطار الزمني:",
         "analysis_running": "✅ شكراً لك! جاري تحليل {symbol} على إطار {timeframe}...",
         "fetching_data": "⏳ شكراً لك! جاري تحميل البيانات التاريخية لعملة {symbol} على إطار {timeframe}...",
+        "fetching_parent_data": "⏳ جاري جلب بيانات الإطار الزمني الأعلى ({timeframe}) لتحديد الاتجاه العام...",
         "button_long_term": "مدى طويل",
         "button_medium_term": "مدى متوسط",
         "button_short_term": "مدى قصير",
