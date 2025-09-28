@@ -262,7 +262,8 @@ class FiboAnalyzer(BaseStrategy):
         fib_levels_to_add = ['fib_382', 'fib_500', 'fib_618']
         for key in fib_levels_to_add:
             if key in retracements:
-                levels.append({'level': retracements[key], 'type': f"Fibo {key.split('_')[1]}%"})
+                level_ratio = int(key.split('_')[1]) / 1000
+                levels.append({'level': retracements[key], 'type': f"Fibo {level_ratio}"})
 
         # Sort levels by price
         levels.sort(key=lambda x: x['level'], reverse=True)
