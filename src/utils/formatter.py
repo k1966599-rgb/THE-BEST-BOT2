@@ -60,7 +60,16 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     signal_emoji, signal_text = signal_map.get(signal, ('⚪️', 'غير محدد'))
 
     zones = analysis_data.get('confluence_zones', [])
-    confluence_zones_text = "\n".join([f"- {format_dynamic_price(zone['level'])} (تقاطع {zone['p_level']} و {zone['s_level']})" for zone in zones[:2]]) if zones else "- لا توجد مناطق توافق واضحة."
+    if zones:
+        zone_texts = []
+        for zone in zones[:2]:
+            # Escape underscores for Telegram's Markdown parser
+            p_level_escaped = zone.get('p_level', 'N/A').replace('_', '\\_')
+            s_level_escaped = zone.get('s_level', 'N/A').replace('_', '\\_')
+            zone_texts.append(f"- {format_dynamic_price(zone['level'])} (تقاطع {p_level_escaped} و {s_level_escaped})")
+        confluence_zones_text = "\n".join(zone_texts)
+    else:
+        confluence_zones_text = "- لا توجد مناطق توافق واضحة."
     reasons_text = "\n".join([f"- {reason}" for reason in analysis_data.get('reasons', [])]) if analysis_data.get('reasons') else "- لا توجد مؤشرات قوة حالياً."
 
     latest_data = analysis_data.get('latest_data', {})
