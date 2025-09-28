@@ -18,8 +18,10 @@ from src.data_retrieval.exceptions import APIError, NetworkError
 from src.strategies.fibo_analyzer import FiboAnalyzer
 from src.strategies.exceptions import InsufficientDataError
 from src.utils.formatter import format_analysis_from_template
+from src.utils.chart_generator import generate_analysis_chart
 from src.localization import get_text
 import pandas as pd
+import os
 
 # --- Basic Logging ---
 logging.basicConfig(
@@ -195,8 +197,23 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
         analysis_info = analyzer.get_analysis(df, symbol, timeframe, higher_tf_trend_info=higher_tf_trend_info)
 
+        # Generate the chart
+        await query.edit_message_text(text=get_text("chart_generating"))
+        chart_path = generate_analysis_chart(df, analysis_info, symbol)
+
+        # Format the text report
         formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
-        await query.message.reply_text(formatted_report)
+
+        if chart_path:
+            try:
+                with open(chart_path, 'rb') as chart_file:
+                    await query.message.reply_photo(photo=chart_file, caption=formatted_report)
+            finally:
+                # Clean up the generated chart file
+                os.remove(chart_path)
+        else:
+            # Fallback to sending text only if chart generation fails
+            await query.message.reply_text(formatted_report)
 
     except InsufficientDataError as e:
         logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}: {e}")
