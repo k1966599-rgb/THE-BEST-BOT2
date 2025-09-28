@@ -91,14 +91,14 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     # --- Dynamically build the suggested trade section ---
     suggested_trade_section = ""
     if signal in ['BUY', 'SELL']:
-        rr_ratio_text = f"{analysis_data.get('rr_ratio', 0.0):.2f}:1" if analysis_data.get('rr_ratio', 0.0) > 0 else "N/A"
+        rr_ratio_text = f"**{analysis_data.get('rr_ratio', 0.0):.2f}:1**" if analysis_data.get('rr_ratio', 0.0) > 0 else "**N/A**"
         suggested_trade_section = (
             f"**نوع الإشارة: {signal_emoji} {signal}**\n\n"
             f"**السيناريو الأساسي ({scenario1.get('title', 'N/A')})**\n"
             f"- **نقطة الدخول المقترحة:** {format_dynamic_price(scenario1.get('entry', 0.0))}\n"
             f"- **وقف الخسارة (SL):** {format_dynamic_price(scenario1.get('stop_loss', 0.0))}\n"
             f"- **الهدف (TP):** {format_dynamic_price(scenario1.get('target', 0.0))}\n"
-            f"- **المخاطرة/العائد (RRR):** `{rr_ratio_text}`\n"
+            f"- **المخاطرة/العائد (RRR):** {rr_ratio_text}\n"
             f"- *نسبة النجاح المتوقعة: {scenario1.get('prob', 0)}%*\n\n"
             f"**السيناريو البديل ({scenario2.get('title', 'N/A')})**\n"
             f"- **نقطة التحول:** كسر مستوى {format_dynamic_price(scenario2.get('stop_loss', 0.0))}\n"
@@ -121,7 +121,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
 
         profit_bullish = abs(target_bullish - entry_bullish)
         loss_bullish = abs(entry_bullish - sl_bullish)
-        rr_bullish = f"`{profit_bullish / loss_bullish:.2f}:1`" if loss_bullish > 0 else "`N/A`"
+        rr_bullish = f"**{profit_bullish / loss_bullish:.2f}:1**" if loss_bullish > 0 else "**N/A**"
 
         entry_bearish = swing_low.get('price', 0.0)
         target_bearish = scenario2.get('target', 0.0)
@@ -129,7 +129,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
 
         profit_bearish = abs(entry_bearish - target_bearish)
         loss_bearish = abs(sl_bearish - entry_bearish)
-        rr_bearish = f"`{profit_bearish / loss_bearish:.2f}:1`" if loss_bearish > 0 else "`N/A`"
+        rr_bearish = f"**{profit_bearish / loss_bearish:.2f}:1**" if loss_bearish > 0 else "**N/A**"
 
         suggested_trade_section = (
             f"**نوع الإشارة: {signal_emoji} {signal_text}**\n\n"
