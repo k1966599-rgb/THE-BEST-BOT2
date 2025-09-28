@@ -4,6 +4,8 @@
 **وضع السوق الحالي**
 - **السعر:** {current_price}
 - **الاتجاه العام:** {trend_emoji} {trend_text}
+
+{mta_section}
 - **قوة الاتجاه (ADX):** {adx}
 - **الزخم (RSI):** {rsi}
 
