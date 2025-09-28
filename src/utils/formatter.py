@@ -4,10 +4,10 @@ from typing import Dict, Any
 
 def format_dynamic_price(price: float) -> str:
     """
-    Formats a price with a dynamic number of decimal places and wraps it in bolded backticks.
+    Formats a price with a dynamic number of decimal places and wraps it in bold markdown.
     """
     if not isinstance(price, (int, float)):
-        return '**`N/A`**'
+        return '**N/A**'
 
     if price > 10000:
         formatted_price = f"{price:,.0f}"
@@ -18,7 +18,7 @@ def format_dynamic_price(price: float) -> str:
     else:
         formatted_price = f"{price:,.5f}"
 
-    return f"**`{formatted_price}`**"
+    return f"**{formatted_price}**"
 
 
 def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, timeframe: str) -> str:
@@ -151,7 +151,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "current_price": format_dynamic_price(analysis_data.get('current_price', 0.0)),
         "trend_emoji": trend_emoji, "trend_text": trend_text,
         "mta_section": mta_section,
-        "adx": f"**`{latest_data.get('adx', 0.0):.2f}`**", "rsi": f"**`{latest_data.get('rsi', 0.0):.2f}`**",
+        "adx": f"**{latest_data.get('adx', 0.0):.2f}**", "rsi": f"**{latest_data.get('rsi', 0.0):.2f}**",
         "swing_high_price": format_dynamic_price(swing_high.get('price', 0.0)),
         "swing_low_price": format_dynamic_price(swing_low.get('price', 0.0)),
         "fib_618": format_dynamic_price(retracements.get('fib_618', 0.0)),
