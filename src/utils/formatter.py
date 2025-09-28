@@ -4,10 +4,10 @@ from typing import Dict, Any
 
 def format_dynamic_price(price: float) -> str:
     """
-    Formats a price with a dynamic number of decimal places and wraps it in backticks.
+    Formats a price with a dynamic number of decimal places and wraps it in bolded backticks.
     """
     if not isinstance(price, (int, float)):
-        return '`N/A`'
+        return '**`N/A`**'
 
     if price > 10000:
         formatted_price = f"{price:,.0f}"
@@ -18,7 +18,7 @@ def format_dynamic_price(price: float) -> str:
     else:
         formatted_price = f"{price:,.5f}"
 
-    return f"`{formatted_price}`"
+    return f"**`{formatted_price}`**"
 
 
 def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, timeframe: str) -> str:
