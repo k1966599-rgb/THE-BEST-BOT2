@@ -2,6 +2,7 @@ import logging
 import asyncio
 from datetime import datetime
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -48,9 +49,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode='Markdown')
+        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     else:
-        await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode='Markdown')
+        await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
 
 async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Shows the bot status and provides a back button."""
@@ -195,7 +196,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         analysis_info = analyzer.get_analysis(df, symbol, timeframe, higher_tf_trend_info=higher_tf_trend_info)
 
         formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
-        await query.message.reply_text(formatted_report, parse_mode='Markdown')
+        await query.message.reply_text(formatted_report, parse_mode=ParseMode.MARKDOWN)
 
     except InsufficientDataError as e:
         logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}: {e}")
@@ -246,7 +247,7 @@ async def run_periodic_analysis(application: Application):
 
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
                     report = format_analysis_from_template(analysis_info, symbol, timeframe)
-                    await application.bot.send_message(chat_id=admin_chat_id, text=report, parse_mode='Markdown')
+                    await application.bot.send_message(chat_id=admin_chat_id, text=report, parse_mode=ParseMode.MARKDOWN)
                     logger.info(get_text("periodic_sent_alert_log").format(
                         signal=analysis_info['signal'], symbol=symbol, timeframe=timeframe
                     ))
