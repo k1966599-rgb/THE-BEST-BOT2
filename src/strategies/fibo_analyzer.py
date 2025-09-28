@@ -247,6 +247,26 @@ class FiboAnalyzer(BaseStrategy):
     def _finalize_analysis(self, result: Dict):
         result['scenarios'] = self._generate_scenarios(result)
         self._calculate_risk_metrics(result)
+        self._identify_key_levels(result)
+
+    def _identify_key_levels(self, result: Dict):
+        """Identifies and adds key support and resistance levels to the result."""
+        levels = []
+        swing_high = result.get('swing_high', {}).get('price')
+        swing_low = result.get('swing_low', {}).get('price')
+        retracements = result.get('retracements', {})
+
+        if swing_high: levels.append({'level': swing_high, 'type': 'Swing High'})
+        if swing_low: levels.append({'level': swing_low, 'type': 'Swing Low'})
+
+        fib_levels_to_add = ['fib_382', 'fib_500', 'fib_618']
+        for key in fib_levels_to_add:
+            if key in retracements:
+                levels.append({'level': retracements[key], 'type': f"Fibo {key.split('_')[1]}%"})
+
+        # Sort levels by price
+        levels.sort(key=lambda x: x['level'], reverse=True)
+        result['key_levels'] = levels
 
     def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str) -> Dict[str, Any]:
         data = self._prepare_data(data)
