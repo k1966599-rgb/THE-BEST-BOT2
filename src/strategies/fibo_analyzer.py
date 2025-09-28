@@ -120,7 +120,13 @@ class FiboAnalyzer(BaseStrategy):
         if entry_price and stop_loss and target:
             potential_loss = abs(entry_price - stop_loss)
             potential_profit = abs(target - entry_price)
-            result['rr_ratio'] = round(potential_profit / potential_loss, 2) if potential_loss > 0 else float('inf')
+
+            # Avoid division by zero if entry and stop-loss are the same
+            if potential_loss > 0:
+                result['rr_ratio'] = round(potential_profit / potential_loss, 2)
+            else:
+                # If there's no risk, the ratio is effectively infinite, but we'll represent it as 0 for practicality.
+                result['rr_ratio'] = 0.0
         return result
 
     def _generate_scenarios(self, result: Dict) -> Dict:
@@ -154,12 +160,45 @@ class FiboAnalyzer(BaseStrategy):
         prominence = avg_atr * self.swing_atr_multiplier
         high_peaks_indices, _ = find_peaks(recent_data['high'], prominence=prominence)
         low_peaks_indices, _ = find_peaks(-recent_data['low'], prominence=prominence)
+
+        # Fallback to absolute max/min if no significant peaks are found
         if high_peaks_indices.size == 0 or low_peaks_indices.size == 0:
             high_idx, low_idx = recent_data['high'].idxmax(), recent_data['low'].idxmin()
+            if recent_data.loc[high_idx, 'high'] <= recent_data.loc[low_idx, 'low']:
+                return None, None
             return {'price': recent_data.loc[high_idx, 'high'], 'index': high_idx}, {'price': recent_data.loc[low_idx, 'low'], 'index': low_idx}
 
-        latest_high_idx, latest_low_idx = recent_data.index[high_peaks_indices[-1]], recent_data.index[low_peaks_indices[-1]]
-        return {'price': recent_data.loc[latest_high_idx, 'high'], 'index': latest_high_idx}, {'price': recent_data.loc[latest_low_idx, 'low'], 'index': latest_low_idx}
+        high_peak_indices_orig = recent_data.index[high_peaks_indices]
+        low_peak_indices_orig = recent_data.index[low_peaks_indices]
+
+        latest_high_peak_idx = high_peak_indices_orig[-1]
+        latest_low_peak_idx = low_peak_indices_orig[-1]
+
+        # Determine the most recent swing by finding the last peak (high or low)
+        # and then finding the preceding opposite peak.
+        if latest_high_peak_idx > latest_low_peak_idx:
+            # Last significant move was up. The swing is from a low to a high.
+            final_swing_high_idx = latest_high_peak_idx
+            prior_low_peaks = low_peak_indices_orig[low_peak_indices_orig < final_swing_high_idx]
+            if prior_low_peaks.size == 0:
+                return None, None
+            final_swing_low_idx = prior_low_peaks[-1]
+        else:
+            # Last significant move was down. The swing is from a high to a low.
+            final_swing_low_idx = latest_low_peak_idx
+            prior_high_peaks = high_peak_indices_orig[high_peak_indices_orig < final_swing_low_idx]
+            if prior_high_peaks.size == 0:
+                return None, None
+            final_swing_high_idx = prior_high_peaks[-1]
+
+        swing_high = {'price': recent_data.loc[final_swing_high_idx, 'high'], 'index': final_swing_high_idx}
+        swing_low = {'price': recent_data.loc[final_swing_low_idx, 'low'], 'index': final_swing_low_idx}
+
+        # Final sanity check
+        if swing_high['price'] <= swing_low['price']:
+            return None, None
+
+        return swing_high, swing_low
 
     def _prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
         data['adx'] = calculate_adx(data, window=self.adx_window)
@@ -188,7 +227,7 @@ class FiboAnalyzer(BaseStrategy):
         result['fibo_trend'] = fibo_trend
         result['retracements'] = calculate_fib_levels(p_high['price'], p_low['price'], fibo_trend)
         result['extensions'] = calculate_fib_extensions(p_high['price'], p_low['price'], fibo_trend)
-        result['confluence_zones'] = self._find_confluence_zones(result['retracements'], result['retracements'])
+        result['confluence_zones'] = self._find_confluence_zones(result['retracements'], result['extensions'])
 
         confirm_data = self._calculate_confirmation_score(data, fibo_trend)
         result.update(confirm_data)
