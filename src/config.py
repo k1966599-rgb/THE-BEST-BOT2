@@ -82,6 +82,7 @@ STRATEGY_PARAMS = {
         'sma_period_slow': 200,
         'fib_lookback': 50,
         'swing_lookback_period': 50,
+        'swing_comparison_window': 5, # Number of candles to compare on each side for swing detection
         'adx_trend_threshold': 25,
         'signal_threshold': 5, # Minimum score required to generate a BUY/SELL signal
         'require_adx_confirmation': True, # If True, a signal is only generated if ADX is above the threshold
