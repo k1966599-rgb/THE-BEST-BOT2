@@ -111,7 +111,14 @@ def test_fibo_analyzer_identifies_buy_signal_in_uptrend(mock_config, sample_uptr
     # Check for a positive score
     assert analysis_result.get('score', 0) > 0, "Score should be positive for a BUY signal"
 
-    # Check if scenarios were generated
+    # Check if scenarios were generated and have the new structure
     assert 'scenarios' in analysis_result and analysis_result['scenarios'], "Scenarios should be generated"
-    assert 'scenario1' in analysis_result['scenarios'], "Scenario 1 should exist"
-    assert analysis_result['scenarios']['scenario1']['title'] == "صعود نحو الأهداف"
+    scenario1 = analysis_result['scenarios'].get('scenario1', {})
+    assert scenario1, "Scenario 1 should exist"
+    assert scenario1['title'] == "صعود نحو الأهداف", "The scenario title should be correct"
+
+    # Verify the new trade plan structure
+    assert 'entry_zone' in scenario1, "Scenario 1 should contain an 'entry_zone'"
+    assert 'best' in scenario1['entry_zone'] and scenario1['entry_zone']['best'] is not None, "Entry zone should have a 'best' price"
+    assert 'targets' in scenario1, "Scenario 1 should contain 'targets'"
+    assert 'tp1' in scenario1['targets'] and scenario1['targets']['tp1'] is not None, "Targets should include 'tp1'"
