@@ -84,7 +84,8 @@ def test_format_report_for_hold_signal(mock_hold_analysis_data):
     assert "السيناريو الصاعد (للمراقبة)" in report
     assert "شرط التفعيل" in report
     assert "فوق مستوى المقاومة **68,000**" in report
-    assert "خطة التداول المقترحة" not in report # Ensure trade plan is not shown
+    assert "خطة التداول المقترحة" not in report  # Ensure trade plan is not shown
+    assert "لا توجد مؤشرات قوة إضافية حاليًا." in report
 
 def test_format_report_english_translation(mock_buy_analysis_data):
     """
