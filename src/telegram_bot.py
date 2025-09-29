@@ -21,7 +21,6 @@ from src.utils.formatter import format_analysis_from_template
 from src.utils.chart_generator import generate_analysis_chart
 from src.localization import get_text
 import pandas as pd
-import os
 
 # --- Basic Logging ---
 logging.basicConfig(
@@ -199,18 +198,14 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         # Generate the chart
         await query.edit_message_text(text=get_text("chart_generating"))
-        chart_path = generate_analysis_chart(df, analysis_info, symbol)
+        chart_bytes = generate_analysis_chart(df, analysis_info, symbol)
 
         # Format the text report
         formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
 
-        if chart_path:
-            try:
-                with open(chart_path, 'rb') as chart_file:
-                    await query.message.reply_photo(photo=chart_file, caption=formatted_report)
-            finally:
-                # Clean up the generated chart file
-                os.remove(chart_path)
+        if chart_bytes:
+            # Send the photo directly from the bytes in memory
+            await query.message.reply_photo(photo=chart_bytes, caption=formatted_report)
         else:
             # Fallback to sending text only if chart generation fails
             await query.message.reply_text(formatted_report)

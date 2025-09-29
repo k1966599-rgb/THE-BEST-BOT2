@@ -26,7 +26,7 @@ class TestTelegramBotConversation(unittest.TestCase):
 
     def setUp(self):
         """Load the bot's components. This runs before each test."""
-        from telegram_bot import conv_handler, select_term, TIMEFRAME
+        from src.telegram_bot import conv_handler, select_term, TIMEFRAME
         self.conv_handler = conv_handler
         self.select_term = select_term
         self.TIMEFRAME = TIMEFRAME
