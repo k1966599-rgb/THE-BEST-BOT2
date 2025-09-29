@@ -299,25 +299,3 @@ conv_handler = ConversationHandler(
     fallbacks=[CallbackQueryHandler(start, pattern='^main_menu$')],
     per_message=False
 )
-
-def main() -> None:
-    config = get_config()
-    token = config.get('telegram', {}).get('TOKEN')
-    if not token:
-        logger.error(get_text("error_no_token"))
-        return
-
-    application = Application.builder().token(token).post_init(post_init).build()
-    application.bot_data['config'] = config
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(start, pattern='^main_menu$'))
-    application.add_handler(CallbackQueryHandler(bot_status, pattern='^bot_status$'))
-    application.add_handler(conv_handler)
-    application.add_error_handler(error_handler)
-
-    logger.info(get_text("bot_starting_log"))
-    application.run_polling()
-
-if __name__ == '__main__':
-    main()

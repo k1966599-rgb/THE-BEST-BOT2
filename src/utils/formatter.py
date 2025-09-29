@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from typing import Dict, Any
-from ..localization import get_text
+from src.localization import get_text
 
 def format_dynamic_price(price: float) -> str:
     """Formats a price with a dynamic number of decimal places as a plain string."""
