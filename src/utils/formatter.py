@@ -123,7 +123,12 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     rsi_value = latest_data.get('rsi', 0.0)
     rsi_text = get_text('positive_momentum', lang) if rsi_value > 50 else get_text('negative_momentum', lang)
     macd_text = get_text('macd_positive', lang) if latest_data.get('macd', 0) > latest_data.get('signal_line', 0) else get_text('macd_negative', lang)
-    reasons_text = "\n".join([f"  - ✔️ {reason}" for reason in analysis_data.get('reasons', [])])
+    reasons_list = analysis_data.get('reasons', [])
+    if reasons_list:
+        reasons_text = "\n".join([f"  - ✔️ {reason}" for reason in reasons_list])
+    else:
+        reasons_text = f"  - {get_text('details_no_strength_reasons', lang)}"
+
     cancellation_text = get_text('details_cancellation_condition', lang).format(
         signal_type=signal_text.lower(),
         stop_loss=format_dynamic_price(analysis_data.get('scenarios',{}).get('scenario1',{}).get('stop_loss', 0))
@@ -168,7 +173,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "details_macd": get_text('details_macd', lang), "macd_text": macd_text,
         "details_confirmation_score": get_text('details_confirmation_score', lang),
         "score_value": analysis_data.get('score', 0), "score_max": sum(analysis_data.get('weights', {}).values()) or 9,
-        "reasons_text": f"\n{reasons_text}" if reasons_text else "",
+        "reasons_text": reasons_text,
         "details_alternative_scenario": get_text('details_alternative_scenario', lang),
         "cancellation_text": cancellation_text,
         # Section 4

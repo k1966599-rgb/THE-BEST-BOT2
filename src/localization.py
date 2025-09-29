@@ -43,6 +43,7 @@ TEXTS = {
         "details_momentum": "الزخم (RSI)",
         "details_macd": "التقارب والتباعد (MACD)",
         "details_confirmation_score": "مؤشرات القوة",
+        "details_no_strength_reasons": "لا توجد مؤشرات قوة إضافية حاليًا.",
         "details_alternative_scenario": "السيناريو البديل",
         "details_cancellation_condition": "يتم إلغاء فكرة {signal_type} إذا تم كسر وقف الخسارة عند {stop_loss}. في هذه الحالة، قد يتجه السعر لاختبار المستوى التالي.",
 
@@ -107,6 +108,7 @@ TEXTS = {
         "details_momentum": "Momentum (RSI)",
         "details_macd": "Convergence/Divergence (MACD)",
         "details_confirmation_score": "Confirmation Score",
+        "details_no_strength_reasons": "No additional strength indicators are present currently.",
         "details_alternative_scenario": "Alternative Scenario",
         "details_cancellation_condition": "The {signal_type} idea is invalidated if the stop loss at {stop_loss} is breached. In this case, the price may test the next level.",
 
