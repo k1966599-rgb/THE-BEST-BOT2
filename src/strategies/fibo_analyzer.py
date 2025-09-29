@@ -4,15 +4,15 @@ from typing import Dict, Any, List
 from scipy.signal import find_peaks
 from src.data_retrieval.data_fetcher import DataFetcher
 
-from .base_strategy import BaseStrategy
-from .exceptions import InsufficientDataError
-from ..utils.indicators import (
+from src.strategies.base_strategy import BaseStrategy
+from src.strategies.exceptions import InsufficientDataError
+from src.utils.indicators import (
     calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
     calculate_stochastic, calculate_bollinger_bands, calculate_adx,
     calculate_atr
 )
-from ..utils.patterns import get_candlestick_pattern
+from src.utils.patterns import get_candlestick_pattern
 
 class FiboAnalyzer(BaseStrategy):
     """
