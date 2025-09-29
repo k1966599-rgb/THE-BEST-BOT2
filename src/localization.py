@@ -1,121 +1,137 @@
 # -*- coding: utf-8 -*-
 
-# Centralized strings for the Telegram bot
-# This makes it easier to manage, update, and translate the bot's text.
-
 TEXTS = {
     'ar': {
-        # --- Main Menu & Status ---
-        "start_header": "**THE BEST BOT**\n\n",
-        "bot_status_ok": "الحالة: يعمل ✅",
-        "bot_status_periodic_disabled": "حالة البوت: يعمل بشكل طبيعي والتحليل الدوري معطل.",
-        "button_analyze": "📊 تحليل",
-        "button_bot_status": "ℹ️ حالة البوت",
-        "button_back_to_main": "🔙 رجوع للقائمة الرئيسية",
+        # --- Main Report Structure ---
+        "report_title": "📊 **التحليل الاستراتيجي الشامل لـ {symbol} | إطار {timeframe}**",
+        "report_updated_at": "*بتاريخ: {date} | الساعة: {time}*",
+        "disclaimer": "*تحليل آلي، ليس توصية استثمارية مباشرة.*",
 
-        # --- Analysis Conversation ---
-        "ask_symbol": "اختر العملة التي تريد تحليلها:",
-        "ask_term": "تم اختيار {symbol}. الآن، اختر مدة التحليل:",
-        "ask_timeframe": "اخترت {term}. الآن، اختر الإطار الزمني:",
-        "analysis_running": "✅ شكراً لك! جاري تحليل {symbol} على إطار {timeframe}...",
-        "fetching_data": "⏳ شكراً لك! جاري تحميل البيانات التاريخية لعملة {symbol} على إطار {timeframe}...",
-        "fetching_parent_data": "⏳ جاري جلب بيانات الإطار الزمني الأعلى ({timeframe}) لتحديد الاتجاه العام...",
-        "chart_generating": "🎨 جاري إعداد الرسم البياني...",
-        "button_long_term": "مدى طويل",
-        "button_medium_term": "مدى متوسط",
-        "button_short_term": "مدى قصير",
-        "button_back": "🔙 رجوع",
+        # --- Section 1: Executive Summary ---
+        "section_summary_title": "--- 1. الخلاصة التنفيذية ---",
+        "summary_signal": "الإشارة الحالية",
+        "summary_conclusion": "الخلاصة",
+        "summary_key_level": "أهم مستوى للمراقبة",
 
-        # --- Periodic Analysis ---
-        "periodic_start_log": "--- بدء التحليل الدوري لـ {count} عملة ---",
-        "periodic_sent_alert_log": "تم إرسال تنبيه '{signal}' لعملة {symbol} على إطار {timeframe} إلى المدير.",
-        "periodic_end_log": "--- اكتمل التحليل الدوري ---",
-        "scheduler_disabled_log": "الجدولة معطلة. لن يتم إجراء التحليل التلقائي.",
-
-        # --- Error & Warning Messages ---
-        "error_generic": "حدث خطأ فني أثناء محاولة التحليل. يرجى مراجعة السجلات.",
-        "error_config_timeframes": "خطأ في الإعدادات: لم يتم العثور على أطر زمنية لهذا الاختيار.",
-        "error_data_fetch": "عذراً، لم أتمكن من جلب البيانات لهذه العملة. يرجى المحاولة مرة أخرى.",
-        "error_no_token": "لم يتم العثور على توكن البوت (BOT_TOKEN) في ملف .env.",
-        "warning_no_admin_id": "لم يتم تعيين TELEGRAM_ADMIN_CHAT_ID. سيتم تخطي التنبيهات الدورية.",
-        "error_api_connection": "لا يمكن الوصول إلى خادم البيانات حاليًا. يرجى المحاولة مرة أخرى لاحقًا.",
-        "error_invalid_symbol": "الرمز '{symbol}' غير صالح أو غير مدعوم من قبل مزود البيانات.",
-        "error_unknown_api": "حدث خطأ غير متوقع من مزود البيانات. ({status_code})",
-        "error_not_enough_historical_data": "⚠️ عذراً، لا توجد بيانات تاريخية كافية لتحليل {symbol} على إطار {timeframe}.\n\nيرجى محاولة استخدام إطار زمني أطول (مثل 1D أو 1W).",
-        "error_not_enough_data_detailed": "⚠️ عذراً، لا توجد بيانات كافية لتحليل {symbol} على إطار {timeframe}. (مطلوب: {required} شمعة، متوفر: {available})",
-
-        # --- Trade Plan ---
-        "trade_plan_title": "خطة التداول المقترحة",
+        # --- Section 2: Trade/Monitoring Plan ---
+        "section_trade_plan_title": "--- 2. خطة التداول المقترحة ---",
+        "trade_logic": "منطق الصفقة",
+        "trade_risk_assessment": "تقييم المخاطر",
+        "risk_to_reward": "المخاطرة/العائد (للهدف الأول)",
+        "confidence": "مستوى الثقة",
         "entry_zone": "منطقة الدخول",
         "best_entry": "أفضل سعر للدخول",
-        "stop_loss": "وقف الخسارة",
-        "targets": "الأهداف (جني الأرباح)",
-        "risk_to_reward": "نسبة المخاطرة للعائد",
-        "confidence": "نسبة الثقة",
+        "stop_loss": "وقف الخسارة (SL)",
+        "targets": "الأهداف (TP)",
 
-        # --- Bot Control ---
-        "bot_starting_log": "جاري تشغيل بوت التليجرام...",
+        "section_monitoring_plan_title": "--- 2. خطة المراقبة ---",
+        "monitoring_conclusion": "الوضع الحالي",
+        "monitoring_bullish_scenario": "السيناريو الصاعد (للمراقبة)",
+        "monitoring_bearish_scenario": "السيناريو الهابط (للمراقبة)",
+        "monitoring_activation_condition": "شرط التفعيل",
+        "monitoring_expected_targets": "الأهداف المتوقعة",
+
+        # --- Section 3: Technical Analysis Details ---
+        "section_analysis_details_title": "--- 3. تفاصيل التحليل الفني ---",
+        "details_market_structure": "هيكل السوق",
+        "details_current_trend": "الاتجاه الحالي ({timeframe})",
+        "details_general_trend": "الاتجاه العام ({timeframe_parent})",
+        "details_swing_high": "القمة المرجعية",
+        "details_swing_low": "القاع المرجعي",
+        "details_indicators_reading": "قراءة المؤشرات",
+        "details_trend_strength": "قوة الاتجاه (ADX)",
+        "details_momentum": "الزخم (RSI)",
+        "details_macd": "التقارب والتباعد (MACD)",
+        "details_confirmation_score": "مؤشرات القوة",
+        "details_alternative_scenario": "السيناريو البديل",
+        "details_cancellation_condition": "يتم إلغاء فكرة {signal_type} إذا تم كسر وقف الخسارة عند {stop_loss}. في هذه الحالة، قد يتجه السعر لاختبار المستوى التالي.",
+
+        # --- Section 4: Support & Resistance ---
+        "section_support_resistance_title": "--- 4. مستويات الدعم والمقاومة الرئيسية ---",
+        "sr_resistance": "مقاومة",
+        "sr_support": "دعم",
+
+        # --- General Terms ---
+        "signal_buy": "شراء",
+        "signal_sell": "بيع",
+        "signal_hold": "حياد",
+        "trend_up": "صاعد",
+        "trend_down": "هابط",
+        "trend_sideways": "عرضي",
+        "macd_positive": "تقاطع إيجابي",
+        "macd_negative": "تقاطع سلبي",
+        "strong_trend": "اتجاه قوي",
+        "positive_momentum": "زخم إيجابي",
+        "negative_momentum": "زخم سلبي",
+        "compatible": "متوافق",
     },
     'en': {
-        # --- Main Menu & Status ---
-        "start_header": "**THE BEST BOT**\n\n",
-        "bot_status_ok": "Status: Running ✅",
-        "bot_status_periodic_disabled": "Bot status: Normal operation, periodic analysis is disabled.",
-        "button_analyze": "📊 Analyze",
-        "button_bot_status": "ℹ️ Bot Status",
-        "button_back_to_main": "🔙 Back to Main Menu",
+        # --- Main Report Structure ---
+        "report_title": "📊 **Comprehensive Strategic Analysis for {symbol} | {timeframe}**",
+        "report_updated_at": "*Date: {date} | Time: {time}*",
+        "disclaimer": "*Automated analysis, not direct investment advice.*",
 
-        # --- Analysis Conversation ---
-        "ask_symbol": "Select the currency you want to analyze:",
-        "ask_term": "{symbol} selected. Now, choose the analysis term:",
-        "ask_timeframe": "You chose {term}. Now, select the timeframe:",
-        "analysis_running": "✅ Thank you! Analyzing {symbol} on the {timeframe} timeframe...",
-        "fetching_data": "⏳ Thank you! Fetching historical data for {symbol} on the {timeframe} timeframe...",
-        "fetching_parent_data": "⏳ Fetching higher timeframe data ({timeframe}) to determine the general trend...",
-        "chart_generating": "🎨 Generating chart...",
-        "button_long_term": "Long Term",
-        "button_medium_term": "Medium Term",
-        "button_short_term": "Short Term",
-        "button_back": "🔙 Back",
+        # --- Section 1: Executive Summary ---
+        "section_summary_title": "--- 1. Executive Summary ---",
+        "summary_signal": "Current Signal",
+        "summary_conclusion": "Conclusion",
+        "summary_key_level": "Key Level to Watch",
 
-        # --- Periodic Analysis ---
-        "periodic_start_log": "--- Starting Periodic Analysis for {count} symbols ---",
-        "periodic_sent_alert_log": "Sent '{signal}' alert for {symbol} on {timeframe} to admin.",
-        "periodic_end_log": "--- Periodic Analysis Complete ---",
-        "scheduler_disabled_log": "Scheduler is configured but DISABLED. Automatic analysis will not run.",
-
-        # --- Error & Warning Messages ---
-        "error_generic": "A technical error occurred during the analysis. Please check the logs.",
-        "error_config_timeframes": "Configuration Error: No timeframes found for this selection.",
-        "error_data_fetch": "Sorry, I could not fetch the data for this currency. Please try again.",
-        "error_no_token": "Telegram BOT_TOKEN not found in .env file.",
-        "warning_no_admin_id": "TELEGRAM_ADMIN_CHAT_ID not set. Periodic alerts will be skipped.",
-        "error_api_connection": "Could not reach the data server at this time. Please try again later.",
-        "error_invalid_symbol": "The symbol '{symbol}' is invalid or not supported by the data provider.",
-        "error_unknown_api": "An unexpected error occurred from the data provider. ({status_code})",
-        "error_not_enough_historical_data": "⚠️ Sorry, not enough historical data to analyze {symbol} on the {timeframe} timeframe.\n\nPlease try a longer timeframe (e.g., 1D or 1W).",
-        "error_not_enough_data_detailed": "⚠️ Sorry, not enough data to analyze {symbol} on the {timeframe} timeframe. (Required: {required} candles, Available: {available})",
-
-        # --- Trade Plan ---
-        "trade_plan_title": "Suggested Trade Plan",
+        # --- Section 2: Trade/Monitoring Plan ---
+        "section_trade_plan_title": "--- 2. Suggested Trade Plan ---",
+        "trade_logic": "Trade Rationale",
+        "trade_risk_assessment": "Risk Assessment",
+        "risk_to_reward": "Risk/Reward Ratio (for TP1)",
+        "confidence": "Confidence Level",
         "entry_zone": "Entry Zone",
         "best_entry": "Best Entry Price",
-        "stop_loss": "Stop Loss",
-        "targets": "Targets (Take Profit)",
-        "risk_to_reward": "Risk/Reward Ratio",
-        "confidence": "Confidence Level",
+        "stop_loss": "Stop Loss (SL)",
+        "targets": "Targets (TP)",
 
-        # --- Bot Control ---
-        "bot_starting_log": "Starting Telegram bot...",
+        "section_monitoring_plan_title": "--- 2. Monitoring Plan ---",
+        "monitoring_conclusion": "Current Situation",
+        "monitoring_bullish_scenario": "Bullish Scenario (to watch)",
+        "monitoring_bearish_scenario": "Bearish Scenario (to watch)",
+        "monitoring_activation_condition": "Activation Condition",
+        "monitoring_expected_targets": "Expected Targets",
+
+        # --- Section 3: Technical Analysis Details ---
+        "section_analysis_details_title": "--- 3. Technical Analysis Details ---",
+        "details_market_structure": "Market Structure",
+        "details_current_trend": "Current Trend ({timeframe})",
+        "details_general_trend": "General Trend ({timeframe_parent})",
+        "details_swing_high": "Swing High",
+        "details_swing_low": "Swing Low",
+        "details_indicators_reading": "Indicators Reading",
+        "details_trend_strength": "Trend Strength (ADX)",
+        "details_momentum": "Momentum (RSI)",
+        "details_macd": "Convergence/Divergence (MACD)",
+        "details_confirmation_score": "Confirmation Score",
+        "details_alternative_scenario": "Alternative Scenario",
+        "details_cancellation_condition": "The {signal_type} idea is invalidated if the stop loss at {stop_loss} is breached. In this case, the price may test the next level.",
+
+        # --- Section 4: Support & Resistance ---
+        "section_support_resistance_title": "--- 4. Key Support & Resistance Levels ---",
+        "sr_resistance": "Resistance",
+        "sr_support": "Support",
+
+        # --- General Terms ---
+        "signal_buy": "Buy",
+        "signal_sell": "Sell",
+        "signal_hold": "Hold",
+        "trend_up": "Upward",
+        "trend_down": "Downward",
+        "trend_sideways": "Sideways",
+        "macd_positive": "Positive Crossover",
+        "macd_negative": "Negative Crossover",
+        "strong_trend": "Strong Trend",
+        "positive_momentum": "Positive Momentum",
+        "negative_momentum": "Negative Momentum",
+        "compatible": "Compatible",
     }
 }
 
-# Helper function to get a string in a specific language
 def get_text(key: str, lang: str = "ar") -> str:
-    """
-    Retrieves a text string from the TEXTS dictionary.
-    Defaults to 'ar' language if the requested language or key is not found.
-    """
-    # Fallback to 'ar' if the language doesn't exist
-    lang_dict = TEXTS.get(lang, TEXTS["ar"])
-    return lang_dict.get(key, TEXTS["ar"].get(key, f"<{key}_NOT_FOUND>"))
+    lang_dict = TEXTS.get(lang, TEXTS.get("ar", {}))
+    default_lang_dict = TEXTS.get("ar", {})
+    return lang_dict.get(key, default_lang_dict.get(key, f"<{key}_NOT_FOUND>"))
