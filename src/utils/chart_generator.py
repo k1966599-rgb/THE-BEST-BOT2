@@ -1,15 +1,15 @@
 import mplfinance as mpf
 import pandas as pd
 from typing import Dict, Any
-import os
+import io
 import logging
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-def generate_analysis_chart(df: pd.DataFrame, analysis_data: Dict[str, Any], symbol: str) -> str:
+def generate_analysis_chart(df: pd.DataFrame, analysis_data: Dict[str, Any], symbol: str) -> bytes:
     """
-    Generates a candlestick chart with technical analysis overlays and saves it as a PNG file.
+    Generates a candlestick chart with technical analysis overlays and returns it as bytes.
 
     Args:
         df (pd.DataFrame): The DataFrame containing the OHLCV data and indicators.
@@ -17,7 +17,7 @@ def generate_analysis_chart(df: pd.DataFrame, analysis_data: Dict[str, Any], sym
         symbol (str): The trading symbol (e.g., 'BTC-USDT').
 
     Returns:
-        str: The file path of the generated chart image, or an empty string if an error occurs.
+        bytes: The PNG image data of the chart as a bytes object, or an empty bytes object on error.
     """
     try:
         # --- 1. Data Preparation ---
@@ -73,14 +73,9 @@ def generate_analysis_chart(df: pd.DataFrame, analysis_data: Dict[str, Any], sym
                 hlines_data.append(retracements[level])
                 colors.append('yellow')
 
-        # --- 4. Generate and Save the Chart ---
-        # Ensure the 'charts' directory exists
-        output_dir = "charts"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        # Define a unique filename
-        output_path = os.path.join(output_dir, f"{symbol.replace('/', '_')}_{analysis_data.get('timeframe', 'N/A')}.png")
+        # --- 4. Generate and Save the Chart to a Bytes Buffer ---
+        buffer = io.BytesIO()
+        savefig_settings = dict(fname=buffer, format='png', dpi=100)
 
         mpf.plot(
             chart_df,
@@ -93,12 +88,16 @@ def generate_analysis_chart(df: pd.DataFrame, analysis_data: Dict[str, Any], sym
             addplot=plots_to_add if plots_to_add else None,
             hlines=dict(hlines=hlines_data, colors=colors, linestyle='--'),
             figratio=(16, 9),
-            savefig=output_path
+            savefig=savefig_settings
         )
 
-        logger.info(f"Successfully generated chart and saved to {output_path}")
-        return output_path
+        buffer.seek(0)
+        image_bytes = buffer.getvalue()
+        buffer.close()
+
+        logger.info(f"Successfully generated chart for {symbol} in-memory.")
+        return image_bytes
 
     except Exception as e:
         logger.error(f"Failed to generate chart for {symbol}: {e}", exc_info=True)
-        return ""
+        return b""

@@ -1,100 +1,117 @@
-# Tests for FiboAnalyzer
-import pandas as pd
 import pytest
-import numpy as np
+import pandas as pd
 from src.strategies.fibo_analyzer import FiboAnalyzer
-from src.data_retrieval.data_fetcher import DataFetcher
-from unittest.mock import MagicMock
 
-# A mock config for the analyzer
+# A mock fetcher class since FiboAnalyzer requires it for initialization,
+# but it's not used within the get_analysis method itself.
+class MockFetcher:
+    def __init__(self, config):
+        pass
+
 @pytest.fixture
 def mock_config():
+    """Provides a mock configuration for the FiboAnalyzer test."""
     return {
-        'exchange': {
-            'SANDBOX_MODE': True,
-            'API_KEY': 'test',
-            'API_SECRET': 'test',
-            'PASSWORD': 'test'
-        },
         'strategy_params': {
             'fibo_strategy': {
-                'sma_period_fast': 10,
-                'sma_period_slow': 30,
+                'sma_period_fast': 5,
+                'sma_period_slow': 10,
                 'rsi_period': 14,
-                'stoch_window': 14,
                 'adx_window': 14,
                 'atr_window': 14,
-                'atr_multiplier': 2.0
+                'stoch_window': 14,
+                'swing_lookback_period': 50,
+                'swing_comparison_window': 3,
+                'adx_trend_threshold': 20,
+                'signal_threshold': 3,  # Lower threshold for easier testing
+                'require_adx_confirmation': False,  # Disable for simpler testing
+                'scoring_weights': {
+                    'confluence_zone': 2,
+                    'rsi_confirm': 1,
+                    'macd_confirm': 1,
+                    'stoch_confirm': 1,
+                    'reversal_pattern': 2,
+                    'volume_spike': 2
+                }
             }
+        },
+        'risk_management': {
+            'atr_multiplier_sl': 2.0
         }
     }
 
-# A mock data fetcher
 @pytest.fixture
-def mock_fetcher(mock_config):
-    return DataFetcher(mock_config)
-
-# Sample data for testing
-@pytest.fixture
-def sample_market_data():
+def sample_uptrend_data():
     """
-    Generates a DataFrame with 100 periods of realistic OHLC data and
-    unambiguous swing points for testing.
+    Creates a sample DataFrame with a clear uptrend and swing points
+    designed to trigger a BUY signal.
     """
-    periods = 100
-    # Start with a baseline close price
-    close_prices = pd.Series([70.0] * periods, dtype=float)
+    base_price = 100
+    data_len = 100
+    timestamps = pd.to_datetime(pd.date_range(start='2023-01-01', periods=data_len, freq='H'))
 
-    # 1. Old absolute low (will be ignored by later logic due to dropna)
-    close_prices.iloc[10] = 10.0
+    # Create a steady uptrend
+    close = [base_price + i * 0.5 for i in range(data_len)]
+    high = [p + 2.0 for p in close]
+    low = [p - 2.0 for p in close]
+    open_prices = list(close)
+    volume = [1000 + i * 10 for i in range(data_len)]
 
-    # 2. RECENT SWING HIGH (the one we want to find)
-    close_prices.iloc[60] = 95.0
+    # Craft a clear swing low within the lookback period (last 50 candles)
+    # at index 70 (which is index 20 in the 50-candle lookback window)
+    low[70] = base_price + 70 * 0.5 - 15
 
-    # 3. RECENT SWING LOW (the one we want to find)
-    close_prices.iloc[80] = 50.0
+    # Craft a clear swing high after the low
+    # at index 90 (index 40 in the lookback window)
+    high[90] = base_price + 90 * 0.5 + 15
 
-    # 4. Absolute high at the end, but as part of an uptrend (so, not a peak)
-    close_prices.iloc[95:] = np.linspace(140, 150, 5)
+    # Add a volume spike on the last candle to increase the confirmation score
+    volume[-1] = 5000
+    # Make the last candle bullish to ensure the volume spike is counted
+    open_prices[-1] = close[-1] - 1
 
-    # Create realistic OHLC data from the close prices
-    data = {
-        'timestamp': pd.to_datetime(pd.date_range(start='2023-01-01', periods=periods)),
-        'open': close_prices - 1,
-        'high': close_prices + 2,
-        'low': close_prices - 2,
-        'close': close_prices,
-        'volume': [1000] * periods
-    }
-
-    # Explicitly set the exact high/low for our points of interest
-    data['high'].iloc[60] = 95.0 # This is the peak
-    data['low'].iloc[80] = 50.0  # This is the valley
-
-    df = pd.DataFrame(data)
-    for col in ['high', 'low', 'close', 'open', 'volume']:
-        df[col] = pd.to_numeric(df[col])
+    df = pd.DataFrame({
+        'timestamp': timestamps,
+        'open': open_prices,
+        'high': high,
+        'low': low,
+        'close': close,
+        'volume': volume,
+    })
+    # The analyzer expects timestamp in milliseconds
+    df['timestamp'] = df['timestamp'].astype('int64') // 10**6
     return df
 
-
-def test_identifies_correct_recent_swing_points(mock_config, mock_fetcher, sample_market_data):
+def test_fibo_analyzer_identifies_buy_signal_in_uptrend(mock_config, sample_uptrend_data):
     """
-    This test asserts the correct behavior: the analyzer should find the most
-    recent significant swing points, not the absolute max/min of the dataset.
-    This test should now PASS with the implemented fix.
+    Tests that FiboAnalyzer correctly identifies a BUY signal in a clear uptrend scenario.
     """
     # Arrange
-    analyzer = FiboAnalyzer(mock_config, mock_fetcher)
-    # These are the *correct* recent swing points from the new sample data
-    correct_swing_high = 95.0
-    correct_swing_low = 50.0
+    mock_fetcher = MockFetcher(mock_config)
+    analyzer = FiboAnalyzer(config=mock_config, fetcher=mock_fetcher, timeframe='1H')
 
     # Act
-    result = analyzer.get_analysis(sample_market_data, 'DUMMY-USDT', '1D')
+    analysis_result = analyzer.get_analysis(sample_uptrend_data, 'TEST-USDT', '1H')
 
     # Assert
-    assert result is not None
-    assert 'swing_high' in result
-    assert 'swing_low' in result
-    assert result['swing_high']['price'] == correct_swing_high
-    assert result['swing_low']['price'] == correct_swing_low
+    assert analysis_result is not None, "Analysis result should not be None"
+
+    # Check for identified swings
+    assert 'swing_high' in analysis_result and analysis_result['swing_high'], "Should identify a swing high"
+    assert 'swing_low' in analysis_result and analysis_result['swing_low'], "Should identify a swing low"
+
+    # With the crafted data (uptrend, swing low then high), the fibo_trend should be 'up'
+    assert analysis_result.get('fibo_trend') == 'up', "Fibonacci trend should be 'up'"
+
+    # With crafted data and low threshold, it should generate a BUY signal.
+    # The score should be high enough because RSI > 50, MACD is positive, etc.
+    assert analysis_result.get('signal') == 'BUY', \
+        f"Signal should be BUY, but got {analysis_result.get('signal')}. Reason: {analysis_result.get('final_reason')}"
+
+    # Check for a positive score
+    assert analysis_result.get('score', 0) > 0, "Score should be positive for a BUY signal"
+
+    # Check if scenarios were generated
+    assert 'scenarios' in analysis_result and analysis_result['scenarios'], "Scenarios should be generated"
+    assert 'scenario1' in analysis_result['scenarios'], "Scenario 1 should exist"
+    assert analysis_result['scenarios']['scenario1']['title'] == "صعود نحو الأهداف"

@@ -1,30 +1,29 @@
 import pytest
-import pandas as pd
 from src.strategies.fibo_analyzer import FiboAnalyzer
-from src.strategies.exceptions import InsufficientDataError
 from src.telegram_bot import _fetch_and_prepare_data
 
-def test_btc_1d_analysis_raises_error_on_clean_code(mock_config, mock_fetcher):
+@pytest.mark.anyio
+async def test_btc_1d_analysis_runs_successfully(mock_config, mock_fetcher):
     """
-    This test is designed to FAIL on the clean codebase by raising
-    an InsufficientDataError, proving that the bug exists.
-    After the fix is applied, this test should PASS.
+    This test now verifies that the analysis for BTC-USDT on the 1D timeframe
+    completes successfully without raising an InsufficientDataError,
+    proving that the underlying bug has been fixed.
     """
     symbol = "BTC-USDT"
     timeframe = "1D"
 
-    # On the clean, un-fixed code, the analyzer's default settings
-    # will require more data than OKX provides for the 1D timeframe.
+    # The analyzer's default settings are now expected to work correctly
+    # with the data fetched from the exchange for the 1D timeframe.
     analyzer = FiboAnalyzer(mock_config, mock_fetcher, timeframe=timeframe)
 
-    # We expect this to fail by raising InsufficientDataError
-    with pytest.raises(InsufficientDataError) as excinfo:
-        # We fetch a large number of candles, but the analyzer will fail
-        # because its internal requirements (SMA 200) are too high for the data.
-        df = _fetch_and_prepare_data(mock_fetcher, symbol, timeframe, limit=300)
-        analyzer.get_analysis(df, symbol, timeframe)
+    # Fetch the data
+    df = await _fetch_and_prepare_data(mock_fetcher, symbol, timeframe, limit=300)
 
-    # Assert that the correct exception was raised.
-    # This proves the bug is reproducible.
-    assert "Not enough data for swing analysis" in str(excinfo.value)
-    print(f"\nSUCCESS: Test correctly failed as expected with InsufficientDataError: {excinfo.value}")
+    # We now expect the analysis to complete without any errors.
+    analysis_result = analyzer.get_analysis(df, symbol, timeframe)
+
+    # Assert that the analysis returned a valid result dictionary.
+    assert analysis_result is not None, "Analysis result should not be None."
+    assert "signal" in analysis_result, "Analysis result should contain a 'signal' key."
+    assert "trend" in analysis_result, "Analysis result should contain a 'trend' key."
+    print(f"\nSUCCESS: Test passed, analysis for {symbol} {timeframe} completed without errors.")
