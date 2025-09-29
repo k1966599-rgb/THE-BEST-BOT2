@@ -259,7 +259,18 @@ async def run_periodic_analysis(application: Application):
 
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
                     report = format_analysis_from_template(analysis_info, symbol, timeframe)
-                    await application.bot.send_message(chat_id=admin_chat_id, text=report)
+                    chart_bytes = generate_analysis_chart(df, analysis_info, symbol)
+
+                    if chart_bytes:
+                        await application.bot.send_photo(
+                            chat_id=admin_chat_id,
+                            photo=chart_bytes,
+                            caption=report
+                        )
+                    else:
+                        # Fallback to text if chart generation fails
+                        await application.bot.send_message(chat_id=admin_chat_id, text=report)
+
                     logger.info(get_text("periodic_sent_alert_log").format(
                         signal=analysis_info['signal'], symbol=symbol, timeframe=timeframe
                     ))
