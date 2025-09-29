@@ -97,8 +97,10 @@ def _build_details_section(analysis_data: Dict[str, Any], timeframe: str, lang: 
 
     higher_tf_info = analysis_data.get('higher_tf_trend_info')
     mta_text, mta_emoji, mta_compatibility = get_text('trend_sideways', lang), '↔️', ''
+    mta_timeframe = "N/A"
     if higher_tf_info:
         higher_tf_trend = higher_tf_info.get('trend', 'N/A')
+        mta_timeframe = higher_tf_info.get('timeframe', 'N/A')
         mta_emoji, mta_text = trend_map.get(higher_tf_trend, ('↔️', get_text('trend_sideways', lang)))
         mta_compatibility = get_text('compatible', lang) if trend == higher_tf_trend else ""
 
@@ -122,7 +124,7 @@ def _build_details_section(analysis_data: Dict[str, Any], timeframe: str, lang: 
         f"{get_text('section_analysis_details_title', lang)}\n"
         f"- **{get_text('details_market_structure', lang)}:**\n"
         f"  - {get_text('details_current_trend', lang).format(timeframe=timeframe)}: {trend_emoji} {trend_text_val}\n"
-        f"  - {get_text('details_general_trend', lang).format(timeframe_parent=higher_tf_info.get('timeframe', 'N/A') if higher_tf_info else 'N/A')}: {mta_emoji} {mta_text} ({mta_compatibility})\n"
+        f"  - {get_text('details_general_trend', lang).format(timeframe_parent=mta_timeframe)}: {mta_emoji} {mta_text} ({mta_compatibility})\n"
         f"  - {get_text('details_swing_high', lang)}: {format_dynamic_price(analysis_data.get('swing_high', {}).get('price'))}\n"
         f"  - {get_text('details_swing_low', lang)}: {format_dynamic_price(analysis_data.get('swing_low', {}).get('price'))}\n"
         f"- **{get_text('details_indicators_reading', lang)}:**\n"
