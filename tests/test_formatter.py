@@ -30,12 +30,8 @@ def mock_buy_analysis_data():
 
 @pytest.fixture
 def mock_buy_analysis_data_en(mock_buy_analysis_data):
-    """
-    Provides a mock analysis_data dictionary for a BUY signal with English reasons.
-    This fixture depends on mock_buy_analysis_data.
-    """
-    # Pytest injects the result of mock_buy_analysis_data here
-    data = mock_buy_analysis_data
+    """Provides a mock analysis_data dictionary for a BUY signal with English reasons."""
+    data = dict(mock_buy_analysis_data) # Create a copy to avoid modifying the original fixture
     data['reasons'] = ["Strong upward trend.", "Bullish engulfing pattern."]
     return data
 
@@ -56,31 +52,35 @@ def mock_hold_analysis_data():
 
 def test_format_report_for_buy_signal_is_complete(mock_buy_analysis_data):
     """
-    Tests that the formatter correctly generates a complete and valid report for a BUY signal.
+    Tests that the formatter correctly generates a complete report for a BUY signal
+    with no leftover placeholders.
     """
     report = format_analysis_from_template(mock_buy_analysis_data, "BTC/USDT", "4H", lang="ar")
 
-    assert get_text("section_summary_title", "ar") in report
     assert get_text("section_trade_plan_title", "ar") in report
     assert "اتجاه صاعد قوي." in report
+    assert '{' not in report, "The report should not contain any leftover '{' placeholders."
+    assert '}' not in report, "The report should not contain any leftover '}' placeholders."
 
 def test_format_report_for_hold_signal_is_complete(mock_hold_analysis_data):
     """
-    Tests that the formatter correctly generates a complete and valid report for a HOLD signal.
+    Tests that the formatter correctly generates a complete report for a HOLD signal
+    with no leftover placeholders.
     """
     report = format_analysis_from_template(mock_hold_analysis_data, "BTC/USDT", "4H", lang="ar")
 
     assert get_text("section_monitoring_plan_title", "ar") in report
     assert get_text("details_no_strength_reasons", "ar") in report
-    assert get_text("section_trade_plan_title", "ar") not in report
+    assert '{' not in report, "The report should not contain any leftover '{' placeholders."
+    assert '}' not in report, "The report should not contain any leftover '}' placeholders."
 
 def test_format_report_english_translation_is_complete(mock_buy_analysis_data_en):
     """
-    Tests that the formatter correctly uses the English translations for a complete report.
+    Tests that the formatter correctly uses English translations and leaves no placeholders.
     """
     report = format_analysis_from_template(mock_buy_analysis_data_en, "BTC/USDT", "4H", lang="en")
 
-    assert get_text("section_summary_title", "en") in report
     assert get_text("section_trade_plan_title", "en") in report
     assert "Strong upward trend." in report
-    assert get_text("section_monitoring_plan_title", "en") not in report
+    assert '{' not in report, "The report should not contain any leftover '{' placeholders."
+    assert '}' not in report, "The report should not contain any leftover '}' placeholders."

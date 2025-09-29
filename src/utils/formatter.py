@@ -22,7 +22,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     except FileNotFoundError:
         return "Error: analysis_template.md not found."
 
-    # --- 1. Prepare all data points and translations ---
+    # --- 1. Prepare all data points and translations in one place ---
     now = datetime.now()
     signal = analysis_data.get('signal', 'HOLD')
     trend = analysis_data.get('trend', 'N/A')
@@ -32,6 +32,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     scenario2 = scenarios.get('scenario2', {})
     swing_high = analysis_data.get('swing_high', {})
     swing_low = analysis_data.get('swing_low', {})
+    higher_tf_info = analysis_data.get('higher_tf_trend_info') or {}
 
     # --- Translations & Emojis ---
     signal_map = {'BUY': 'signal_buy', 'SELL': 'signal_sell', 'HOLD': 'signal_hold'}
@@ -41,6 +42,9 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     signal_name = get_text(signal_map.get(signal, 'signal_hold'), lang)
     signal_emoji = signal_emoji_map.get(signal, '⚪️')
     trend_emoji, trend_name = trend_map.get(trend, ('↔️', get_text('trend_sideways', lang)))
+    mta_trend_name = get_text(f"trend_{higher_tf_info.get('trend', 'sideways')}", lang)
+    mta_emoji = trend_map.get(higher_tf_info.get('trend', 'sideways'), ('↔️', ''))[0]
+    mta_compatibility = get_text('compatible', lang) if trend == higher_tf_info.get('trend') and higher_tf_info else ""
 
     # --- Build Plan Section ---
     plan_section = ""
@@ -63,13 +67,13 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         )
     else: # HOLD
         bullish_targets = scenario1.get('targets', {})
-        conclusion_text = get_text('monitoring_conclusion', lang)
+        conclusion_text_monitoring = get_text('monitoring_conclusion', lang)
         bullish_activation = get_text('monitoring_activation_condition', lang).format(level=format_dynamic_price(swing_high.get('price')))
         bearish_activation = get_text('monitoring_activation_condition', lang).format(level=format_dynamic_price(swing_low.get('price')))
 
         plan_section = (
             f"### **2. {get_text('section_monitoring_plan_title', lang)}**\n"
-            f"*   **{get_text('monitoring_conclusion', lang)}:** {conclusion_text}\n"
+            f"*   **{get_text('monitoring_conclusion', lang)}:** {conclusion_text_monitoring}\n"
             f"*   **{get_text('monitoring_bullish_scenario', lang)}:**\n"
             f"    *   {get_text('monitoring_activation_condition', lang)}: {bullish_activation}\n"
             f"    *   {get_text('monitoring_expected_targets', lang)}: {format_dynamic_price(bullish_targets.get('tp1'))}\n"
@@ -80,11 +84,6 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
 
     # --- Other Details ---
     key_level_text = f"{format_dynamic_price(scenario1.get('entry_zone', {}).get('start'))} - {format_dynamic_price(scenario1.get('entry_zone', {}).get('end'))}" if signal in ['BUY', 'SELL'] else f"{format_dynamic_price(swing_high.get('price'))} / {format_dynamic_price(swing_low.get('price'))}"
-
-    higher_tf_info = analysis_data.get('higher_tf_trend_info') or {}
-    mta_trend_name = get_text(f"trend_{higher_tf_info.get('trend', 'sideways')}", lang)
-    mta_emoji = trend_map.get(higher_tf_info.get('trend', 'sideways'), ('↔️', ''))[0]
-    mta_compatibility = get_text('compatible', lang) if trend == higher_tf_info.get('trend') and higher_tf_info else ""
 
     adx_value = latest_data.get('adx', 0.0)
     adx_text = get_text('strong_trend', lang) if adx_value >= 25 else ""
@@ -102,7 +101,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     resistance_levels = " | ".join([format_dynamic_price(lvl['level']) for lvl in key_levels if lvl['level'] > current_price] or ["N/A"])
     support_levels = " | ".join([format_dynamic_price(lvl['level']) for lvl in key_levels if lvl['level'] <= current_price] or ["N/A"])
 
-    # --- 2. Create the final replacements dictionary ---
+    # --- 2. Create the final, unified replacements dictionary ---
     replacements = {
         "report_title_text": get_text('report_title', lang).format(symbol=symbol, timeframe=timeframe),
         "report_updated_at_text": get_text('report_updated_at', lang).format(date=now.strftime('%Y-%m-%d'), time=now.strftime('%H:%M')),
