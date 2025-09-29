@@ -27,6 +27,6 @@
 **الخلاصة والسيناريوهات المحتملة**
 **الخلاصة:** {final_reason}
 
-{suggested_trade_section}
+{trade_plan_section}
 
 *تحليل آلي، ليس توصية استثمارية مباشرة.*

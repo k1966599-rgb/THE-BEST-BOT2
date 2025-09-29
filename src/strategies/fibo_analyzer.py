@@ -114,10 +114,13 @@ class FiboAnalyzer(BaseStrategy):
         score = result.get('score', 0)
         max_score = sum(self.weights.values())
         result['confidence'] = round(50 + (score / max_score) * 45 if max_score > 0 else 50)
+
         scenario1 = result.get('scenarios', {}).get('scenario1', {})
-        entry_price = scenario1.get('entry')
+        # Use the 'best' entry price from the entry zone for R/R calculation
+        entry_price = scenario1.get('entry_zone', {}).get('best')
         stop_loss = scenario1.get('stop_loss')
-        target = scenario1.get('target')
+        # Use the first take-profit target for a conservative R/R calculation
+        target = scenario1.get('targets', {}).get('tp1')
 
         if entry_price and stop_loss and target:
             potential_loss = abs(entry_price - stop_loss)
@@ -127,8 +130,10 @@ class FiboAnalyzer(BaseStrategy):
             if potential_loss > 0:
                 result['rr_ratio'] = round(potential_profit / potential_loss, 2)
             else:
-                # If there's no risk, the ratio is effectively infinite, but we'll represent it as 0 for practicality.
                 result['rr_ratio'] = 0.0
+        else:
+             result['rr_ratio'] = 0.0 # Default if values are missing
+
         return result
 
     def _generate_scenarios(self, result: Dict) -> Dict:
@@ -136,20 +141,47 @@ class FiboAnalyzer(BaseStrategy):
         signal = result.get('signal', 'HOLD')
         score = result.get('score', 0)
         high, low = result['swing_high']['price'], result['swing_low']['price']
-        entry = result['current_price']
-        extensions = result['extensions']
+        retracements = result.get('retracements', {})
+        extensions = result.get('extensions', {})
         atr = result.get('latest_data', {}).get('atr', 0)
+
+        # Define Entry Zone based on Fibonacci retracement levels
+        entry_zone = {
+            "best": retracements.get('fib_618'),
+            "start": retracements.get('fib_500'),
+            "end": retracements.get('fib_618')
+        }
+        if entry_zone['start'] and entry_zone['end']:
+            if (fibo_trend == 'up' and entry_zone['start'] < entry_zone['end']) or \
+               (fibo_trend == 'down' and entry_zone['start'] > entry_zone['end']):
+                entry_zone['start'], entry_zone['end'] = entry_zone['end'], entry_zone['start']
+
+        # Define Multiple Take-Profit Targets
+        targets = {
+            "tp1": extensions.get('ext_1272'),
+            "tp2": extensions.get('ext_1618'),
+            "tp3": extensions.get('ext_2618')
+        }
 
         prob_primary = min(60 + (score * 4), 95) if signal in ['BUY', 'SELL'] else 50
         prob_secondary = 100 - prob_primary
 
         if fibo_trend == 'up':
-            primary = {"title": "صعود نحو الأهداف", "prob": prob_primary, "target": extensions.get('ext_1618', high * 1.05), "entry": entry, "stop_loss": low - (atr * self.atr_multiplier)}
-            secondary = {"title": "فشل السيناريو والهبوط", "prob": prob_secondary, "target": low, "entry": entry, "stop_loss": high + (atr * self.atr_multiplier)}
+            primary = {
+                "title": "صعود نحو الأهداف", "prob": prob_primary,
+                "entry_zone": entry_zone,
+                "stop_loss": low - (atr * self.atr_multiplier),
+                "targets": targets
+            }
+            secondary = {"title": "فشل السيناريو والهبوط", "prob": prob_secondary, "target": low, "stop_loss": high + (atr * self.atr_multiplier)}
         else:
-            diff = high - low
-            primary = {"title": "هبوط نحو الأهداف", "prob": prob_primary, "target": low - (diff * 1.618), "entry": entry, "stop_loss": high + (atr * self.atr_multiplier)}
-            secondary = {"title": "فشل السيناريو والصعود", "prob": prob_secondary, "target": high, "entry": entry, "stop_loss": low - (atr * self.atr_multiplier)}
+            primary = {
+                "title": "هبوط نحو الأهداف", "prob": prob_primary,
+                "entry_zone": entry_zone,
+                "stop_loss": high + (atr * self.atr_multiplier),
+                "targets": targets
+            }
+            secondary = {"title": "فشل السيناريو والصعود", "prob": prob_secondary, "target": high, "stop_loss": low - (atr * self.atr_multiplier)}
 
         if signal == 'HOLD':
             primary['title'] = f"السيناريو المحتمل ({primary['title']})"

@@ -44,6 +44,15 @@ TEXTS = {
         "error_not_enough_historical_data": "⚠️ عذراً، لا توجد بيانات تاريخية كافية لتحليل {symbol} على إطار {timeframe}.\n\nيرجى محاولة استخدام إطار زمني أطول (مثل 1D أو 1W).",
         "error_not_enough_data_detailed": "⚠️ عذراً، لا توجد بيانات كافية لتحليل {symbol} على إطار {timeframe}. (مطلوب: {required} شمعة، متوفر: {available})",
 
+        # --- Trade Plan ---
+        "trade_plan_title": "خطة التداول المقترحة",
+        "entry_zone": "منطقة الدخول",
+        "best_entry": "أفضل سعر للدخول",
+        "stop_loss": "وقف الخسارة",
+        "targets": "الأهداف (جني الأرباح)",
+        "risk_to_reward": "نسبة المخاطرة للعائد",
+        "confidence": "نسبة الثقة",
+
         # --- Bot Control ---
         "bot_starting_log": "جاري تشغيل بوت التليجرام...",
     },
@@ -86,6 +95,15 @@ TEXTS = {
         "error_unknown_api": "An unexpected error occurred from the data provider. ({status_code})",
         "error_not_enough_historical_data": "⚠️ Sorry, not enough historical data to analyze {symbol} on the {timeframe} timeframe.\n\nPlease try a longer timeframe (e.g., 1D or 1W).",
         "error_not_enough_data_detailed": "⚠️ Sorry, not enough data to analyze {symbol} on the {timeframe} timeframe. (Required: {required} candles, Available: {available})",
+
+        # --- Trade Plan ---
+        "trade_plan_title": "Suggested Trade Plan",
+        "entry_zone": "Entry Zone",
+        "best_entry": "Best Entry Price",
+        "stop_loss": "Stop Loss",
+        "targets": "Targets (Take Profit)",
+        "risk_to_reward": "Risk/Reward Ratio",
+        "confidence": "Confidence Level",
 
         # --- Bot Control ---
         "bot_starting_log": "Starting Telegram bot...",
