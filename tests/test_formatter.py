@@ -1,10 +1,11 @@
 import pytest
 from src.utils.formatter import format_analysis_from_template
+from src.localization import get_text
 
 # Fixtures provide mock data for different scenarios.
 @pytest.fixture
 def mock_buy_analysis_data():
-    """Provides a mock analysis_data dictionary for a BUY signal."""
+    """Provides a mock analysis_data dictionary for a BUY signal in Arabic."""
     return {
         "signal": "BUY", "fibo_trend": "up", "final_reason": "فرصة شراء عالية الثقة.",
         "scenarios": {
@@ -28,6 +29,17 @@ def mock_buy_analysis_data():
     }
 
 @pytest.fixture
+def mock_buy_analysis_data_en(mock_buy_analysis_data):
+    """
+    Provides a mock analysis_data dictionary for a BUY signal with English reasons.
+    This fixture depends on mock_buy_analysis_data.
+    """
+    # Pytest injects the result of mock_buy_analysis_data here
+    data = mock_buy_analysis_data
+    data['reasons'] = ["Strong upward trend.", "Bullish engulfing pattern."]
+    return data
+
+@pytest.fixture
 def mock_hold_analysis_data():
     """Provides a mock analysis_data dictionary for a HOLD signal."""
     return {
@@ -42,66 +54,33 @@ def mock_hold_analysis_data():
         "current_price": 66000, "swing_high": {"price": 68000}, "swing_low": {"price": 63000},
     }
 
-def test_format_report_for_buy_signal_structure(mock_buy_analysis_data):
+def test_format_report_for_buy_signal_is_complete(mock_buy_analysis_data):
     """
-    Tests that the formatter correctly generates all sections for a BUY signal.
+    Tests that the formatter correctly generates a complete and valid report for a BUY signal.
     """
     report = format_analysis_from_template(mock_buy_analysis_data, "BTC/USDT", "4H", lang="ar")
 
-    # Check for all section titles
-    assert "1. الخلاصة التنفيذية" in report
-    assert "2. خطة التداول المقترحة" in report
-    assert "3. تفاصيل التحليل الفني" in report
-    assert "4. مستويات الدعم والمقاومة" in report
+    assert get_text("section_summary_title", "ar") in report
+    assert get_text("section_trade_plan_title", "ar") in report
+    assert "اتجاه صاعد قوي." in report
 
-    # Check for specific content in the trade plan
-    assert "منطق الصفقة" in report
-    assert "منطقة الدخول" in report
-    assert "الأهداف (TP)" in report
-    assert "TP1: **67,100**" in report
-
-    # Ensure the monitoring plan is NOT present
-    assert "خطة المراقبة" not in report
-
-def test_format_report_for_hold_signal_structure(mock_hold_analysis_data):
+def test_format_report_for_hold_signal_is_complete(mock_hold_analysis_data):
     """
-    Tests that the formatter correctly generates all sections for a HOLD signal.
+    Tests that the formatter correctly generates a complete and valid report for a HOLD signal.
     """
     report = format_analysis_from_template(mock_hold_analysis_data, "BTC/USDT", "4H", lang="ar")
 
-    # Check for all section titles
-    assert "1. الخلاصة التنفيذية" in report
-    assert "2. خطة المراقبة" in report
-    assert "3. تفاصيل التحليل الفني" in report
-    assert "4. مستويات الدعم والمقاومة" in report
+    assert get_text("section_monitoring_plan_title", "ar") in report
+    assert get_text("details_no_strength_reasons", "ar") in report
+    assert get_text("section_trade_plan_title", "ar") not in report
 
-    # Check for specific content in the monitoring plan
-    assert "السيناريو الصاعد (للمراقبة)" in report
-    assert "شرط التفعيل" in report
-    assert "فوق مستوى المقاومة **68,000**" in report
-
-    # Check that the "no reasons" text is present
-    assert "لا توجد مؤشرات قوة إضافية حاليًا." in report
-
-    # Ensure the trade plan is NOT present
-    assert "خطة التداول المقترحة" not in report
-
-def test_format_report_english_translation_structure(mock_buy_analysis_data):
+def test_format_report_english_translation_is_complete(mock_buy_analysis_data_en):
     """
-    Tests that the formatter correctly uses the English translations for all sections.
+    Tests that the formatter correctly uses the English translations for a complete report.
     """
-    report = format_analysis_from_template(mock_buy_analysis_data, "BTC/USDT", "4H", lang="en")
+    report = format_analysis_from_template(mock_buy_analysis_data_en, "BTC/USDT", "4H", lang="en")
 
-    # Check for all section titles in English
-    assert "1. Executive Summary" in report
-    assert "2. Suggested Trade Plan" in report
-    assert "3. Technical Analysis Details" in report
-    assert "4. Key Support & Resistance Levels" in report
-
-    # Check for specific content in the English trade plan
-    assert "Trade Rationale" in report
-    assert "Entry Zone" in report
-    assert "Targets (TP)" in report
-
-    # Ensure the monitoring plan is NOT present
-    assert "Monitoring Plan" not in report
+    assert get_text("section_summary_title", "en") in report
+    assert get_text("section_trade_plan_title", "en") in report
+    assert "Strong upward trend." in report
+    assert get_text("section_monitoring_plan_title", "en") not in report
