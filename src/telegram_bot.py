@@ -254,8 +254,10 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
                 f"لا توجد بيانات تاريخية كافية للتحليل لـ {symbol} على فريم {timeframe}."
             )
     except (APIError, NetworkError) as e:
-        logger.error(f"Network error for {symbol} on {timeframe}: {e}")
-        await query.message.reply_text("حدث خطأ في الاتصال بالـ API. يرجى المحاولة مرة أخرى لاحقًا.")
+        logger.error(f"Detailed network error for {symbol} on {timeframe}: {e}")
+        # Provide a more detailed error message to the user for debugging
+        detailed_error_message = f"فشل الاتصال بالـ API.\n\n**السبب:**\n`{e}`\n\nيرجى التحقق من إعدادات الـ API أو المحاولة مرة أخرى."
+        await query.message.reply_text(detailed_error_message)
     except Exception as e:
         logger.error(f"An unexpected error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
         await query.message.reply_text("حدث خطأ غير متوقع. يرجى مراجعة سجلات الأخطاء.")
