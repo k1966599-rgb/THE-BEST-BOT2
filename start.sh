@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# Script to gracefully stop, update, and restart the Telegram analysis bot
-# using a Python virtual environment.
+# Script to prepare and run the Telegram analysis bot.
+# This script is designed to be managed by a process manager like pm2.
+# It ensures the environment is set up and then runs the bot in the foreground.
 
-BOT_PROCESS_NAME="python main.py"
-LOG_FILE="bot.log"
 VENV_DIR="venv"
 
 echo ">>> 1. Checking for Virtual Environment..."
@@ -24,32 +23,13 @@ fi
 PYTHON_EXEC="$VENV_DIR/bin/python"
 PIP_EXEC="$VENV_DIR/bin/pip"
 
-echo ">>> 2. Attempting to stop any existing bot process..."
-# Find the process ID (PID) of the bot. The `grep -v grep` part is to exclude the grep process itself.
-# We also look for the venv path to be more specific.
-PID=$(ps aux | grep "$VENV_DIR/bin/python main.py" | grep -v grep | awk '{print $2}')
-
-if [ -n "$PID" ]; then
-    echo "    - Bot process found with PID: $PID. Stopping it now."
-    kill $PID
-    # Wait a moment for the process to terminate
-    sleep 2
-    echo "    - Process stopped."
-else
-    echo "    - No running bot process found. Continuing."
-fi
-
-echo ">>> 3. Pulling latest changes from Git..."
+echo ">>> 2. Pulling latest changes from Git..."
 git pull
 
-echo ">>> 4. Installing/Updating dependencies into the virtual environment..."
+echo ">>> 3. Installing/Updating dependencies into the virtual environment..."
 $PIP_EXEC install -r requirements.txt
 
-echo ">>> 5. Starting the bot in the background using the virtual environment..."
-# Use nohup to keep the process running after the terminal is closed.
-# Redirect stdout and stderr to a log file.
-nohup $PYTHON_EXEC main.py > $LOG_FILE 2>&1 &
-
-echo ">>> Bot has been started successfully."
-echo ">>> You can view the logs by running: tail -f $LOG_FILE"
-echo ">>> To stop the bot, run this script again or use 'pkill -f \"$BOT_PROCESS_NAME\"'"
+echo ">>> 4. Starting bot process in the foreground (for pm2 to manage)..."
+# The 'exec' command replaces the shell process with the Python process.
+# This is the correct way to hand over control to a process manager like pm2.
+exec $PYTHON_EXEC main.py
