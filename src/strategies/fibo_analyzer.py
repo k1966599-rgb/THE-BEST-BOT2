@@ -48,6 +48,8 @@ class FiboAnalyzer(BaseStrategy):
         self.adx_threshold = p.get('adx_trend_threshold', 25)
         self.signal_threshold = p.get('signal_threshold', 5)
         self.require_adx_confirmation = p.get('require_adx_confirmation', True)
+        self.trend_confirmation_multiplier = p.get('trend_confirmation_multiplier', 1.5)
+        self.mta_confidence_modifier = p.get('mta_confidence_modifier', 20) # Percentage modifier
 
         self.weights = p.get('scoring_weights', {
             'confluence_zone': 2, 'rsi_confirm': 1, 'macd_confirm': 1,
@@ -73,10 +75,14 @@ class FiboAnalyzer(BaseStrategy):
                     zones.append({"level": (pv + sv) / 2, "p_level": pk, "s_level": sk})
         return zones
 
-    def _calculate_confirmation_score(self, data: pd.DataFrame, fibo_trend: str) -> Dict[str, Any]:
+    def _calculate_confirmation_score(self, data: pd.DataFrame, fibo_trend: str, main_trend: str) -> Dict[str, Any]:
         score, reasons = 0, []
         data['volume_sma'] = data['volume'].rolling(window=self.volume_period).mean()
         latest = data.iloc[-1]
+
+        # Determine the multiplier if the signal aligns with the main trend
+        trend_aligned = (fibo_trend == main_trend)
+        multiplier = self.trend_confirmation_multiplier if trend_aligned else 1.0
 
         bullish_patterns = ["Bullish Engulfing", "Hammer", "Morning Star", "Piercing Pattern", "Three White Soldiers", "Tweezer Bottom"]
         bearish_patterns = ["Bearish Engulfing", "Shooting Star", "Evening Star", "Dark Cloud Cover", "Three Black Crows", "Tweezer Top"]
@@ -85,38 +91,38 @@ class FiboAnalyzer(BaseStrategy):
         # Each reason is a dict with a key for localization and optional context
         if fibo_trend == 'up':
             if latest['rsi'] > 50:
-                score += self.weights.get('rsi_confirm', 1)
+                score += self.weights.get('rsi_confirm', 1) * multiplier
                 reasons.append({'key': 'reason_rsi_confirm_up', 'context': {'value': f"{latest['rsi']:.2f}"}})
             if latest['macd'] > latest['signal_line']:
-                score += self.weights.get('macd_confirm', 1)
+                score += self.weights.get('macd_confirm', 1) * multiplier
                 reasons.append({'key': 'reason_macd_confirm_up'})
             if latest['stoch_k'] < 30 and latest['stoch_k'] > latest['stoch_d']:
-                score += self.weights.get('stoch_confirm', 1)
+                score += self.weights.get('stoch_confirm', 1) # Stochastic is an oscillator, not trend-dependent
                 reasons.append({'key': 'reason_stoch_confirm_up'})
             if pattern in bullish_patterns:
-                score += self.weights.get('reversal_pattern', 2)
+                score += self.weights.get('reversal_pattern', 2) * multiplier
                 reasons.append({'key': 'reason_pattern_confirm_up', 'context': {'pattern': pattern}})
         else: # 'down'
             if latest['rsi'] < 50:
-                score += self.weights.get('rsi_confirm', 1)
+                score += self.weights.get('rsi_confirm', 1) * multiplier
                 reasons.append({'key': 'reason_rsi_confirm_down', 'context': {'value': f"{latest['rsi']:.2f}"}})
             if latest['macd'] < latest['signal_line']:
-                score += self.weights.get('macd_confirm', 1)
+                score += self.weights.get('macd_confirm', 1) * multiplier
                 reasons.append({'key': 'reason_macd_confirm_down'})
             if latest['stoch_k'] > 70 and latest['stoch_k'] < latest['stoch_d']:
-                score += self.weights.get('stoch_confirm', 1)
+                score += self.weights.get('stoch_confirm', 1) # Stochastic is an oscillator
                 reasons.append({'key': 'reason_stoch_confirm_down'})
             if pattern in bearish_patterns:
-                score += self.weights.get('reversal_pattern', 2)
+                score += self.weights.get('reversal_pattern', 2) * multiplier
                 reasons.append({'key': 'reason_pattern_confirm_down', 'context': {'pattern': pattern}})
 
         volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
         if latest['volume'] > volume_threshold:
             if fibo_trend == 'up' and latest['close'] > latest['open']:
-                score += self.weights.get('volume_spike', 2)
+                score += self.weights.get('volume_spike', 2) * multiplier
                 reasons.append({'key': 'reason_volume_confirm_up'})
             elif fibo_trend == 'down' and latest['close'] < latest['open']:
-                score += self.weights.get('volume_spike', 2)
+                score += self.weights.get('volume_spike', 2) * multiplier
                 reasons.append({'key': 'reason_volume_confirm_down'})
 
         return {"score": score, "reasons": reasons, "pattern": pattern}
@@ -124,7 +130,20 @@ class FiboAnalyzer(BaseStrategy):
     def _calculate_risk_metrics(self, result: Dict[str, Any]) -> Dict[str, Any]:
         score = result.get('score', 0)
         max_score = sum(self.weights.values())
-        result['confidence'] = round(50 + (score / max_score) * 45 if max_score > 0 else 50)
+
+        # Base confidence score
+        base_confidence = round(50 + (score / max_score) * 45 if max_score > 0 else 50)
+
+        # Modify confidence based on MTA sentiment
+        mta_sentiment = result.get('mta_sentiment', 'neutral')
+        if mta_sentiment == 'aligned':
+            final_confidence = min(100, base_confidence + self.mta_confidence_modifier)
+        elif mta_sentiment == 'conflicting':
+            final_confidence = max(0, base_confidence - self.mta_confidence_modifier)
+        else:
+            final_confidence = base_confidence
+
+        result['confidence'] = final_confidence
 
         scenario1 = result.get('scenarios', {}).get('scenario1', {})
         # Use the 'best' entry price from the entry zone for R/R calculation
@@ -289,7 +308,7 @@ class FiboAnalyzer(BaseStrategy):
         result['extensions'] = calculate_fib_extensions(p_high['price'], p_low['price'], fibo_trend)
         result['confluence_zones'] = self._find_confluence_zones(result['retracements'], result['extensions'])
 
-        confirm_data = self._calculate_confirmation_score(data, fibo_trend)
+        confirm_data = self._calculate_confirmation_score(data, fibo_trend, result['trend'])
         result.update(confirm_data)
 
         score_met = result['score'] >= self.signal_threshold
@@ -304,32 +323,23 @@ class FiboAnalyzer(BaseStrategy):
         else:
             result['final_reason'] = {'key': 'final_reason_score_not_met', 'context': {'score': result['score'], 'threshold': self.signal_threshold}}
 
-        # --- MTA Confirmation ---
+        # --- MTA Sentiment Analysis ---
+        # Determine if the signal aligns with, conflicts with, or is neutral to the higher timeframe trend.
+        result['mta_sentiment'] = 'neutral'
         higher_tf_trend_info = result.get('higher_tf_trend_info')
         if higher_tf_trend_info and result['signal'] != 'HOLD':
             higher_trend = higher_tf_trend_info.get('trend')
-            higher_tf = higher_tf_trend_info.get('timeframe')
 
-            override = False
-            # Override BUY signal if higher trend is down
-            if higher_trend == 'down' and result['signal'] == 'BUY':
-                override = True
-            # Override SELL signal if higher trend is up
-            elif higher_trend == 'up' and result['signal'] == 'SELL':
-                override = True
-
-            if override:
-                original_signal = result['signal']
-                result['signal'] = 'HOLD'
-                result['final_reason'] = {
-                    'key': 'final_reason_mta_override',
-                    'context': {
-                        'original_signal': original_signal,
-                        'higher_tf': higher_tf,
-                        'higher_trend': higher_trend
-                    }
-                }
-                result['mta_override'] = True
+            # Check for alignment
+            if (result['signal'] == 'BUY' and higher_trend == 'up') or \
+               (result['signal'] == 'SELL' and higher_trend == 'down'):
+                result['mta_sentiment'] = 'aligned'
+                result['reasons'].append({'key': 'reason_mta_aligned'})
+            # Check for conflict
+            elif (result['signal'] == 'BUY' and higher_trend == 'down') or \
+                 (result['signal'] == 'SELL' and higher_trend == 'up'):
+                result['mta_sentiment'] = 'conflicting'
+                result['reasons'].append({'key': 'reason_mta_conflicting'})
 
     def _finalize_analysis(self, result: Dict):
         result['scenarios'] = self._generate_scenarios(result)
