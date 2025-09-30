@@ -339,7 +339,7 @@ class FiboAnalyzer(BaseStrategy):
     def _identify_key_levels(self, result: Dict):
         """
         Identifies and adds key support and resistance levels to the result,
-        including the single most important support and resistance.
+        including the single most important support and resistance with their types.
         """
         levels = []
         swing_high = result.get('swing_high', {}).get('price')
@@ -347,26 +347,35 @@ class FiboAnalyzer(BaseStrategy):
         retracements = result.get('retracements', {})
         current_price = result.get('current_price', 0)
 
-        if swing_high: levels.append({'level': swing_high, 'type': 'Swing High'})
-        if swing_low: levels.append({'level': swing_low, 'type': 'Swing Low'})
+        if swing_high: levels.append({'level': swing_high, 'type': 'قمة سابقة'})
+        if swing_low: levels.append({'level': swing_low, 'type': 'قاع سابق'})
 
         fib_levels_to_add = ['fib_382', 'fib_500', 'fib_618']
         for key in fib_levels_to_add:
             level_value = retracements.get(key)
             if level_value:
-                level_ratio = int(key.split('_')[1]) / 1000
-                levels.append({'level': level_value, 'type': f"Fibo {level_ratio}"})
+                level_ratio = key.replace('fib_', '0.')
+                levels.append({'level': level_value, 'type': f"فيبوناتشي {level_ratio}"})
 
         # Sort levels by price to make finding support/resistance easier
         levels.sort(key=lambda x: x['level'])
 
         # Find first level below current price (support) and first above (resistance)
-        key_support = next((lvl for lvl in reversed(levels) if lvl['level'] < current_price), None)
-        key_resistance = next((lvl for lvl in levels if lvl['level'] > current_price), None)
+        key_support_dict = next((lvl for lvl in reversed(levels) if lvl['level'] < current_price), None)
+        key_resistance_dict = next((lvl for lvl in levels if lvl['level'] > current_price), None)
 
         result['key_levels'] = levels
-        result['key_support'] = key_support.get('level') if key_support else swing_low
-        result['key_resistance'] = key_resistance.get('level') if key_resistance else swing_high
+
+        # Store the full dictionary for key support and resistance, with fallbacks
+        if key_support_dict:
+            result['key_support'] = key_support_dict
+        else:
+            result['key_support'] = {'level': swing_low, 'type': 'قاع سابق'} if swing_low else {}
+
+        if key_resistance_dict:
+            result['key_resistance'] = key_resistance_dict
+        else:
+            result['key_resistance'] = {'level': swing_high, 'type': 'قمة سابقة'} if swing_high else {}
 
     def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str, higher_tf_trend_info: Dict[str, Any] = None) -> Dict[str, Any]:
         data = self._prepare_data(data)
