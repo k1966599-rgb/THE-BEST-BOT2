@@ -46,10 +46,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = f"{header}\n\n{status}\n{time_info}"
 
     keyboard = [
-        [
-            InlineKeyboardButton("تحليل", callback_data='analyze_start'),
-            InlineKeyboardButton("متابعة التحليل", callback_data='bot_status')
-        ],
+        [InlineKeyboardButton("بدء التحليل", callback_data='analyze_start')],
+        [InlineKeyboardButton("حول البوت", callback_data='about_bot')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -119,6 +117,29 @@ async def select_term(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     )
     return TERM
 
+async def back_to_term_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handles the 'Back' button from the timeframe selection, returning to term selection."""
+    query = update.callback_query
+    await query.answer()
+
+    symbol = context.user_data.get('symbol', 'العملة')
+
+    keyboard = [
+        [
+            InlineKeyboardButton("طويل المدى", callback_data='term_long_term'),
+            InlineKeyboardButton("متوسط المدى", callback_data='term_medium_term'),
+            InlineKeyboardButton("قصير المدى", callback_data='term_short_term'),
+        ],
+        [InlineKeyboardButton("العودة", callback_data='analyze_start')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        text=f"اختر فئة الفريمات للعملة {symbol}:",
+        reply_markup=reply_markup
+    )
+    return TERM
+
 async def select_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Asks for the specific timeframe (e.g., 1H, 4H)."""
     query = update.callback_query
@@ -140,7 +161,7 @@ async def select_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         for i in range(0, len(timeframes), 3)
     ]
     # The callback for the back button should go to the previous state (term selection)
-    keyboard.append([InlineKeyboardButton("العودة", callback_data=f'symbol_{context.user_data["symbol"]}')])
+    keyboard.append([InlineKeyboardButton("العودة", callback_data='back_to_term')])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     term_map = {"long_term": "طويل المدى", "medium_term": "متوسط المدى", "short_term": "قصير المدى"}
@@ -293,8 +314,25 @@ async def post_init(application: Application) -> None:
     """Initializes the background scheduler and loads config."""
     config = application.bot_data.get('config', get_config())
     application.bot_data['config'] = config
+
+    # --- Scheduler Setup ---
     scheduler = AsyncIOScheduler(timezone="UTC")
-    logger.info(get_text("scheduler_disabled_log"))
+
+    # Get analysis interval from config, default to 4 hours
+    interval_hours = config.get('analysis_interval_hours', 4)
+
+    # Schedule the periodic analysis job
+    scheduler.add_job(
+        run_periodic_analysis,
+        "interval",
+        hours=interval_hours,
+        args=[application],
+        name="periodic_analysis_job"
+    )
+
+    # Start the scheduler
+    scheduler.start()
+    logger.info(f"Scheduler started. Periodic analysis will run every {interval_hours} hours.")
 
 conv_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(analyze_entry, pattern='^analyze_start$')],
@@ -303,7 +341,7 @@ conv_handler = ConversationHandler(
         TERM: [CallbackQueryHandler(select_timeframe, pattern='^term_')],
         TIMEFRAME: [
             CallbackQueryHandler(run_analysis, pattern='^timeframe_'),
-            CallbackQueryHandler(select_term, pattern='^symbol_')
+            CallbackQueryHandler(back_to_term_selection, pattern='^back_to_term$')
         ],
     },
     fallbacks=[CallbackQueryHandler(start, pattern='^main_menu$')],

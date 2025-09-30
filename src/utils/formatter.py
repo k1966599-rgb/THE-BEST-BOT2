@@ -86,6 +86,29 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         target_2 = "N/A"
         target_3 = "N/A"
 
+    stoch_k_val = latest_data.get('stoch_k', 0)
+    stoch_d_val = latest_data.get('stoch_d', 0)
+    stoch_interpretation = "N/A"
+    if stoch_k_val > 80 and stoch_d_val > 80:
+        stoch_interpretation = "تشبع شرائي"
+    elif stoch_k_val < 20 and stoch_d_val < 20:
+        stoch_interpretation = "تشبع بيعي"
+    elif stoch_k_val > stoch_d_val:
+        stoch_interpretation = "إشارة إيجابية"
+    else:
+        stoch_interpretation = "إشارة سلبية"
+
+    volume_sma = latest_data.get('volume_sma', 0)
+    current_volume = latest_data.get('volume', 0)
+    volume_analysis_text = "N/A"
+    if volume_sma > 0 and current_volume > 0:
+        if current_volume > volume_sma * 1.5:
+            volume_analysis_text = "حجم تداول مرتفع"
+        elif current_volume < volume_sma * 0.5:
+            volume_analysis_text = "حجم تداول منخفض"
+        else:
+            volume_analysis_text = "حجم تداول متوسط"
+
     # Fill the replacements dictionary
     replacements = {
         "symbol": symbol,
@@ -103,9 +126,9 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "macd_signal": f"{macd_signal_line:.6f}",
         "macd_histogram": f"{macd_histogram:.6f}",
         "macd_interpretation": macd_interpretation,
-        "stoch_k": "N/A",
-        "stoch_d": "N/A",
-        "stoch_interpretation": "N/A",
+        "stoch_k": f"{stoch_k_val:.2f}",
+        "stoch_d": f"{stoch_d_val:.2f}",
+        "stoch_interpretation": stoch_interpretation,
         "swing_high": format_dynamic_price(swing_high.get('price')),
         "swing_low": format_dynamic_price(swing_low.get('price')),
         "fib_236": format_dynamic_price(fib_levels.get(0.236)),
@@ -113,7 +136,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "fib_500": format_dynamic_price(fib_levels.get(0.5)),
         "fib_618": format_dynamic_price(fib_levels.get(0.618)),
         "fib_786": format_dynamic_price(fib_levels.get(0.786)),
-        "volume_analysis": "N/A",
+        "volume_analysis": volume_analysis_text,
         "trade_recommendation": trade_recommendation,
         "entry_price": entry_price,
         "stop_loss": stop_loss,
