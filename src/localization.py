@@ -25,9 +25,7 @@ TEXTS = {
         "targets": "الأهداف (TP)",
 
         "section_monitoring_plan_title": "--- 2. خطة المراقبة ---",
-        "monitoring_conclusion": "الوضع الحالي",
-        "monitoring_bullish_scenario": "السيناريو الصاعد (للمراقبة)",
-        "monitoring_bearish_scenario": "السيناريو الهابط (للمراقبة)",
+        "monitoring_conclusion": "الخلاصة",
         "monitoring_activation_condition": "شرط التفعيل",
         "monitoring_expected_targets": "الأهداف المتوقعة",
 
@@ -42,13 +40,13 @@ TEXTS = {
         "details_trend_strength": "قوة الاتجاه (ADX)",
         "details_momentum": "الزخم (RSI)",
         "details_macd": "التقارب والتباعد (MACD)",
-        "details_confirmation_score": "مؤشرات القوة",
-        "details_no_strength_reasons": "لا توجد مؤشرات قوة إضافية حاليًا.",
-        "details_alternative_scenario": "السيناريو البديل",
-        "details_cancellation_condition": "يتم إلغاء فكرة {signal_type} إذا تم كسر وقف الخسارة عند {stop_loss}. في هذه الحالة، قد يتجه السعر لاختبار المستوى التالي.",
+        "details_confirmation_score": "نقاط القوة",
+        "details_no_strength_reasons": "لا توجد نقاط قوة إضافية حاليًا.",
+        "details_alternative_scenario": "السيناريو البديل وإلغاء الفكرة",
+        "details_cancellation_condition": "تُلغى فكرة {signal_type} بكسر وقف الخسارة عند {stop_loss}، وقد يتجه السعر بعدها لاختبار مناطق أدنى.",
 
         # --- Section 4: Support & Resistance ---
-        "section_support_resistance_title": "--- 4. مستويات الدعم والمقاومة الرئيسية ---",
+        "section_support_resistance_title": "--- 4. مستويات الدعم والمقاومة ---",
         "sr_resistance": "مقاومة",
         "sr_support": "دعم",
 
@@ -65,6 +63,35 @@ TEXTS = {
         "positive_momentum": "زخم إيجابي",
         "negative_momentum": "زخم سلبي",
         "compatible": "متوافق",
+
+        # --- Analysis Reasons & Conclusions (from FiboAnalyzer) ---
+        "reason_rsi_confirm_up": "مؤشر القوة النسبية فوق 50 (القيمة: {value})",
+        "reason_macd_confirm_up": "تقاطع MACD إيجابي",
+        "reason_stoch_confirm_up": "مؤشر ستوكاستيك يظهر انعكاسًا من التشبع البيعي",
+        "reason_pattern_confirm_up": "نموذج انعكاسي صاعد: {pattern}",
+        "reason_rsi_confirm_down": "مؤشر القوة النسبية تحت 50 (القيمة: {value})",
+        "reason_macd_confirm_down": "تقاطع MACD سلبي",
+        "reason_stoch_confirm_down": "مؤشر ستوكاستيك يظهر انعكاسًا من التشبع الشرائي",
+        "reason_pattern_confirm_down": "نموذج انعكاسي هابط: {pattern}",
+        "reason_volume_confirm_up": "تأكيد طفرة حجم تداول صاعدة",
+        "reason_volume_confirm_down": "تأكيد طفرة حجم تداول هابطة",
+
+        "final_reason_signal_confirmed": "بناءً على {score} نقطة قوة مع اتجاه {trend} مؤكد.",
+        "final_reason_score_met_adx_weak": "تم تحقيق النقاط المطلوبة لكن قوة الاتجاه ضعيفة (ADX: {adx})",
+        "final_reason_score_not_met": "لم يتم تحقيق الحد الأدنى من نقاط القوة ({score}/{threshold})، لذا يتم انتظار إشارة أوضح.",
+        "final_reason_mta_override": "تم تعليق إشارة {original_signal} بسبب تعارضها مع الاتجاه العام الهابط على إطار {higher_tf}.",
+
+        "scenario_title_up_primary": "السيناريو الصاعد الأساسي",
+        "scenario_title_up_secondary": "السيناريو الهابط البديل",
+        "scenario_title_down_primary": "السيناريو الهابط الأساسي",
+        "scenario_title_down_secondary": "السيناريو الصاعد البديل",
+        "scenario_title_up_primary_hold": "السيناريو الصاعد المحتمل",
+        "scenario_title_up_secondary_hold": "السيناريو الهابط المحتمل",
+        "scenario_title_down_primary_hold": "السيناريو الهابط المحتمل",
+        "scenario_title_down_secondary_hold": "السيناريو الصاعد المحتمل",
+
+        # --- Error Messages ---
+        "error_no_valid_swings": "تعذر تحديد قمم وقيعان واضحة للتحليل. يرجى تجربة إطار زمني مختلف.",
     },
     'en': {
         # --- Main Report Structure ---
@@ -90,9 +117,7 @@ TEXTS = {
         "targets": "Targets (TP)",
 
         "section_monitoring_plan_title": "--- 2. Monitoring Plan ---",
-        "monitoring_conclusion": "Current Situation",
-        "monitoring_bullish_scenario": "Bullish Scenario (to watch)",
-        "monitoring_bearish_scenario": "Bearish Scenario (to watch)",
+        "monitoring_conclusion": "Conclusion",
         "monitoring_activation_condition": "Activation Condition",
         "monitoring_expected_targets": "Expected Targets",
 
@@ -107,10 +132,10 @@ TEXTS = {
         "details_trend_strength": "Trend Strength (ADX)",
         "details_momentum": "Momentum (RSI)",
         "details_macd": "Convergence/Divergence (MACD)",
-        "details_confirmation_score": "Confirmation Score",
-        "details_no_strength_reasons": "No additional strength indicators are present currently.",
-        "details_alternative_scenario": "Alternative Scenario",
-        "details_cancellation_condition": "The {signal_type} idea is invalidated if the stop loss at {stop_loss} is breached. In this case, the price may test the next level.",
+        "details_confirmation_score": "Strength Score",
+        "details_no_strength_reasons": "No additional strength indicators are currently present.",
+        "details_alternative_scenario": "Alternative Scenario & Invalidation",
+        "details_cancellation_condition": "The {signal_type} idea is invalidated if the stop loss at {stop_loss} is breached, after which the price may test lower levels.",
 
         # --- Section 4: Support & Resistance ---
         "section_support_resistance_title": "--- 4. Key Support & Resistance Levels ---",
@@ -130,6 +155,35 @@ TEXTS = {
         "positive_momentum": "Positive Momentum",
         "negative_momentum": "Negative Momentum",
         "compatible": "Compatible",
+
+        # --- Analysis Reasons & Conclusions (from FiboAnalyzer) ---
+        "reason_rsi_confirm_up": "RSI is above 50 (Value: {value})",
+        "reason_macd_confirm_up": "Positive MACD Crossover",
+        "reason_stoch_confirm_up": "Stochastic shows reversal from oversold",
+        "reason_pattern_confirm_up": "Bullish reversal pattern: {pattern}",
+        "reason_rsi_confirm_down": "RSI is below 50 (Value: {value})",
+        "reason_macd_confirm_down": "Negative MACD Crossover",
+        "reason_stoch_confirm_down": "Stochastic shows reversal from overbought",
+        "reason_pattern_confirm_down": "Bearish reversal pattern: {pattern}",
+        "reason_volume_confirm_up": "Bullish volume spike confirmed",
+        "reason_volume_confirm_down": "Bearish volume spike confirmed",
+
+        "final_reason_signal_confirmed": "Based on {score} strength points with a confirmed {trend} trend.",
+        "final_reason_score_met_adx_weak": "Required score met, but trend strength is weak (ADX: {adx})",
+        "final_reason_score_not_met": "Minimum strength score not met ({score}/{threshold}), waiting for a clearer signal.",
+        "final_reason_mta_override": "The {original_signal} signal is suspended due to conflict with the bearish trend on the {higher_tf} timeframe.",
+
+        "scenario_title_up_primary": "Primary Bullish Scenario",
+        "scenario_title_up_secondary": "Alternative Bearish Scenario",
+        "scenario_title_down_primary": "Primary Bearish Scenario",
+        "scenario_title_down_secondary": "Alternative Bullish Scenario",
+        "scenario_title_up_primary_hold": "Potential Bullish Scenario",
+        "scenario_title_up_secondary_hold": "Potential Bearish Scenario",
+        "scenario_title_down_primary_hold": "Potential Bearish Scenario",
+        "scenario_title_down_secondary_hold": "Potential Bullish Scenario",
+
+        # --- Error Messages ---
+        "error_no_valid_swings": "Could not determine clear swing points for analysis. Please try a different timeframe.",
     }
 }
 

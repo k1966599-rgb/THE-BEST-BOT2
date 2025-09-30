@@ -115,7 +115,8 @@ def test_fibo_analyzer_identifies_buy_signal_in_uptrend(mock_config, sample_uptr
     assert 'scenarios' in analysis_result and analysis_result['scenarios'], "Scenarios should be generated"
     scenario1 = analysis_result['scenarios'].get('scenario1', {})
     assert scenario1, "Scenario 1 should exist"
-    assert scenario1['title'] == "صعود نحو الأهداف", "The scenario title should be correct"
+    assert 'title_key' in scenario1, "Scenario 1 should have a title_key"
+    assert scenario1['title_key'] == "scenario_title_up_primary", "The scenario title key should be correct"
 
     # Verify the new trade plan structure
     assert 'entry_zone' in scenario1, "Scenario 1 should contain an 'entry_zone'"
