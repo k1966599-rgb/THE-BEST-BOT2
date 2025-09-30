@@ -47,7 +47,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     keyboard = [
         [InlineKeyboardButton("بدء التحليل", callback_data='analyze_start')],
-        [InlineKeyboardButton("حول البوت", callback_data='about_bot')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -57,20 +56,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
     else:
         await update.message.reply_text(text=text, reply_markup=reply_markup)
-
-async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Shows the bot status and provides a back button."""
-    query = update.callback_query
-    await query.answer()
-
-    keyboard = [[InlineKeyboardButton("العودة للقائمة الرئيسية", callback_data='main_menu')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    # For now, this button just shows a simple status.
-    await query.edit_message_text(
-        text="ميزة متابعة التحليل قيد التطوير. التحليل الدوري معطل حالياً.",
-        reply_markup=reply_markup
-    )
 
 # --- Analysis Conversation ---
 async def analyze_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
