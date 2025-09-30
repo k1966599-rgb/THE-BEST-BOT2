@@ -337,24 +337,36 @@ class FiboAnalyzer(BaseStrategy):
         self._identify_key_levels(result)
 
     def _identify_key_levels(self, result: Dict):
-        """Identifies and adds key support and resistance levels to the result."""
+        """
+        Identifies and adds key support and resistance levels to the result,
+        including the single most important support and resistance.
+        """
         levels = []
         swing_high = result.get('swing_high', {}).get('price')
         swing_low = result.get('swing_low', {}).get('price')
         retracements = result.get('retracements', {})
+        current_price = result.get('current_price', 0)
 
         if swing_high: levels.append({'level': swing_high, 'type': 'Swing High'})
         if swing_low: levels.append({'level': swing_low, 'type': 'Swing Low'})
 
         fib_levels_to_add = ['fib_382', 'fib_500', 'fib_618']
         for key in fib_levels_to_add:
-            if key in retracements:
+            level_value = retracements.get(key)
+            if level_value:
                 level_ratio = int(key.split('_')[1]) / 1000
-                levels.append({'level': retracements[key], 'type': f"Fibo {level_ratio}"})
+                levels.append({'level': level_value, 'type': f"Fibo {level_ratio}"})
 
-        # Sort levels by price
-        levels.sort(key=lambda x: x['level'], reverse=True)
+        # Sort levels by price to make finding support/resistance easier
+        levels.sort(key=lambda x: x['level'])
+
+        # Find first level below current price (support) and first above (resistance)
+        key_support = next((lvl for lvl in reversed(levels) if lvl['level'] < current_price), None)
+        key_resistance = next((lvl for lvl in levels if lvl['level'] > current_price), None)
+
         result['key_levels'] = levels
+        result['key_support'] = key_support.get('level') if key_support else swing_low
+        result['key_resistance'] = key_resistance.get('level') if key_resistance else swing_high
 
     def get_analysis(self, data: pd.DataFrame, symbol: str, timeframe: str, higher_tf_trend_info: Dict[str, Any] = None) -> Dict[str, Any]:
         data = self._prepare_data(data)
