@@ -36,13 +36,13 @@ SYMBOL, TERM, TIMEFRAME = range(3)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends or edits the main menu message."""
     now = datetime.now()
-    # Center the header text using spaces, assuming a monospaced font environment
+
+    # Centering with spaces is best-effort for plain text.
     header = "             THE BEST BOT             "
-    text = (
-        f"`{header}`\n\n"
-        f"**الحالة:** {get_text('bot_status_ok')}\n"
-        f"**التاريخ والوقت:** `{now.strftime('%Y-%m-%d %H:%M:%S')}`"
-    )
+    status = "الحالة: يعمل"
+    time_info = f"التاريخ والوقت: {now.strftime('%Y-%m-%d %H:%M:%S')}"
+
+    text = f"{header}\n\n{status}\n{time_info}"
 
     keyboard = [
         [
@@ -54,9 +54,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
+        await update.callback_query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup
+        )
     else:
-        await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            text=text,
+            reply_markup=reply_markup
+        )
 
 async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Shows the bot status and provides a back button."""
