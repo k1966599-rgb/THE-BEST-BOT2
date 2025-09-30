@@ -17,7 +17,8 @@ def format_dynamic_price(price: float) -> str:
 
 def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, timeframe: str, lang: str = "ar") -> str:
     """
-    Formats the analysis data into a report using the 'Informed Decision' template.
+    Formats the analysis data into a report using the final, detailed template,
+    ensuring all data points are correctly and safely populated.
     """
     config = get_config()
     timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
@@ -40,12 +41,16 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     except Exception as e:
         return f"Error reading template: {e}"
 
-    # --- Data Extraction and Interpretation ---
+    # --- Safe Data Extraction ---
+    now = datetime.now()
     latest_data = analysis_data.get('latest_data', {})
     scenarios = analysis_data.get('scenarios', {})
     scenario1 = scenarios.get('scenario1', {})
     signal = analysis_data.get('signal', 'HOLD')
     final_reason = analysis_data.get('final_reason')
+    retracements = analysis_data.get('retracements', {})
+    key_support = analysis_data.get('key_support', {})
+    key_resistance = analysis_data.get('key_resistance', {})
 
     # --- Smart Summary Interpretation ---
     summary_text = "لا توجد إشارة واضحة حاليًا. يوصى بالمراقبة."
@@ -63,17 +68,29 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     adx_value = latest_data.get('adx', 0)
     adx_interpretation = "قوي" if adx_value >= 25 else "ضعيف أو عرضي"
 
-    # --- Trade Details ---
+    # --- Trade Details (or N/A for HOLD) ---
     entry_price = "N/A"
     stop_loss = "N/A"
     target_1 = "N/A"
     target_2 = "N/A"
+    trade_recommendation_section = "" # Default to empty
+
     if signal in ['BUY', 'SELL']:
         entry_price = format_dynamic_price(scenario1.get('entry_zone', {}).get('best'))
         stop_loss = format_dynamic_price(scenario1.get('stop_loss'))
         targets = scenario1.get('targets', {})
         target_1 = format_dynamic_price(targets.get('tp1'))
         target_2 = format_dynamic_price(targets.get('tp2'))
+
+        recommendation_lines = [
+            "---",
+            "**صفقة مقترحة**",
+            f"*   **الدخول:** {entry_price}",
+            f"*   **وقف الخسارة:** {stop_loss}",
+            f"*   **الأهداف:** {target_1} | {target_2}"
+        ]
+        trade_recommendation_section = "\n".join(recommendation_lines)
+
 
     # --- Final Replacements Dictionary ---
     replacements = {
@@ -82,15 +99,21 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
         "trend": str(analysis_data.get('trend', 'N/A')).upper(),
         "adx_value": f"{adx_value:.2f}",
         "adx_interpretation": adx_interpretation,
-        "key_support": format_dynamic_price(analysis_data.get('key_support')),
-        "key_resistance": format_dynamic_price(analysis_data.get('key_resistance')),
+        "key_support_price": format_dynamic_price(key_support.get('level')),
+        "key_support_type": key_support.get('type', 'N/A'),
+        "key_resistance_price": format_dynamic_price(key_resistance.get('level')),
+        "key_resistance_type": key_resistance.get('type', 'N/A'),
+        "fib_382": format_dynamic_price(retracements.get('fib_382')),
+        "fib_500": format_dynamic_price(retracements.get('fib_500')),
+        "fib_618": format_dynamic_price(retracements.get('fib_618')),
         "signal": signal,
         "confidence_score": f"{analysis_data.get('confidence', 50):.0f}",
         "summary": summary_text,
-        "entry_price": entry_price,
+        "entry_price": entry_price, # Still needed for the section
         "stop_loss": stop_loss,
         "target_1": target_1,
         "target_2": target_2,
+        "trade_recommendation_section": trade_recommendation_section
     }
 
     class SafeFormatter(dict):
