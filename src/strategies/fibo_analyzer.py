@@ -82,31 +82,42 @@ class FiboAnalyzer(BaseStrategy):
         bearish_patterns = ["Bearish Engulfing", "Shooting Star", "Evening Star", "Dark Cloud Cover", "Three Black Crows", "Tweezer Top"]
         pattern = get_candlestick_pattern(data.tail(3))
 
+        # Each reason is a dict with a key for localization and optional context
         if fibo_trend == 'up':
             if latest['rsi'] > 50:
-                score += self.weights.get('rsi_confirm', 1); reasons.append(f"مؤشر القوة النسبية فوق 50 (القيمة: {latest['rsi']:.2f})")
+                score += self.weights.get('rsi_confirm', 1)
+                reasons.append({'key': 'reason_rsi_confirm_up', 'context': {'value': f"{latest['rsi']:.2f}"}})
             if latest['macd'] > latest['signal_line']:
-                score += self.weights.get('macd_confirm', 1); reasons.append("تقاطع MACD إيجابي")
+                score += self.weights.get('macd_confirm', 1)
+                reasons.append({'key': 'reason_macd_confirm_up'})
             if latest['stoch_k'] < 30 and latest['stoch_k'] > latest['stoch_d']:
-                score += self.weights.get('stoch_confirm', 1); reasons.append(f"مؤشر ستوكاستيك يظهر انعكاسًا من التشبع البيعي")
+                score += self.weights.get('stoch_confirm', 1)
+                reasons.append({'key': 'reason_stoch_confirm_up'})
             if pattern in bullish_patterns:
-                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج انعكاسي صاعد: {pattern}")
-        else:
+                score += self.weights.get('reversal_pattern', 2)
+                reasons.append({'key': 'reason_pattern_confirm_up', 'context': {'pattern': pattern}})
+        else: # 'down'
             if latest['rsi'] < 50:
-                score += self.weights.get('rsi_confirm', 1); reasons.append(f"مؤشر القوة النسبية تحت 50 (القيمة: {latest['rsi']:.2f})")
+                score += self.weights.get('rsi_confirm', 1)
+                reasons.append({'key': 'reason_rsi_confirm_down', 'context': {'value': f"{latest['rsi']:.2f}"}})
             if latest['macd'] < latest['signal_line']:
-                score += self.weights.get('macd_confirm', 1); reasons.append("تقاطع MACD سلبي")
+                score += self.weights.get('macd_confirm', 1)
+                reasons.append({'key': 'reason_macd_confirm_down'})
             if latest['stoch_k'] > 70 and latest['stoch_k'] < latest['stoch_d']:
-                score += self.weights.get('stoch_confirm', 1); reasons.append(f"مؤشر ستوكاستيك يظهر انعكاسًا من التشبع الشرائي")
+                score += self.weights.get('stoch_confirm', 1)
+                reasons.append({'key': 'reason_stoch_confirm_down'})
             if pattern in bearish_patterns:
-                score += self.weights.get('reversal_pattern', 2); reasons.append(f"نموذج انعكاسي هابط: {pattern}")
+                score += self.weights.get('reversal_pattern', 2)
+                reasons.append({'key': 'reason_pattern_confirm_down', 'context': {'pattern': pattern}})
 
         volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
         if latest['volume'] > volume_threshold:
             if fibo_trend == 'up' and latest['close'] > latest['open']:
-                score += self.weights.get('volume_spike', 2); reasons.append("✅ تأكيد طفرة حجم تداول صاعدة")
+                score += self.weights.get('volume_spike', 2)
+                reasons.append({'key': 'reason_volume_confirm_up'})
             elif fibo_trend == 'down' and latest['close'] < latest['open']:
-                score += self.weights.get('volume_spike', 2); reasons.append("✅ تأكيد طفرة حجم تداول هابطة")
+                score += self.weights.get('volume_spike', 2)
+                reasons.append({'key': 'reason_volume_confirm_down'})
 
         return {"score": score, "reasons": reasons, "pattern": pattern}
 
@@ -168,24 +179,24 @@ class FiboAnalyzer(BaseStrategy):
 
         if fibo_trend == 'up':
             primary = {
-                "title": "صعود نحو الأهداف", "prob": prob_primary,
+                "title_key": "scenario_title_up_primary", "prob": prob_primary,
                 "entry_zone": entry_zone,
                 "stop_loss": low - (atr * self.atr_multiplier),
                 "targets": targets
             }
-            secondary = {"title": "فشل السيناريو والهبوط", "prob": prob_secondary, "target": low, "stop_loss": high + (atr * self.atr_multiplier)}
-        else:
+            secondary = {"title_key": "scenario_title_up_secondary", "prob": prob_secondary, "target": low, "stop_loss": high + (atr * self.atr_multiplier)}
+        else: # 'down'
             primary = {
-                "title": "هبوط نحو الأهداف", "prob": prob_primary,
+                "title_key": "scenario_title_down_primary", "prob": prob_primary,
                 "entry_zone": entry_zone,
                 "stop_loss": high + (atr * self.atr_multiplier),
                 "targets": targets
             }
-            secondary = {"title": "فشل السيناريو والصعود", "prob": prob_secondary, "target": high, "stop_loss": low - (atr * self.atr_multiplier)}
+            secondary = {"title_key": "scenario_title_down_secondary", "prob": prob_secondary, "target": high, "stop_loss": low - (atr * self.atr_multiplier)}
 
         if signal == 'HOLD':
-            primary['title'] = f"السيناريو المحتمل ({primary['title']})"
-            secondary['title'] = f"السيناريو البديل ({secondary['title']})"
+            primary['title_key'] += '_hold'
+            secondary['title_key'] += '_hold'
 
         return {"scenario1": primary, "scenario2": secondary}
 
@@ -265,7 +276,7 @@ class FiboAnalyzer(BaseStrategy):
         if latest['adx'] < self.adx_threshold: result['trend'] = 'Sideways'
         p_high, p_low = self._find_recent_swing_points(data)
         if p_high is None or p_low is None or p_high['price'] <= p_low['price']:
-            result['reason'] = "لم يتم تحديد نقاط انعكاس صالحة."
+            result['reason_key'] = "error_no_valid_swings"
             return False
         result.update({"swing_high": p_high, "swing_low": p_low})
         return True
@@ -287,11 +298,11 @@ class FiboAnalyzer(BaseStrategy):
 
         if score_met and adx_confirmed:
             result['signal'] = "BUY" if fibo_trend == 'up' else "SELL"
-            result['final_reason'] = f"بناءً على {result['score']} نقطة قوة مع اتجاه {fibo_trend} مؤكد."
+            result['final_reason'] = {'key': 'final_reason_signal_confirmed', 'context': {'score': result['score'], 'trend': fibo_trend}}
         elif score_met and not adx_confirmed:
-            result['final_reason'] = f"تم تحقيق النقاط المطلوبة لكن قوة الاتجاه ضعيفة (ADX: {adx_value:.2f})"
+            result['final_reason'] = {'key': 'final_reason_score_met_adx_weak', 'context': {'adx': f"{adx_value:.2f}"}}
         else:
-            result['final_reason'] = f"لعدم تحقيق الحد الأدنى من نقاط القوة ({result['score']}/{self.signal_threshold})"
+            result['final_reason'] = {'key': 'final_reason_score_not_met', 'context': {'score': result['score'], 'threshold': self.signal_threshold}}
 
         # --- MTA Confirmation ---
         higher_tf_trend_info = result.get('higher_tf_trend_info')
@@ -300,20 +311,24 @@ class FiboAnalyzer(BaseStrategy):
             higher_tf = higher_tf_trend_info.get('timeframe')
 
             override = False
-            reason = ""
             # Override BUY signal if higher trend is down
             if higher_trend == 'down' and result['signal'] == 'BUY':
                 override = True
-                reason = "هابط"
             # Override SELL signal if higher trend is up
             elif higher_trend == 'up' and result['signal'] == 'SELL':
                 override = True
-                reason = "صاعد"
 
             if override:
                 original_signal = result['signal']
                 result['signal'] = 'HOLD'
-                result['final_reason'] = f"تم إلغاء إشارة {original_signal} لأن الاتجاه على الإطار الأعلى ({higher_tf}) {reason}."
+                result['final_reason'] = {
+                    'key': 'final_reason_mta_override',
+                    'context': {
+                        'original_signal': original_signal,
+                        'higher_tf': higher_tf,
+                        'higher_trend': higher_trend
+                    }
+                }
                 result['mta_override'] = True
 
     def _finalize_analysis(self, result: Dict):
@@ -357,6 +372,7 @@ class FiboAnalyzer(BaseStrategy):
         })
 
         if not self._analyze_trend_and_swings(data, result):
+            # The reason_key is already set in _analyze_trend_and_swings
             return result
 
         self._analyze_fibonacci_and_score(data, result)
