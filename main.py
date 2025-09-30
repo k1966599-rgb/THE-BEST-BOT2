@@ -4,7 +4,6 @@ from src.config import get_config
 from src.localization import get_text
 from src.telegram_bot import (
     start,
-    bot_status,
     conv_handler,
     error_handler,
     post_init,
@@ -34,7 +33,6 @@ def main() -> None:
     # Add command and callback query handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(start, pattern='^main_menu$'))
-    application.add_handler(CallbackQueryHandler(bot_status, pattern='^bot_status$'))
 
     # Add the conversation handler for the analysis flow
     application.add_handler(conv_handler)
