@@ -37,11 +37,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends or edits the main menu message."""
     now = datetime.now()
 
-    # Centering with spaces is best-effort for plain text.
+    # Final, simplified, plain-text version of the welcome message.
     header = "             THE BEST BOT             "
     status = "الحالة: يعمل"
     time_info = f"التاريخ والوقت: {now.strftime('%Y-%m-%d %H:%M:%S')}"
 
+    # The text is constructed directly without any markdown or localization keys.
     text = f"{header}\n\n{status}\n{time_info}"
 
     keyboard = [
@@ -52,17 +53,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # Simplified send/edit logic without parse modes.
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup
-        )
+        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
     else:
-        await update.message.reply_text(
-            text=text,
-            reply_markup=reply_markup
-        )
+        await update.message.reply_text(text=text, reply_markup=reply_markup)
 
 async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Shows the bot status and provides a back button."""
