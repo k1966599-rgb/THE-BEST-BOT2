@@ -43,8 +43,8 @@ class DataFetcher:
             APIError: If the exchange API returns an error.
             NetworkError: If a network-related error occurs.
         """
-        # OKX API expects lowercase 'h' for hour timeframe, so we standardize it.
-        api_timeframe = timeframe.lower()
+        # OKX API expects lowercase 'h' for hour timeframe, but uppercase 'D' for day.
+        api_timeframe = timeframe.replace('H', 'h')
         logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} timeframe (using API format: {api_timeframe})...")
 
         API_MAX_LIMIT = 100

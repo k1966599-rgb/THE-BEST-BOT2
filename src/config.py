@@ -11,11 +11,11 @@ load_dotenv()
 # --- Trading Parameters ---
 TRADING_CONFIG = {
     'WATCHLIST': [
-        'BTC-USDT',
-        'ETH-USDT',
-        'SOL-USDT',
-        'LINK-USDT',
-        'DOGE-USDT'
+        'BTC/USDT',
+        'ETH/USDT',
+        'SOL/USDT',
+        'LINK/USDT',
+        'DOGE/USDT'
     ],
     # All timeframes required for analysis
     'TIMEFRAMES': ['1D', '4H', '1H', '30m', '15m', '5m', '3m'],

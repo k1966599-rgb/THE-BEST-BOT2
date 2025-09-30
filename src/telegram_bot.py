@@ -36,34 +36,39 @@ SYMBOL, TERM, TIMEFRAME = range(3)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends or edits the main menu message."""
     now = datetime.now()
+    # Center the header text using spaces, assuming a monospaced font environment
+    header = "             THE BEST BOT             "
     text = (
-        get_text("start_header") +
-        f"{get_text('bot_status_ok')}\n"
-        f"__{now.strftime('%Y-%m-%d %H:%M:%S')}__"
+        f"`{header}`\n\n"
+        f"**الحالة:** {get_text('bot_status_ok')}\n"
+        f"**التاريخ والوقت:** `{now.strftime('%Y-%m-%d %H:%M:%S')}`"
     )
 
     keyboard = [
-        [InlineKeyboardButton(get_text("button_analyze"), callback_data='analyze_start')],
-        [InlineKeyboardButton(get_text("button_bot_status"), callback_data='bot_status')],
+        [
+            InlineKeyboardButton("تحليل", callback_data='analyze_start'),
+            InlineKeyboardButton("متابعة التحليل", callback_data='bot_status')
+        ],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
+        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
     else:
-        await update.message.reply_text(text=text, reply_markup=reply_markup)
+        await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
 
 async def bot_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Shows the bot status and provides a back button."""
     query = update.callback_query
     await query.answer()
 
-    keyboard = [[InlineKeyboardButton(get_text("button_back_to_main"), callback_data='main_menu')]]
+    keyboard = [[InlineKeyboardButton("العودة للقائمة الرئيسية", callback_data='main_menu')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # For now, this button just shows a simple status.
     await query.edit_message_text(
-        text=get_text("bot_status_periodic_disabled"),
+        text="ميزة متابعة التحليل قيد التطوير. التحليل الدوري معطل حالياً.",
         reply_markup=reply_markup
     )
 
@@ -80,11 +85,11 @@ async def analyze_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         [InlineKeyboardButton(symbol, callback_data=f'symbol_{symbol}') for symbol in watchlist[i:i+2]]
         for i in range(0, len(watchlist), 2)
     ]
-    keyboard.append([InlineKeyboardButton(get_text("button_back"), callback_data='main_menu')])
+    keyboard.append([InlineKeyboardButton("العودة", callback_data='main_menu')])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        text=get_text("ask_symbol"),
+        text="اختر العملة التي تريد تحليلها:",
         reply_markup=reply_markup
     )
     return SYMBOL
@@ -98,16 +103,16 @@ async def select_term(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     keyboard = [
         [
-            InlineKeyboardButton(get_text("button_long_term"), callback_data='term_long_term'),
-            InlineKeyboardButton(get_text("button_medium_term"), callback_data='term_medium_term'),
-            InlineKeyboardButton(get_text("button_short_term"), callback_data='term_short_term'),
+            InlineKeyboardButton("طويل المدى", callback_data='term_long_term'),
+            InlineKeyboardButton("متوسط المدى", callback_data='term_medium_term'),
+            InlineKeyboardButton("قصير المدى", callback_data='term_short_term'),
         ],
-        [InlineKeyboardButton(get_text("button_back"), callback_data='analyze_start')],
+        [InlineKeyboardButton("العودة", callback_data='analyze_start')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        text=get_text("ask_term").format(symbol=context.user_data['symbol']),
+        text=f"اختر فئة الفريمات للعملة {context.user_data['symbol']}:",
         reply_markup=reply_markup
     )
     return TERM
@@ -125,18 +130,22 @@ async def select_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     timeframes = timeframe_groups.get(term_key, [])
 
     if not timeframes:
-        await query.edit_message_text(text=get_text("error_config_timeframes"))
+        await query.edit_message_text(text="خطأ: لم يتم تكوين مجموعات الأطر الزمنية بشكل صحيح.")
         return ConversationHandler.END
 
     keyboard = [
         [InlineKeyboardButton(tf, callback_data=f'timeframe_{tf}') for tf in timeframes[i:i+3]]
         for i in range(0, len(timeframes), 3)
     ]
-    keyboard.append([InlineKeyboardButton(get_text("button_back"), callback_data=f'symbol_{context.user_data["symbol"]}')])
+    # The callback for the back button should go to the previous state (term selection)
+    keyboard.append([InlineKeyboardButton("العودة", callback_data=f'symbol_{context.user_data["symbol"]}')])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    term_map = {"long_term": "طويل المدى", "medium_term": "متوسط المدى", "short_term": "قصير المدى"}
+    term_text = term_map.get(term_key, term_key.replace('_', ' '))
+
     await query.edit_message_text(
-        text=get_text("ask_timeframe").format(term=term_key.replace('_', ' ')),
+        text=f"اختر الإطار الزمني للفئة '{term_text}':",
         reply_markup=reply_markup
     )
     return TIMEFRAME
@@ -177,7 +186,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     try:
         if parent_timeframe:
-            await query.edit_message_text(text=get_text("fetching_parent_data").format(timeframe=parent_timeframe))
+            await query.edit_message_text(text=f"جاري جلب بيانات الإطار الزمني الأعلى ({parent_timeframe})...")
             parent_limit = candle_limits.get(parent_timeframe, candle_limits.get('default', 1000))
             parent_df = await _fetch_and_prepare_data(fetcher, symbol, parent_timeframe, limit=parent_limit)
 
@@ -188,16 +197,16 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
                 'timeframe': parent_timeframe
             }
 
-        await query.edit_message_text(text=get_text("fetching_data").format(symbol=symbol, timeframe=timeframe))
+        await query.edit_message_text(text=f"جاري جلب البيانات لـ {symbol} على فريم {timeframe}...")
         df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
 
-        await query.edit_message_text(text=get_text("analysis_running").format(symbol=symbol, timeframe=timeframe))
+        await query.edit_message_text(text=f"جاري تحليل {symbol} على فريم {timeframe}...")
 
         analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
         analysis_info = analyzer.get_analysis(df, symbol, timeframe, higher_tf_trend_info=higher_tf_trend_info)
 
         # Generate the chart
-        await query.edit_message_text(text=get_text("chart_generating"))
+        await query.edit_message_text(text="جاري إنشاء الرسم البياني...")
         chart_bytes = generate_analysis_chart(df, analysis_info, symbol)
 
         # Format the text report
@@ -213,21 +222,20 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     except InsufficientDataError as e:
         logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}: {e}")
         if hasattr(e, 'required') and hasattr(e, 'available'):
-             await query.message.reply_text(
-                get_text("error_not_enough_data_detailed").format(
-                    symbol=symbol, timeframe=timeframe, required=e.required, available=e.available
-                )
+            await query.message.reply_text(
+                f"لا توجد بيانات كافية لـ {symbol} على فريم {timeframe}. "
+                f"المطلوب: {e.required} شمعة، المتاح: {e.available} شمعة."
             )
         else:
             await query.message.reply_text(
-                get_text("error_not_enough_historical_data").format(symbol=symbol, timeframe=timeframe)
+                f"لا توجد بيانات تاريخية كافية للتحليل لـ {symbol} على فريم {timeframe}."
             )
     except (APIError, NetworkError) as e:
         logger.error(f"Network error for {symbol} on {timeframe}: {e}")
-        await query.message.reply_text(get_text("error_api_connection"))
+        await query.message.reply_text("حدث خطأ في الاتصال بالـ API. يرجى المحاولة مرة أخرى لاحقًا.")
     except Exception as e:
         logger.error(f"An unexpected error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
-        await query.message.reply_text(get_text("error_generic"))
+        await query.message.reply_text("حدث خطأ غير متوقع. يرجى مراجعة سجلات الأخطاء.")
 
     await start(update, context)
     return ConversationHandler.END
