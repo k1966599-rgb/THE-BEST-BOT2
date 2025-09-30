@@ -109,7 +109,7 @@ TEXTS = {
         "button_short_term": "قصير",
 
         # --- UI Messages ---
-        "start_header": "أهلاً بك في THE BEST BOT",
+        "start_header": "THE BEST BOT",
         "bot_status_ok": "حالة البوت: يعمل.",
         "bot_status_periodic_disabled": "متابعة التحليل: معطلة حاليًا.",
         "ask_symbol": "اختر العملة التي تريد تحليلها:",
