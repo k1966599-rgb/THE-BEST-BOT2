@@ -43,7 +43,9 @@ class DataFetcher:
             APIError: If the exchange API returns an error.
             NetworkError: If a network-related error occurs.
         """
-        logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} timeframe...")
+        # OKX API expects lowercase 'h' for hour timeframe, so we standardize it.
+        api_timeframe = timeframe.lower()
+        logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} timeframe (using API format: {api_timeframe})...")
 
         API_MAX_LIMIT = 100
         all_candles = []
@@ -56,7 +58,7 @@ class DataFetcher:
                 # Always fetch the max allowed per request to be efficient
                 logger.info(f"Requesting batch of up to {API_MAX_LIMIT}. Have {len(all_candles)}/{limit} candles.")
                 result = self.market_api.get_history_candlesticks(
-                    instId=symbol, bar=timeframe, limit=str(API_MAX_LIMIT), before=end_timestamp
+                    instId=symbol, bar=api_timeframe, limit=str(API_MAX_LIMIT), before=end_timestamp
                 )
             except RequestException as e:
                 logger.error(f"Network error while fetching {symbol}: {e}")
