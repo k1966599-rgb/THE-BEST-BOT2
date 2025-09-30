@@ -43,9 +43,11 @@ class DataFetcher:
             APIError: If the exchange API returns an error.
             NetworkError: If a network-related error occurs.
         """
+        # Convert symbol to API-compatible format (e.g., BTC/USDT -> BTC-USDT)
+        api_symbol = symbol.replace('/', '-')
         # OKX API expects lowercase 'h' for hour timeframe, but uppercase 'D' for day.
         api_timeframe = timeframe.replace('H', 'h')
-        logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} timeframe (using API format: {api_timeframe})...")
+        logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} (API symbol: {api_symbol}, API timeframe: {api_timeframe})...")
 
         API_MAX_LIMIT = 100
         all_candles = []
@@ -58,7 +60,7 @@ class DataFetcher:
                 # Always fetch the max allowed per request to be efficient
                 logger.info(f"Requesting batch of up to {API_MAX_LIMIT}. Have {len(all_candles)}/{limit} candles.")
                 result = self.market_api.get_history_candlesticks(
-                    instId=symbol, bar=api_timeframe, limit=str(API_MAX_LIMIT), before=end_timestamp
+                    instId=api_symbol, bar=api_timeframe, limit=str(API_MAX_LIMIT), before=end_timestamp
                 )
             except RequestException as e:
                 logger.error(f"Network error while fetching {symbol}: {e}")
@@ -70,10 +72,10 @@ class DataFetcher:
             if result.get('code') != '0':
                 error_msg = result.get('msg', 'Unknown API error')
                 error_code = result.get('code')
-                logger.error(f"API Error for {symbol}: {error_msg} (Code: {error_code})")
+                logger.error(f"API Error for {api_symbol}: {error_msg} (Code: {error_code})")
                 # Specific check for invalid instrument ID
                 if error_code == '51001':
-                     raise APIError(f"Invalid instrument ID: {symbol}", status_code=error_code)
+                     raise APIError(f"Invalid instrument ID: {api_symbol}", status_code=error_code)
                 raise APIError(error_msg, status_code=error_code)
 
             data = result.get('data', [])
