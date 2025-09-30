@@ -100,18 +100,18 @@ TEXTS = {
         "error_no_token": "خطأ فادح: رمز بوت تليجرام غير موجود في الإعدادات.",
 
         # --- UI Buttons ---
-        "button_analyze": "تحليل جديد",
-        "button_bot_status": "حالة البوت",
+        "button_analyze": "تحليل",
+        "button_bot_status": "متابعة التحليل",
         "button_back_to_main": "العودة للقائمة الرئيسية",
         "button_back": "رجوع",
-        "button_long_term": "مدى طويل",
-        "button_medium_term": "مدى متوسط",
-        "button_short_term": "مدى قصير",
+        "button_long_term": "طويل",
+        "button_medium_term": "متوسط",
+        "button_short_term": "قصير",
 
         # --- UI Messages ---
-        "start_header": "أهلاً بك في بوت التحليل الاستراتيجي.",
-        "bot_status_ok": "حالة البوت: يعمل بشكل طبيعي.",
-        "bot_status_periodic_disabled": "التحليل الدوري معطل حاليًا.",
+        "start_header": "أهلاً بك في THE BEST BOT",
+        "bot_status_ok": "حالة البوت: يعمل.",
+        "bot_status_periodic_disabled": "متابعة التحليل: معطلة حاليًا.",
         "ask_symbol": "اختر العملة التي تريد تحليلها:",
         "ask_term": "اختر المدى الزمني للتحليل لـ {symbol}:",
         "ask_timeframe": "اختر الإطار الزمني للتحليل على {term}:",
@@ -227,18 +227,18 @@ TEXTS = {
         "error_no_token": "Fatal Error: Telegram bot token not found in configuration.",
 
         # --- UI Buttons ---
-        "button_analyze": "New Analysis",
-        "button_bot_status": "Bot Status",
+        "button_analyze": "Analysis",
+        "button_bot_status": "Follow-up Analysis",
         "button_back_to_main": "Back to Main Menu",
         "button_back": "Back",
-        "button_long_term": "Long Term",
-        "button_medium_term": "Medium Term",
-        "button_short_term": "Short Term",
+        "button_long_term": "Long",
+        "button_medium_term": "Medium",
+        "button_short_term": "Short",
 
         # --- UI Messages ---
-        "start_header": "Welcome to the Strategic Analysis Bot.",
-        "bot_status_ok": "Bot Status: Operating normally.",
-        "bot_status_periodic_disabled": "Periodic analysis is currently disabled.",
+        "start_header": "Welcome to THE BEST BOT",
+        "bot_status_ok": "Bot Status: Online.",
+        "bot_status_periodic_disabled": "Follow-up analysis is currently disabled.",
         "ask_symbol": "Select the symbol to analyze:",
         "ask_term": "Select the analysis term for {symbol}:",
         "ask_timeframe": "Select the timeframe for analysis on the {term}:",
