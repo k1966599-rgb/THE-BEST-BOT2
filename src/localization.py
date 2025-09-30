@@ -109,12 +109,12 @@ TEXTS = {
         "button_short_term": "قصير",
 
         # --- UI Messages ---
-        "start_header": "",
-        "bot_status_ok": "يعمل",
-        "bot_status_periodic_disabled": "متابعة التحليل: معطلة حاليًا.",
-        "ask_symbol": "اختر العملة التي تريد تحليلها:",
-        "ask_term": "اختر المدى الزمني للتحليل لـ {symbol}:",
-        "ask_timeframe": "اختر الإطار الزمني للتحليل على {term}:",
+        "start_header": "", # No longer used, kept for structure
+        "bot_status_ok": "يعمل", # Simplified
+        "bot_status_periodic_disabled": "ميزة متابعة التحليل قيد التطوير. التحليل الدوري معطل حالياً.",
+        "ask_symbol": "اختر العملة التي تريد تحليلها:", # This is now hardcoded in the bot
+        "ask_term": "اختر فئة الفريمات للعملة {symbol}:", # This is now hardcoded in the bot
+        "ask_timeframe": "اختر الإطار الزمني للفئة '{term}':", # This is now hardcoded in the bot
 
         # --- Process/Log Messages ---
         "fetching_parent_data": "جاري جلب بيانات الإطار الزمني الأعلى ({timeframe})...",
