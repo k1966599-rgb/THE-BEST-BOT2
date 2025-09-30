@@ -92,6 +92,41 @@ TEXTS = {
 
         # --- Error Messages ---
         "error_no_valid_swings": "تعذر تحديد قمم وقيعان واضحة للتحليل. يرجى تجربة إطار زمني مختلف.",
+        "error_not_enough_data_detailed": "لا توجد بيانات كافية لـ {symbol} على إطار {timeframe}. (مطلوب: {required}, متاح: {available})",
+        "error_not_enough_historical_data": "لا توجد بيانات تاريخية كافية لـ {symbol} على إطار {timeframe}.",
+        "error_api_connection": "حدث خطأ أثناء الاتصال بواجهة برمجة التطبيقات. يرجى المحاولة مرة أخرى لاحقًا.",
+        "error_generic": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
+        "error_config_timeframes": "خطأ في الإعدادات: لم يتم العثور على أطر زمنية للمدى المحدد.",
+        "error_no_token": "خطأ فادح: رمز بوت تليجرام غير موجود في الإعدادات.",
+
+        # --- UI Buttons ---
+        "button_analyze": "تحليل جديد",
+        "button_bot_status": "حالة البوت",
+        "button_back_to_main": "العودة للقائمة الرئيسية",
+        "button_back": "رجوع",
+        "button_long_term": "مدى طويل",
+        "button_medium_term": "مدى متوسط",
+        "button_short_term": "مدى قصير",
+
+        # --- UI Messages ---
+        "start_header": "أهلاً بك في بوت التحليل الاستراتيجي.",
+        "bot_status_ok": "حالة البوت: يعمل بشكل طبيعي.",
+        "bot_status_periodic_disabled": "التحليل الدوري معطل حاليًا.",
+        "ask_symbol": "اختر العملة التي تريد تحليلها:",
+        "ask_term": "اختر المدى الزمني للتحليل لـ {symbol}:",
+        "ask_timeframe": "اختر الإطار الزمني للتحليل على {term}:",
+
+        # --- Process/Log Messages ---
+        "fetching_parent_data": "جاري جلب بيانات الإطار الزمني الأعلى ({timeframe})...",
+        "fetching_data": "جاري جلب البيانات لـ {symbol} على إطار {timeframe}...",
+        "analysis_running": "جاري إجراء التحليل لـ {symbol} على إطار {timeframe}...",
+        "chart_generating": "جاري إنشاء الرسم البياني...",
+        "warning_no_admin_id": "تحذير: معرف المشرف غير محدد، لن يتم إرسال التنبيهات الدورية.",
+        "periodic_start_log": "بدء مهمة التحليل الدوري لـ {count} عملة.",
+        "periodic_sent_alert_log": "تم إرسال تنبيه {signal} لـ {symbol} على إطار {timeframe}.",
+        "periodic_end_log": "اكتملت مهمة التحليل الدوري.",
+        "scheduler_disabled_log": "الجدولة الدورية معطلة في الإعدادات.",
+        "bot_starting_log": "البوت قيد التشغيل..."
     },
     'en': {
         # --- Main Report Structure ---
@@ -184,6 +219,41 @@ TEXTS = {
 
         # --- Error Messages ---
         "error_no_valid_swings": "Could not determine clear swing points for analysis. Please try a different timeframe.",
+        "error_not_enough_data_detailed": "Not enough data for {symbol} on {timeframe}. (Required: {required}, Available: {available})",
+        "error_not_enough_historical_data": "Not enough historical data for {symbol} on {timeframe}.",
+        "error_api_connection": "An error occurred while connecting to the API. Please try again later.",
+        "error_generic": "An unexpected error occurred. Please try again.",
+        "error_config_timeframes": "Configuration Error: No timeframes found for the selected term.",
+        "error_no_token": "Fatal Error: Telegram bot token not found in configuration.",
+
+        # --- UI Buttons ---
+        "button_analyze": "New Analysis",
+        "button_bot_status": "Bot Status",
+        "button_back_to_main": "Back to Main Menu",
+        "button_back": "Back",
+        "button_long_term": "Long Term",
+        "button_medium_term": "Medium Term",
+        "button_short_term": "Short Term",
+
+        # --- UI Messages ---
+        "start_header": "Welcome to the Strategic Analysis Bot.",
+        "bot_status_ok": "Bot Status: Operating normally.",
+        "bot_status_periodic_disabled": "Periodic analysis is currently disabled.",
+        "ask_symbol": "Select the symbol to analyze:",
+        "ask_term": "Select the analysis term for {symbol}:",
+        "ask_timeframe": "Select the timeframe for analysis on the {term}:",
+
+        # --- Process/Log Messages ---
+        "fetching_parent_data": "Fetching parent timeframe data ({timeframe})...",
+        "fetching_data": "Fetching data for {symbol} on {timeframe}...",
+        "analysis_running": "Running analysis for {symbol} on {timeframe}...",
+        "chart_generating": "Generating chart...",
+        "warning_no_admin_id": "Warning: Admin chat ID not set, periodic alerts will not be sent.",
+        "periodic_start_log": "Starting periodic analysis task for {count} symbols.",
+        "periodic_sent_alert_log": "Sent {signal} alert for {symbol} on {timeframe}.",
+        "periodic_end_log": "Periodic analysis task completed.",
+        "scheduler_disabled_log": "Periodic scheduler is disabled in settings.",
+        "bot_starting_log": "Bot is starting..."
     }
 }
 
