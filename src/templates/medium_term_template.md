@@ -13,10 +13,14 @@
 *   **Stochastic:** {stoch_interpretation}
 *   **الحجم:** {volume_analysis}
 
-**مستويات مهمة**
-*   **قمة سابقة:** {swing_high}
-*   **قاع سابق:** {swing_low}
-*   **مستوى فيبوناتشي 0.618:** {fib_618}
+**تأكيدات إضافية**
+*   **قوة الاتجاه (ADX):** {adx_value} ({adx_interpretation})
+*   **نمط الشموع:** {candlestick_pattern}
+*   **اتجاه الفريم الأعلى ({higher_tf}):** {higher_tf_trend}
+
+**مستويات فيبوناتشي الهامة**
+*   **قمة/قاع:** {swing_high} / {swing_low}
+*   **مستويات الارتداد:** {fib_382}, {fib_500}, {fib_618}
 ==============================
 {trade_recommendation_section}
 
