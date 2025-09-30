@@ -1,7 +1,7 @@
 import logging
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from src.config import get_config
-from src.localization import get_text, TEXTS
+from src.localization import get_text
 from src.telegram_bot import (
     start,
     bot_status,
@@ -19,17 +19,6 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Starts the Telegram bot."""
-    # --- Diagnostic Logging ---
-    try:
-        ar_keys = TEXTS.get('ar', {}).keys()
-        logger.info(f"DIAGNOSTIC: Loaded {len(ar_keys)} keys for 'ar' language.")
-        # Log a few specific keys to confirm they exist
-        logger.info(f"DIAGNOSTIC: 'start_header' key exists: {'start_header' in ar_keys}")
-        logger.info(f"DIAGNOSTIC: 'button_analyze' key exists: {'button_analyze' in ar_keys}")
-    except Exception as e:
-        logger.error(f"DIAGNOSTIC: Error during key logging: {e}")
-    # --- End Diagnostic Logging ---
-
     config = get_config()
     token = config.get('telegram', {}).get('TOKEN')
     if not token:
