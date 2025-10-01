@@ -2,6 +2,7 @@ import logging
 import asyncio
 from datetime import datetime
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.error import BadRequest
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -52,7 +53,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Simplified send/edit logic without parse modes.
     if update.callback_query:
-        await update.callback_query.answer()
+        try:
+            await update.callback_query.answer()
+        except BadRequest as e:
+            # Ignore "Query is too old" errors, which are expected after long analyses
+            if "Query is too old" not in str(e):
+                raise  # Re-raise other BadRequest errors
         await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
     else:
         await update.message.reply_text(text=text, reply_markup=reply_markup)
