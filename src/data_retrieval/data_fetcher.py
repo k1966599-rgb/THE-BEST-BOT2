@@ -45,8 +45,14 @@ class DataFetcher:
         """
         # Convert symbol to API-compatible format (e.g., BTC/USDT -> BTC-USDT)
         api_symbol = symbol.replace('/', '-')
-        # OKX API expects lowercase 'h' for hour timeframe, but uppercase 'D' for day.
-        api_timeframe = timeframe.replace('H', 'h')
+
+        # OKX API expects uppercase 'H' for hour timeframes.
+        # This ensures '1h' becomes '1H', '4h' becomes '4H', etc., while leaving '30m' unaffected.
+        if 'h' in timeframe and 'm' not in timeframe:
+            api_timeframe = timeframe.upper()
+        else:
+            api_timeframe = timeframe
+
         logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} (API symbol: {api_symbol}, API timeframe: {api_timeframe})...")
 
         API_MAX_LIMIT = 100
@@ -91,7 +97,14 @@ class DataFetcher:
             raise APIError(f"Failed to fetch any data for {symbol}, it might be an invalid symbol or have no trading history.")
 
         df = pd.DataFrame(all_candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'volCcy', 'volCcyQuote', 'confirm'])
-        df['timestamp'] = pd.to_numeric(df['timestamp'])
+
+        # Convert all relevant columns to numeric types
+        numeric_cols = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # Drop rows with NaN in critical columns and sort by timestamp
+        df.dropna(subset=['timestamp', 'open', 'high', 'low', 'close', 'volume'], inplace=True)
         df = df.drop_duplicates(subset=['timestamp']).sort_values(by='timestamp', ascending=True).reset_index(drop=True)
 
         if len(df) > limit:
