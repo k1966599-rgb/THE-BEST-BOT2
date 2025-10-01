@@ -2,11 +2,13 @@ import os
 import json
 import asyncio
 import logging
+from datetime import datetime
 from typing import Dict, List
 
 from src.config import get_config
 from src.data_retrieval.data_fetcher import DataFetcher
 from src.data_retrieval.exceptions import APIError, NetworkError
+from src.utils.symbol_util import normalize_symbol
 
 # --- Setup Logging ---
 logging.basicConfig(
@@ -33,16 +35,31 @@ async def fetch_and_save_symbol_data(
             # Fetch data using the robust fetcher
             data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
 
+            # Before saving, ensure that the fetched data is not empty.
+            if not data_dict or not data_dict.get('data'):
+                logger.warning(f"⚠️ No actual data returned for {symbol} on {timeframe}. Skipping file creation.")
+                return False  # Return False as no file was saved
+
+            # Normalize the symbol to ensure consistent directory naming
+            normalized_symbol = normalize_symbol(symbol)
+
             # Create directory structure, e.g., data/BTC-USDT/long_term/
-            directory_path = os.path.join('data', symbol, group)
+            directory_path = os.path.join('data', normalized_symbol, group)
             os.makedirs(directory_path, exist_ok=True)
 
-            # Save data to JSON file, e.g., data/BTC-USDT/long_term/1D.json
+            # Prepare the final data structure with TTL metadata
+            save_payload = {
+                "save_timestamp": datetime.utcnow().isoformat(),
+                "ttl_hours": 24,  # Default TTL of 24 hours
+                "data": data_dict['data']
+            }
+
+            # Save the enhanced data payload to JSON file
             file_path = os.path.join(directory_path, f"{timeframe}.json")
             with open(file_path, 'w') as f:
-                json.dump(data_dict, f, indent=4)
+                json.dump(save_payload, f, indent=4)
 
-            logger.info(f"✅ Successfully saved data for {symbol} on {timeframe} to {file_path}")
+            logger.info(f"✅ Successfully saved data for {symbol} on {timeframe} to {file_path} with TTL.")
             return True
 
         except (APIError, NetworkError) as e:

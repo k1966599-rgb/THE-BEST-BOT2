@@ -2,7 +2,7 @@ import logging
 import asyncio
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
 from telegram.constants import ParseMode
@@ -22,6 +22,7 @@ from src.strategies.fibo_analyzer import FiboAnalyzer
 from src.strategies.exceptions import InsufficientDataError
 from src.utils.formatter import format_analysis_from_template
 from src.utils.chart_generator import generate_analysis_chart
+from src.utils.symbol_util import normalize_symbol
 from src.localization import get_text
 import pandas as pd
 
@@ -178,8 +179,8 @@ async def _fetch_and_prepare_data(config: dict, symbol: str, timeframe: str, lim
     Fetches historical data from a local JSON file first, falling back to the API.
     Raises exceptions on failure.
     """
-    # Normalize symbol format (e.g., BTC/USDT -> BTC-USDT)
-    normalized_symbol = symbol.replace('/', '-')
+    # Normalize the symbol using the centralized function
+    normalized_symbol = normalize_symbol(symbol)
 
     timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
     group = _get_timeframe_group(timeframe, timeframe_groups)
@@ -189,12 +190,33 @@ async def _fetch_and_prepare_data(config: dict, symbol: str, timeframe: str, lim
 
     data_dict = None
 
-    # 1. Try to load from local file
+    # 1. Try to load from local file, checking for validity and TTL
     if os.path.exists(file_path):
-        logger.info(f"Loading data for {normalized_symbol} on {timeframe} from local file: {file_path}")
+        logger.info(f"Attempting to load data for {normalized_symbol} from local file: {file_path}")
         try:
             with open(file_path, 'r') as f:
-                data_dict = json.load(f)
+                loaded_payload = json.load(f)
+
+            # Check for content and TTL
+            if not loaded_payload or not loaded_payload.get('data'):
+                logger.warning(f"Local file {file_path} is empty or invalid. Falling back to API.")
+                data_dict = None
+            else:
+                save_timestamp_str = loaded_payload.get("save_timestamp")
+                ttl_hours = loaded_payload.get("ttl_hours", 24)
+
+                if save_timestamp_str:
+                    save_timestamp = datetime.fromisoformat(save_timestamp_str)
+                    if datetime.utcnow() > save_timestamp + timedelta(hours=ttl_hours):
+                        logger.info(f"Cache for {normalized_symbol} on {timeframe} has expired. Fetching fresh data.")
+                        data_dict = None  # Expired, force fallback
+                    else:
+                        logger.info("Local data is fresh. Using cached data.")
+                        data_dict = loaded_payload  # Fresh, use it
+                else:
+                    # Old format file without TTL, use it but warn
+                    logger.warning(f"Local file {file_path} is in old format (no TTL). Using it for this session.")
+                    data_dict = loaded_payload
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"Could not read or parse local file {file_path}: {e}. Falling back to API.")
             data_dict = None # Ensure fallback
