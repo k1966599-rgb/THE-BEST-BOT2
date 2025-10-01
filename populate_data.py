@@ -104,6 +104,12 @@ async def populate_all_data():
     logger.info(f"Summary: {successful_tasks} tasks succeeded, {failed_tasks} tasks failed.")
 
 if __name__ == "__main__":
+    # To run this script, execute `python populate_data.py` from the project root.
+    # The following lines ensure that the 'src' module can be found.
+    import sys
+    import os
+    sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
     # --- Comprehensive logging setup ---
     # 1. Create a new log file for this run, clearing the old one.
     LOG_FILE = 'population.log'

@@ -5,7 +5,6 @@ It imports the validated AppSettings object and transforms it into the nested
 dictionary structure that the rest of the application expects. This acts as an
 adapter layer between the flat .env structure and the application's structured config.
 """
-from .settings import settings
 import json
 
 def get_config():
@@ -13,6 +12,7 @@ def get_config():
     Constructs and returns the application's configuration dictionary from the
     validated Pydantic settings object.
     """
+    from .settings import settings
     # Manually construct the nested dictionaries that the application expects.
     # This keeps the validation flat and simple, while maintaining the app's
     # existing config structure.
@@ -78,6 +78,13 @@ def get_config():
     return config
 
 if __name__ == '__main__':
-    # A simple way to print the config for debugging
+    # To run this script directly for testing, you must execute it as a module
+    # from the project root directory: python -m src.config
+    import sys
+    import os
+    # Add the project root to the Python path to resolve src.* imports
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+    # Now that the path is fixed, we can call get_config
     config = get_config()
     print(json.dumps(config, indent=4))
