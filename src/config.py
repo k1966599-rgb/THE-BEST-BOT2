@@ -19,6 +19,10 @@ def get_config():
 
     # Note: Pydantic automatically handles default values for missing optional fields.
 
+    # Dynamically create a flat list of all timeframes from the groups
+    timeframe_groups = settings.TIMEFRAME_GROUPS
+    all_timeframes = [tf for group in timeframe_groups.values() for tf in group]
+
     config = {
         'telegram': {
             'TOKEN': settings.BOT_TOKEN,
@@ -32,7 +36,8 @@ def get_config():
         },
         'trading': {
             'WATCHLIST': settings.WATCHLIST,
-            'TIMEFRAME_GROUPS': settings.TIMEFRAME_GROUPS,
+            'TIMEFRAME_GROUPS': timeframe_groups,
+            'TIMEFRAMES': all_timeframes,  # Add the generated flat list
             'TIMEFRAME_HIERARCHY': settings.TIMEFRAME_HIERARCHY,
             'CANDLE_FETCH_LIMITS': settings.CANDLE_FETCH_LIMITS,
             'ANALYSIS_INTERVAL_MINUTES': settings.ANALYSIS_INTERVAL_MINUTES,
