@@ -62,8 +62,9 @@ async def populate_all_data():
     config = get_config()
     fetcher = DataFetcher(config)
 
-    watchlist = config.get('trading', {}).get('WATCHLIST', [])
-    timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
+    logger.info("--- DEBUG MODE: Fetching for BTC/USDT 1h only ---")
+    watchlist = ['BTC/USDT']
+    timeframes = ['1h']
     timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
 
     # Set concurrency limit to avoid API rate limiting
@@ -109,5 +110,28 @@ async def populate_all_data():
     logger.info(f"Summary: {successful_tasks} tasks succeeded, {failed_tasks} tasks failed.")
 
 if __name__ == "__main__":
-    # To run this script, execute `python populate_data.py` in your terminal
-    asyncio.run(populate_all_data())
+    # --- Main execution with enhanced error logging ---
+    # Setup file-based logging to capture all errors
+    log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler = logging.FileHandler('population_error.log', mode='w')
+    file_handler.setFormatter(log_formatter)
+    file_handler.setLevel(logging.ERROR) # Only log ERROR level and above to this file
+
+    # Get the root logger and add the file handler
+    root_logger = logging.getLogger()
+    root_logger.addHandler(file_handler)
+
+    try:
+        # To run this script, execute `python populate_data.py` in your terminal
+        logger.info("Starting data population process...")
+        asyncio.run(populate_all_data())
+        logger.info("Data population process finished successfully.")
+        # If successful, we can clear the error log or write a success message.
+        with open('population_error.log', 'w') as f:
+            f.write('Execution completed without critical errors.\n')
+
+    except Exception as e:
+        # Log the full exception traceback to the file
+        logger.error(f"A critical error occurred during data population: {e}", exc_info=True)
+        # Also print a clear message to the console
+        print(f"❌ A critical error occurred. Please check 'population_error.log' for details.")
