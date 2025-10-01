@@ -118,6 +118,15 @@ class FiboAnalyzer(BaseStrategy):
                     score += self.weights.get('volume_spike', 2) * multiplier
                     reasons.append({'key': 'reason_volume_confirm_down'})
 
+        # OBV Confirmation is temporarily disabled
+        # if not pd.isna(latest['obv_sma']):
+        #     if fibo_trend == 'up' and latest['obv'] > latest['obv_sma']:
+        #         score += self.weights.get('obv_confirm', 2) * multiplier
+        #         reasons.append({'key': 'reason_obv_confirm_up'})
+        #     elif fibo_trend == 'down' and latest['obv'] < latest['obv_sma']:
+        #         score += self.weights.get('obv_confirm', 2) * multiplier
+        #         reasons.append({'key': 'reason_obv_confirm_down'})
+
         return {"score": score, "reasons": reasons, "pattern": pattern}
 
     def _calculate_risk_metrics(self, result: Dict[str, Any]) -> Dict[str, Any]:
