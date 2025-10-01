@@ -26,13 +26,8 @@ class AppSettings(BaseSettings):
         '3m': '15m', '5m': '30m', '15m': '1H', '30m': '4H', '1H': '4H', '4H': '1D'
     }
     CANDLE_FETCH_LIMITS: Dict[str, int] = {
-        "default": 3000,
-        "1D": 360,
-        "4h": 1000,
-        "1h": 3000,
-        "30m": 3000,
-        "15m": 3000,
-        "5m": 3000
+        "default": 250,
+        "1D": 360
     }
     ANALYSIS_INTERVAL_MINUTES: int = 15
     TRADE_AMOUNT: str = "0.001"

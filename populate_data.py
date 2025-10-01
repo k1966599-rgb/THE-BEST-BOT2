@@ -64,8 +64,12 @@ async def populate_all_data():
     cache_manager = CacheManager()
 
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
-    timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
     timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
+
+    # Correctly gather all unique timeframes from the groups
+    all_timeframes = sorted(list(set(tf for group in timeframe_groups.values() for tf in group)))
+
+    logger.info(f"Found timeframes to populate: {all_timeframes}")
 
     # Set concurrency limit to avoid API rate limiting
     concurrency_limit = config.get('trading', {}).get('CONCURRENCY_LIMIT', 5)
@@ -74,17 +78,18 @@ async def populate_all_data():
 
     # Get candle limits from config
     candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
-    default_limit = candle_limits.get('default', 1000)  # Fallback to 1000 if not specified
+    default_limit = candle_limits.get('default', 1000)
 
     tasks = []
-    for symbol in watchlist:
-        for timeframe in timeframes:
+    for display_symbol in watchlist:
+        normalized_symbol = normalize_symbol(display_symbol)
+        for timeframe in all_timeframes:
             # Determine the correct limit for the timeframe
             limit = candle_limits.get(timeframe, default_limit)
 
             # Create a task for each fetch operation
             task = fetch_and_save_symbol_data(
-                symbol, timeframe, fetcher, cache_manager, semaphore, limit
+                normalized_symbol, timeframe, fetcher, cache_manager, semaphore, limit
             )
             tasks.append(task)
 
