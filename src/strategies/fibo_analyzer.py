@@ -48,6 +48,7 @@ class FiboAnalyzer(BaseStrategy):
         self.adx_threshold = p.get('adx_trend_threshold', 25)
         self.signal_threshold = p.get('signal_threshold', 5)
         self.require_adx_confirmation = p.get('require_adx_confirmation', True)
+        self.mta_confidence_modifier = p.get('mta_confidence_modifier', 15)
 
         self.weights = p.get('scoring_weights', {
             'confluence_zone': 2, 'rsi_confirm': 1, 'macd_confirm': 1,
@@ -124,7 +125,25 @@ class FiboAnalyzer(BaseStrategy):
     def _calculate_risk_metrics(self, result: Dict[str, Any]) -> Dict[str, Any]:
         score = result.get('score', 0)
         max_score = sum(self.weights.values())
-        result['confidence'] = round(50 + (score / max_score) * 45 if max_score > 0 else 50)
+
+        # Start with base confidence
+        base_confidence = round(50 + (score / max_score) * 45 if max_score > 0 else 50)
+
+        # Adjust confidence based on Multi-Timeframe Analysis (MTA)
+        higher_tf_info = result.get('higher_tf_trend_info')
+        if higher_tf_info:
+            higher_trend = higher_tf_info.get('trend')
+            current_trend = result.get('fibo_trend') # Use fibo_trend as the primary trend direction
+
+            if higher_trend == current_trend:
+                # Boost confidence if trends are aligned
+                base_confidence += self.mta_confidence_modifier
+            elif higher_trend and current_trend:
+                # Reduce confidence if trends conflict
+                base_confidence -= self.mta_confidence_modifier
+
+        # Ensure confidence is within the 0-100 range
+        result['confidence'] = max(0, min(100, base_confidence))
 
         scenario1 = result.get('scenarios', {}).get('scenario1', {})
         # Use the 'best' entry price from the entry zone for R/R calculation

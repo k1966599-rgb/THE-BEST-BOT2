@@ -20,17 +20,18 @@ async def fetch_and_save_symbol_data(
     timeframe: str,
     group: str,
     fetcher: DataFetcher,
-    semaphore: asyncio.Semaphore
+    semaphore: asyncio.Semaphore,
+    limit: int
 ):
     """
     Fetches, saves, and logs data for a single symbol/timeframe combination
     while respecting the semaphore.
     """
     async with semaphore:
-        logger.info(f"Fetching data for {symbol} on {timeframe}...")
+        logger.info(f"Fetching data for {symbol} on {timeframe} with limit {limit}...")
         try:
             # Fetch data using the robust fetcher
-            data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=1000)
+            data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
 
             # Create directory structure, e.g., data/BTC-USDT/long_term/
             directory_path = os.path.join('data', symbol, group)
@@ -73,6 +74,10 @@ async def populate_all_data():
     # Create a reverse map to find the group for a given timeframe
     tf_to_group = {tf: group for group, tfs in timeframe_groups.items() for tf in tfs}
 
+    # Get candle limits from config
+    candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
+    default_limit = candle_limits.get('default', 1000) # Fallback to 1000 if not specified
+
     tasks = []
     for symbol in watchlist:
         for timeframe in timeframes:
@@ -81,8 +86,11 @@ async def populate_all_data():
                 logger.warning(f"Timeframe {timeframe} does not belong to any group. Skipping.")
                 continue
 
+            # Determine the correct limit for the timeframe
+            limit = candle_limits.get(timeframe, default_limit)
+
             # Create a task for each fetch operation
-            task = fetch_and_save_symbol_data(symbol, timeframe, group, fetcher, semaphore)
+            task = fetch_and_save_symbol_data(symbol, timeframe, group, fetcher, semaphore, limit)
             tasks.append(task)
 
     if not tasks:
