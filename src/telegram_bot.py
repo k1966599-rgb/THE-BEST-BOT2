@@ -1,5 +1,7 @@
 import logging
 import asyncio
+import os
+import json
 from datetime import datetime
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
@@ -164,12 +166,53 @@ async def select_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
     return TIMEFRAME
 
-async def _fetch_and_prepare_data(fetcher: DataFetcher, symbol: str, timeframe: str, limit: int) -> pd.DataFrame:
+def _get_timeframe_group(timeframe: str, timeframe_groups: dict) -> str:
+    """Finds the group a timeframe belongs to (e.g., '1h' -> 'medium_term')."""
+    for group, tfs in timeframe_groups.items():
+        if timeframe in tfs:
+            return group
+    return "default_group"
+
+async def _fetch_and_prepare_data(config: dict, symbol: str, timeframe: str, limit: int) -> pd.DataFrame:
     """
-    Fetches historical data and prepares it as a pandas DataFrame.
+    Fetches historical data from a local JSON file first, falling back to the API.
     Raises exceptions on failure.
     """
-    data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
+    # Normalize symbol format (e.g., BTC/USDT -> BTC-USDT)
+    normalized_symbol = symbol.replace('/', '-')
+
+    timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
+    group = _get_timeframe_group(timeframe, timeframe_groups)
+
+    # Construct the path to the local data file
+    file_path = os.path.join('data', normalized_symbol, group, f"{timeframe}.json")
+
+    data_dict = None
+
+    # 1. Try to load from local file
+    if os.path.exists(file_path):
+        logger.info(f"Loading data for {normalized_symbol} on {timeframe} from local file: {file_path}")
+        try:
+            with open(file_path, 'r') as f:
+                data_dict = json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f"Could not read or parse local file {file_path}: {e}. Falling back to API.")
+            data_dict = None # Ensure fallback
+
+    # 2. Fallback to API if local file doesn't exist or is invalid
+    if data_dict is None:
+        logger.info(f"Local data not found for {normalized_symbol}. Fetching from API...")
+        fetcher = DataFetcher(config)
+        try:
+            # Use normalized_symbol for the API call
+            data_dict = fetcher.fetch_historical_data(normalized_symbol, timeframe, limit=limit)
+        except (APIError, NetworkError) as e:
+            logger.error(f"Failed to fetch data from API for {normalized_symbol}: {e}")
+            raise # Re-raise the exception to be handled by the caller
+
+    # 3. Process data into a DataFrame
+    if not data_dict or 'data' not in data_dict:
+        raise InsufficientDataError(f"No data found for {symbol} on {timeframe}, either locally or from the API.")
 
     df = pd.DataFrame(data_dict['data'])
     numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
@@ -188,7 +231,7 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     symbol = context.user_data['symbol']
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
-    fetcher = DataFetcher(config)
+    fetcher = DataFetcher(config) # Still needed for FiboAnalyzer
 
     trading_config = config.get('trading', {})
     candle_limits = trading_config.get('CANDLE_FETCH_LIMITS', {})
@@ -202,7 +245,8 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         if parent_timeframe:
             await query.edit_message_text(text=f"جاري جلب بيانات الإطار الزمني الأعلى ({parent_timeframe})...")
             parent_limit = candle_limits.get(parent_timeframe, candle_limits.get('default', 1000))
-            parent_df = await _fetch_and_prepare_data(fetcher, symbol, parent_timeframe, limit=parent_limit)
+            # Pass config instead of fetcher directly
+            parent_df = await _fetch_and_prepare_data(config, symbol, parent_timeframe, limit=parent_limit)
 
             parent_analyzer = FiboAnalyzer(config, fetcher, timeframe=parent_timeframe)
             parent_analysis = parent_analyzer.get_analysis(parent_df, symbol, parent_timeframe)
@@ -212,7 +256,8 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             }
 
         await query.edit_message_text(text=f"جاري جلب البيانات لـ {symbol} على فريم {timeframe}...")
-        df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
+        # Pass config instead of fetcher directly
+        df = await _fetch_and_prepare_data(config, symbol, timeframe, limit=limit)
 
         await query.edit_message_text(text=f"جاري تحليل {symbol} على فريم {timeframe}...")
 
@@ -262,23 +307,27 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 async def run_periodic_analysis(application: Application):
     """Runs analysis periodically and sends formatted alerts."""
     config = application.bot_data['config']
-    fetcher = DataFetcher(config)
+    fetcher = DataFetcher(config) # Analyzer still needs this
     admin_chat_id = config.get('telegram', {}).get('ADMIN_CHAT_ID')
     if not admin_chat_id:
         logger.warning(get_text("warning_no_admin_id"))
         return
 
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
-    timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
+    # Ensure we check all timeframes defined in the groups
+    timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
+    all_timeframes = [tf for tfs in timeframe_groups.values() for tf in tfs]
+
     candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
     logger.info(get_text("periodic_start_log").format(count=len(watchlist)))
 
     for symbol in watchlist:
-        for timeframe in timeframes:
+        for timeframe in all_timeframes:
             try:
                 analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
                 limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
-                df = await _fetch_and_prepare_data(fetcher, symbol, timeframe, limit=limit)
+                # Pass config to the data fetching function
+                df = await _fetch_and_prepare_data(config, symbol, timeframe, limit=limit)
                 analysis_info = analyzer.get_analysis(df, symbol, timeframe)
 
                 if analysis_info.get('signal') in ['BUY', 'SELL']:

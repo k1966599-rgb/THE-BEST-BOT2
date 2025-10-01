@@ -16,8 +16,8 @@ async def test_btc_1d_analysis_runs_successfully(mock_config, mock_fetcher):
     # with the data fetched from the exchange for the 1D timeframe.
     analyzer = FiboAnalyzer(mock_config, mock_fetcher, timeframe=timeframe)
 
-    # Fetch the data
-    df = await _fetch_and_prepare_data(mock_fetcher, symbol, timeframe, limit=300)
+    # Fetch the data, passing the config dictionary as required
+    df = await _fetch_and_prepare_data(mock_config, symbol, timeframe, limit=300)
 
     # We now expect the analysis to complete without any errors.
     analysis_result = analyzer.get_analysis(df, symbol, timeframe)
