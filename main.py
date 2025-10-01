@@ -35,6 +35,7 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(start, pattern='^main_menu$'))
 
     # Add the conversation handler for the analysis flow
+    # This handler now manages the 'analyze_start' callback.
     application.add_handler(conv_handler)
 
     # Add the error handler
