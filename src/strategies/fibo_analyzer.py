@@ -70,13 +70,10 @@ class FiboAnalyzer(BaseStrategy):
     def _calculate_confirmation_score(self, data: pd.DataFrame, fibo_trend: str, main_trend: str) -> Dict[str, Any]:
         score, reasons = 0, []
 
-        # --- 1. Add all necessary columns to the dataframe first ---
         data['volume_sma'] = data['volume'].rolling(window=self.volume_period).mean()
 
-        # --- 2. Get the final row which now contains all calculated values ---
         latest = data.iloc[-1]
 
-        # --- 3. Perform all checks using the final 'latest' row ---
         trend_aligned = (fibo_trend == main_trend)
         multiplier = self.trend_confirmation_multiplier if trend_aligned else 1.0
 
@@ -111,7 +108,6 @@ class FiboAnalyzer(BaseStrategy):
                 score += self.weights.get('reversal_pattern', 2) * multiplier
                 reasons.append({'key': 'reason_pattern_confirm_down', 'context': {'pattern': pattern}})
 
-        # Volume Spike Confirmation
         if not pd.isna(latest['volume_sma']):
             volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
             if latest['volume'] > volume_threshold:
@@ -233,7 +229,7 @@ class FiboAnalyzer(BaseStrategy):
         data['rsi'] = calculate_rsi(data, window=self.rsi_period)
         data = data.join(calculate_macd(data))
         data = data.join(calculate_stochastic(data, window=self.stoch_window))
-        data['obv'] = calculate_obv(data)
+        # data['obv'] = calculate_obv(data) # Temporarily disabled
         return data
 
     def _analyze_trend_and_swings(self, data: pd.DataFrame, result: Dict) -> bool:
