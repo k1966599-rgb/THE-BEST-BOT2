@@ -6,6 +6,7 @@ import time
 from requests.exceptions import RequestException
 
 from .exceptions import APIError, NetworkError
+from ..utils.symbol_util import normalize_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class DataFetcher:
             debug=self.debug
         )
 
-    def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 1000) -> Dict:
+    def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 300) -> Dict:
         """
         Fetches historical candlestick data for a given symbol and timeframe.
 
@@ -43,12 +44,15 @@ class DataFetcher:
             APIError: If the exchange API returns an error.
             NetworkError: If a network-related error occurs.
         """
-        # Convert symbol to API-compatible format (e.g., BTC/USDT -> BTC-USDT)
-        api_symbol = symbol.replace('/', '-')
+        # Normalize the symbol to ensure it's in the API-compatible format
+        api_symbol = normalize_symbol(symbol)
 
-        # OKX API expects specific capitalization (e.g., 1H, 4H, 1D).
-        # This makes the conversion more robust.
-        api_timeframe = timeframe.replace('h', 'H').replace('d', 'D')
+        # OKX API expects uppercase 'H' for hour timeframes.
+        # This ensures '1h' becomes '1H', '4h' becomes '4H', etc., while leaving '30m' unaffected.
+        if 'h' in timeframe and 'm' not in timeframe:
+            api_timeframe = timeframe.upper()
+        else:
+            api_timeframe = timeframe
 
         logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} (API symbol: {api_symbol}, API timeframe: {api_timeframe})...")
 
