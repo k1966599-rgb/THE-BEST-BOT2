@@ -62,9 +62,8 @@ async def populate_all_data():
     config = get_config()
     fetcher = DataFetcher(config)
 
-    logger.info("--- DEBUG MODE: Fetching for BTC/USDT 1h only ---")
-    watchlist = ['BTC/USDT']
-    timeframes = ['1h']
+    watchlist = config.get('trading', {}).get('WATCHLIST', [])
+    timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
     timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
 
     # Set concurrency limit to avoid API rate limiting
@@ -110,28 +109,39 @@ async def populate_all_data():
     logger.info(f"Summary: {successful_tasks} tasks succeeded, {failed_tasks} tasks failed.")
 
 if __name__ == "__main__":
-    # --- Main execution with enhanced error logging ---
-    # Setup file-based logging to capture all errors
-    log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    file_handler = logging.FileHandler('population_error.log', mode='w')
-    file_handler.setFormatter(log_formatter)
-    file_handler.setLevel(logging.ERROR) # Only log ERROR level and above to this file
+    # --- Comprehensive logging setup ---
+    # 1. Create a new log file for this run, clearing the old one.
+    LOG_FILE = 'population.log'
+    with open(LOG_FILE, 'w') as f:
+        f.write("--- Starting new data population log ---\n")
 
-    # Get the root logger and add the file handler
+    # 2. Configure a file handler to log everything (INFO and above)
+    file_handler = logging.FileHandler(LOG_FILE)
+    log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(log_formatter)
+    file_handler.setLevel(logging.INFO)
+
+    # 3. Get the root logger, clear existing handlers, and add our new file handler
+    # This ensures that only our desired logs go to the file.
     root_logger = logging.getLogger()
+    # Clear any handlers configured by basicConfig or previous runs
+    if root_logger.hasHandlers():
+        root_logger.handlers.clear()
     root_logger.addHandler(file_handler)
+    root_logger.setLevel(logging.INFO) # Set root logger level
+
+    # Also, let's keep console output clean for the user
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    console_handler.setLevel(logging.INFO)
+    root_logger.addHandler(console_handler)
 
     try:
-        # To run this script, execute `python populate_data.py` in your terminal
-        logger.info("Starting data population process...")
+        root_logger.info("--- Script execution started ---")
         asyncio.run(populate_all_data())
-        logger.info("Data population process finished successfully.")
-        # If successful, we can clear the error log or write a success message.
-        with open('population_error.log', 'w') as f:
-            f.write('Execution completed without critical errors.\n')
+        root_logger.info("--- Script execution finished without fatal errors ---")
 
     except Exception as e:
-        # Log the full exception traceback to the file
-        logger.error(f"A critical error occurred during data population: {e}", exc_info=True)
-        # Also print a clear message to the console
-        print(f"❌ A critical error occurred. Please check 'population_error.log' for details.")
+        # Log the full exception traceback to the file and console
+        root_logger.critical(f"A critical, unhandled exception occurred: {e}", exc_info=True)
+        print(f"\n❌ A critical error occurred. Please check 'population.log' for the full traceback.")
