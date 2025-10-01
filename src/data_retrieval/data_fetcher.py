@@ -122,6 +122,12 @@ class DataFetcher:
 
 
 if __name__ == '__main__':
+    # To run this script directly for testing, you must execute it as a module
+    # from the project root directory: python -m src.data_retrieval.data_fetcher
+    import sys
+    import os
+    # Add the project root to the Python path to resolve src.* imports
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
     from src.config import get_config
 
     config = get_config()

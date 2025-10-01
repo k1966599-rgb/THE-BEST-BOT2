@@ -45,8 +45,8 @@ class AppSettings(BaseSettings):
 
     # Strategy Params - with default values
     RSI_PERIOD: int = 14
-    SMA_PERIOD_FAST: int = 50
-    SMA_PERIOD_SLOW: int = 200
+    SMA_PERIOD_FAST: int = 20
+    SMA_PERIOD_SLOW: int = 50
     FIB_LOOKBACK: int = 50
     SWING_LOOKBACK_PERIOD: int = 50
     SWING_COMPARISON_WINDOW: int = 5
