@@ -10,7 +10,7 @@ from src.utils.indicators import (
     calculate_sma, calculate_fib_levels,
     calculate_fib_extensions, calculate_rsi, calculate_macd,
     calculate_stochastic, calculate_bollinger_bands, calculate_adx,
-    calculate_atr
+    calculate_atr, calculate_obv
 )
 from src.utils.patterns import get_candlestick_pattern
 
@@ -49,11 +49,12 @@ class FiboAnalyzer(BaseStrategy):
         self.signal_threshold = p.get('signal_threshold', 5)
         self.require_adx_confirmation = p.get('require_adx_confirmation', True)
         self.trend_confirmation_multiplier = p.get('trend_confirmation_multiplier', 1.5)
-        self.mta_confidence_modifier = p.get('mta_confidence_modifier', 20) # Percentage modifier
+        self.mta_confidence_modifier = p.get('mta_confidence_modifier', 20)
 
         self.weights = p.get('scoring_weights', {
-            'confluence_zone': 2, 'rsi_confirm': 1, 'macd_confirm': 1,
-            'stoch_confirm': 1, 'reversal_pattern': 2, 'volume_spike': 2
+            'rsi_confirm': 1, 'macd_confirm': 1, 'stoch_confirm': 1,
+            'reversal_pattern': 2, 'volume_spike': 2,
+            # 'obv_confirm': 2 # Temporarily disabled
         })
 
     def _initialize_result(self) -> Dict[str, Any]:
@@ -61,26 +62,21 @@ class FiboAnalyzer(BaseStrategy):
         return {
             "trend": "N/A", "signal": "HOLD", "reason": "", "final_reason": "", "score": 0,
             "swing_high": {}, "swing_low": {}, "retracements": {}, "extensions": {},
-            "confluence_zones": [], "pattern": "N/A", "risk_levels": {},
-            "scenarios": {}, "latest_data": {}, "current_price": 0,
-            "confidence": 0, "rr_ratio": 0.0, "weights": {},
+            "pattern": "N/A", "risk_levels": {}, "scenarios": {}, "latest_data": {},
+            "current_price": 0, "confidence": 0, "rr_ratio": 0.0, "weights": {},
             "higher_tf_trend_info": None, "mta_override": False
         }
 
-    def _find_confluence_zones(self, p_lvls: Dict, s_lvls: Dict, tol: float=0.005) -> List[Dict]:
-        zones = []
-        for pk, pv in p_lvls.items():
-            for sk, sv in s_lvls.items():
-                if abs(pv - sv) / pv <= tol:
-                    zones.append({"level": (pv + sv) / 2, "p_level": pk, "s_level": sk})
-        return zones
-
     def _calculate_confirmation_score(self, data: pd.DataFrame, fibo_trend: str, main_trend: str) -> Dict[str, Any]:
         score, reasons = 0, []
+
+        # --- 1. Add all necessary columns to the dataframe first ---
         data['volume_sma'] = data['volume'].rolling(window=self.volume_period).mean()
+
+        # --- 2. Get the final row which now contains all calculated values ---
         latest = data.iloc[-1]
 
-        # Determine the multiplier if the signal aligns with the main trend
+        # --- 3. Perform all checks using the final 'latest' row ---
         trend_aligned = (fibo_trend == main_trend)
         multiplier = self.trend_confirmation_multiplier if trend_aligned else 1.0
 
@@ -88,7 +84,6 @@ class FiboAnalyzer(BaseStrategy):
         bearish_patterns = ["Bearish Engulfing", "Shooting Star", "Evening Star", "Dark Cloud Cover", "Three Black Crows", "Tweezer Top"]
         pattern = get_candlestick_pattern(data.tail(3))
 
-        # Each reason is a dict with a key for localization and optional context
         if fibo_trend == 'up':
             if latest['rsi'] > 50:
                 score += self.weights.get('rsi_confirm', 1) * multiplier
@@ -97,7 +92,7 @@ class FiboAnalyzer(BaseStrategy):
                 score += self.weights.get('macd_confirm', 1) * multiplier
                 reasons.append({'key': 'reason_macd_confirm_up'})
             if latest['stoch_k'] < 30 and latest['stoch_k'] > latest['stoch_d']:
-                score += self.weights.get('stoch_confirm', 1) # Stochastic is an oscillator, not trend-dependent
+                score += self.weights.get('stoch_confirm', 1)
                 reasons.append({'key': 'reason_stoch_confirm_up'})
             if pattern in bullish_patterns:
                 score += self.weights.get('reversal_pattern', 2) * multiplier
@@ -110,20 +105,22 @@ class FiboAnalyzer(BaseStrategy):
                 score += self.weights.get('macd_confirm', 1) * multiplier
                 reasons.append({'key': 'reason_macd_confirm_down'})
             if latest['stoch_k'] > 70 and latest['stoch_k'] < latest['stoch_d']:
-                score += self.weights.get('stoch_confirm', 1) # Stochastic is an oscillator
+                score += self.weights.get('stoch_confirm', 1)
                 reasons.append({'key': 'reason_stoch_confirm_down'})
             if pattern in bearish_patterns:
                 score += self.weights.get('reversal_pattern', 2) * multiplier
                 reasons.append({'key': 'reason_pattern_confirm_down', 'context': {'pattern': pattern}})
 
-        volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
-        if latest['volume'] > volume_threshold:
-            if fibo_trend == 'up' and latest['close'] > latest['open']:
-                score += self.weights.get('volume_spike', 2) * multiplier
-                reasons.append({'key': 'reason_volume_confirm_up'})
-            elif fibo_trend == 'down' and latest['close'] < latest['open']:
-                score += self.weights.get('volume_spike', 2) * multiplier
-                reasons.append({'key': 'reason_volume_confirm_down'})
+        # Volume Spike Confirmation
+        if not pd.isna(latest['volume_sma']):
+            volume_threshold = latest['volume_sma'] * self.volume_spike_multiplier
+            if latest['volume'] > volume_threshold:
+                if fibo_trend == 'up' and latest['close'] > latest['open']:
+                    score += self.weights.get('volume_spike', 2) * multiplier
+                    reasons.append({'key': 'reason_volume_confirm_up'})
+                elif fibo_trend == 'down' and latest['close'] < latest['open']:
+                    score += self.weights.get('volume_spike', 2) * multiplier
+                    reasons.append({'key': 'reason_volume_confirm_down'})
 
         return {"score": score, "reasons": reasons, "pattern": pattern}
 
@@ -131,10 +128,8 @@ class FiboAnalyzer(BaseStrategy):
         score = result.get('score', 0)
         max_score = sum(self.weights.values())
 
-        # Base confidence score
         base_confidence = round(50 + (score / max_score) * 45 if max_score > 0 else 50)
 
-        # Modify confidence based on MTA sentiment
         mta_sentiment = result.get('mta_sentiment', 'neutral')
         if mta_sentiment == 'aligned':
             final_confidence = min(100, base_confidence + self.mta_confidence_modifier)
@@ -146,23 +141,20 @@ class FiboAnalyzer(BaseStrategy):
         result['confidence'] = final_confidence
 
         scenario1 = result.get('scenarios', {}).get('scenario1', {})
-        # Use the 'best' entry price from the entry zone for R/R calculation
         entry_price = scenario1.get('entry_zone', {}).get('best')
         stop_loss = scenario1.get('stop_loss')
-        # Use the first take-profit target for a conservative R/R calculation
         target = scenario1.get('targets', {}).get('tp1')
 
         if entry_price and stop_loss and target:
             potential_loss = abs(entry_price - stop_loss)
             potential_profit = abs(target - entry_price)
 
-            # Avoid division by zero if entry and stop-loss are the same
             if potential_loss > 0:
                 result['rr_ratio'] = round(potential_profit / potential_loss, 2)
             else:
                 result['rr_ratio'] = 0.0
         else:
-             result['rr_ratio'] = 0.0 # Default if values are missing
+             result['rr_ratio'] = 0.0
 
         return result
 
@@ -175,42 +167,26 @@ class FiboAnalyzer(BaseStrategy):
         extensions = result.get('extensions', {})
         atr = result.get('latest_data', {}).get('atr', 0)
 
-        # Define Entry Zone based on Fibonacci retracement levels
         entry_zone = {
-            "best": retracements.get('fib_618'),
-            "start": retracements.get('fib_500'),
-            "end": retracements.get('fib_618')
+            "best": retracements.get('fib_618'), "start": retracements.get('fib_500'), "end": retracements.get('fib_618')
         }
         if entry_zone['start'] and entry_zone['end']:
             if (fibo_trend == 'up' and entry_zone['start'] < entry_zone['end']) or \
                (fibo_trend == 'down' and entry_zone['start'] > entry_zone['end']):
                 entry_zone['start'], entry_zone['end'] = entry_zone['end'], entry_zone['start']
 
-        # Define Multiple Take-Profit Targets
         targets = {
-            "tp1": extensions.get('ext_1272'),
-            "tp2": extensions.get('ext_1618'),
-            "tp3": extensions.get('ext_2618')
+            "tp1": extensions.get('ext_1272'), "tp2": extensions.get('ext_1618'), "tp3": extensions.get('ext_2618')
         }
 
         prob_primary = min(60 + (score * 4), 95) if signal in ['BUY', 'SELL'] else 50
         prob_secondary = 100 - prob_primary
 
         if fibo_trend == 'up':
-            primary = {
-                "title_key": "scenario_title_up_primary", "prob": prob_primary,
-                "entry_zone": entry_zone,
-                "stop_loss": low - (atr * self.atr_multiplier),
-                "targets": targets
-            }
+            primary = {"title_key": "scenario_title_up_primary", "prob": prob_primary, "entry_zone": entry_zone, "stop_loss": low - (atr * self.atr_multiplier), "targets": targets}
             secondary = {"title_key": "scenario_title_up_secondary", "prob": prob_secondary, "target": low, "stop_loss": high + (atr * self.atr_multiplier)}
         else: # 'down'
-            primary = {
-                "title_key": "scenario_title_down_primary", "prob": prob_primary,
-                "entry_zone": entry_zone,
-                "stop_loss": high + (atr * self.atr_multiplier),
-                "targets": targets
-            }
+            primary = {"title_key": "scenario_title_down_primary", "prob": prob_primary, "entry_zone": entry_zone, "stop_loss": high + (atr * self.atr_multiplier), "targets": targets}
             secondary = {"title_key": "scenario_title_down_secondary", "prob": prob_secondary, "target": high, "stop_loss": low - (atr * self.atr_multiplier)}
 
         if signal == 'HOLD':
@@ -220,63 +196,33 @@ class FiboAnalyzer(BaseStrategy):
         return {"scenario1": primary, "scenario2": secondary}
 
     def _find_recent_swing_points(self, data: pd.DataFrame) -> (Dict, Dict):
-        """
-        Finds the most recent valid swing high and swing low based on a simple
-        comparison with neighboring candles. A swing high is a candle with a high
-        greater than the N candles before and after it. A swing low is the inverse.
-        """
         recent_data = data.tail(self.swing_lookback_period).copy()
         window = self.swing_comparison_window
+        swing_highs_indices, swing_lows_indices = [], []
 
-        swing_highs_indices = []
-        swing_lows_indices = []
-
-        # Iterate through the data, avoiding the edges where the window doesn't fit
         for i in range(window, len(recent_data) - window):
-            # Check for Swing High
-            is_swing_high = all(
-                recent_data['high'].iloc[i] > recent_data['high'].iloc[i-j] and \
-                recent_data['high'].iloc[i] > recent_data['high'].iloc[i+j]
-                for j in range(1, window + 1)
-            )
-            if is_swing_high:
-                swing_highs_indices.append(recent_data.index[i])
+            is_swing_high = all(recent_data['high'].iloc[i] > recent_data['high'].iloc[i-j] and recent_data['high'].iloc[i] > recent_data['high'].iloc[i+j] for j in range(1, window + 1))
+            if is_swing_high: swing_highs_indices.append(recent_data.index[i])
+            is_swing_low = all(recent_data['low'].iloc[i] < recent_data['low'].iloc[i-j] and recent_data['low'].iloc[i] < recent_data['low'].iloc[i+j] for j in range(1, window + 1))
+            if is_swing_low: swing_lows_indices.append(recent_data.index[i])
 
-            # Check for Swing Low
-            is_swing_low = all(
-                recent_data['low'].iloc[i] < recent_data['low'].iloc[i-j] and \
-                recent_data['low'].iloc[i] < recent_data['low'].iloc[i+j]
-                for j in range(1, window + 1)
-            )
-            if is_swing_low:
-                swing_lows_indices.append(recent_data.index[i])
+        if not swing_highs_indices or not swing_lows_indices: return None, None
 
-        if not swing_highs_indices or not swing_lows_indices:
-            return None, None # Return nothing if no clear swings are found
-
-        # Find the most recent valid pair
-        latest_high_idx = swing_highs_indices[-1]
-        latest_low_idx = swing_lows_indices[-1]
+        latest_high_idx, latest_low_idx = swing_highs_indices[-1], swing_lows_indices[-1]
 
         if latest_high_idx > latest_low_idx:
-            # Last swing was a high. Find the last low before it.
             prior_lows = [idx for idx in swing_lows_indices if idx < latest_high_idx]
             if not prior_lows: return None, None
-            final_low_idx = prior_lows[-1]
-            final_high_idx = latest_high_idx
+            final_low_idx, final_high_idx = prior_lows[-1], latest_high_idx
         else:
-            # Last swing was a low. Find the last high before it.
             prior_highs = [idx for idx in swing_highs_indices if idx < latest_low_idx]
             if not prior_highs: return None, None
-            final_high_idx = prior_highs[-1]
-            final_low_idx = latest_low_idx
+            final_high_idx, final_low_idx = prior_highs[-1], latest_low_idx
 
         swing_high = {'price': recent_data.loc[final_high_idx, 'high'], 'index': final_high_idx}
         swing_low = {'price': recent_data.loc[final_low_idx, 'low'], 'index': final_low_idx}
 
-        if swing_high['price'] <= swing_low['price']:
-            return None, None
-
+        if swing_high['price'] <= swing_low['price']: return None, None
         return swing_high, swing_low
 
     def _prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -287,6 +233,7 @@ class FiboAnalyzer(BaseStrategy):
         data['rsi'] = calculate_rsi(data, window=self.rsi_period)
         data = data.join(calculate_macd(data))
         data = data.join(calculate_stochastic(data, window=self.stoch_window))
+        data['obv'] = calculate_obv(data)
         return data
 
     def _analyze_trend_and_swings(self, data: pd.DataFrame, result: Dict) -> bool:
@@ -306,7 +253,6 @@ class FiboAnalyzer(BaseStrategy):
         result['fibo_trend'] = fibo_trend
         result['retracements'] = calculate_fib_levels(p_high['price'], p_low['price'], fibo_trend)
         result['extensions'] = calculate_fib_extensions(p_high['price'], p_low['price'], fibo_trend)
-        result['confluence_zones'] = self._find_confluence_zones(result['retracements'], result['extensions'])
 
         confirm_data = self._calculate_confirmation_score(data, fibo_trend, result['trend'])
         result.update(confirm_data)
@@ -323,21 +269,14 @@ class FiboAnalyzer(BaseStrategy):
         else:
             result['final_reason'] = {'key': 'final_reason_score_not_met', 'context': {'score': result['score'], 'threshold': self.signal_threshold}}
 
-        # --- MTA Sentiment Analysis ---
-        # Determine if the signal aligns with, conflicts with, or is neutral to the higher timeframe trend.
         result['mta_sentiment'] = 'neutral'
         higher_tf_trend_info = result.get('higher_tf_trend_info')
         if higher_tf_trend_info and result['signal'] != 'HOLD':
             higher_trend = higher_tf_trend_info.get('trend')
-
-            # Check for alignment
-            if (result['signal'] == 'BUY' and higher_trend == 'up') or \
-               (result['signal'] == 'SELL' and higher_trend == 'down'):
+            if (result['signal'] == 'BUY' and higher_trend == 'up') or (result['signal'] == 'SELL' and higher_trend == 'down'):
                 result['mta_sentiment'] = 'aligned'
                 result['reasons'].append({'key': 'reason_mta_aligned'})
-            # Check for conflict
-            elif (result['signal'] == 'BUY' and higher_trend == 'down') or \
-                 (result['signal'] == 'SELL' and higher_trend == 'up'):
+            elif (result['signal'] == 'BUY' and higher_trend == 'down') or (result['signal'] == 'SELL' and higher_trend == 'up'):
                 result['mta_sentiment'] = 'conflicting'
                 result['reasons'].append({'key': 'reason_mta_conflicting'})
 
@@ -347,10 +286,6 @@ class FiboAnalyzer(BaseStrategy):
         self._identify_key_levels(result)
 
     def _identify_key_levels(self, result: Dict):
-        """
-        Identifies and adds key support and resistance levels to the result,
-        including the single most important support and resistance with their types.
-        """
         levels = []
         swing_high = result.get('swing_high', {}).get('price')
         swing_low = result.get('swing_low', {}).get('price')
@@ -367,16 +302,13 @@ class FiboAnalyzer(BaseStrategy):
                 level_ratio = key.replace('fib_', '0.')
                 levels.append({'level': level_value, 'type': f"فيبوناتشي {level_ratio}"})
 
-        # Sort levels by price to make finding support/resistance easier
         levels.sort(key=lambda x: x['level'])
 
-        # Find first level below current price (support) and first above (resistance)
         key_support_dict = next((lvl for lvl in reversed(levels) if lvl['level'] < current_price), None)
         key_resistance_dict = next((lvl for lvl in levels if lvl['level'] > current_price), None)
 
         result['key_levels'] = levels
 
-        # Store the full dictionary for key support and resistance, with fallbacks
         if key_support_dict:
             result['key_support'] = key_support_dict
         else:
@@ -403,7 +335,6 @@ class FiboAnalyzer(BaseStrategy):
         })
 
         if not self._analyze_trend_and_swings(data, result):
-            # The reason_key is already set in _analyze_trend_and_swings
             return result
 
         self._analyze_fibonacci_and_score(data, result)
