@@ -7,6 +7,7 @@ from requests.exceptions import RequestException
 
 from .exceptions import APIError, NetworkError
 from ..utils.symbol_util import normalize_symbol
+from ..retry_handler import with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -62,16 +63,21 @@ class DataFetcher:
 
         logger.info(f"Starting paginated data fetch for {symbol} to get {limit} candles...")
 
+        @with_retry(exceptions=(RequestException,), max_attempts=3)
+        def _fetch_batch_with_retry(instId, bar, limit, before):
+            """Fetches a single batch of candlesticks with retry logic."""
+            return self.market_api.get_history_candlesticks(instId=instId, bar=bar, limit=limit, before=before)
+
         while len(all_candles) < limit:
             try:
                 # Always fetch the max allowed per request to be efficient
                 logger.info(f"Requesting batch of up to {API_MAX_LIMIT}. Have {len(all_candles)}/{limit} candles.")
-                result = self.market_api.get_history_candlesticks(
+                result = _fetch_batch_with_retry(
                     instId=api_symbol, bar=api_timeframe, limit=str(API_MAX_LIMIT), before=end_timestamp
                 )
             except RequestException as e:
-                logger.error(f"Network error while fetching {symbol}: {e}")
-                raise NetworkError(f"Failed to connect to the exchange: {e}") from e
+                logger.error(f"Network error for {symbol} persisted after all retries: {e}")
+                raise NetworkError(f"Failed to connect to the exchange after multiple retries: {e}") from e
             except Exception as e:
                 logger.exception(f"An unexpected error occurred during API call for {symbol}: {e}")
                 raise

@@ -23,6 +23,8 @@ from src.strategies.exceptions import InsufficientDataError
 from src.utils.formatter import format_analysis_from_template
 from src.utils.chart_generator import generate_analysis_chart
 from src.utils.symbol_util import normalize_symbol
+from src.cache_manager import CacheManager
+from src.validators import DataValidator
 from src.localization import get_text
 import pandas as pd
 
@@ -167,82 +169,49 @@ async def select_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
     return TIMEFRAME
 
-def _get_timeframe_group(timeframe: str, timeframe_groups: dict) -> str:
-    """Finds the group a timeframe belongs to (e.g., '1h' -> 'medium_term')."""
-    for group, tfs in timeframe_groups.items():
-        if timeframe in tfs:
-            return group
-    return "default_group"
-
 async def _fetch_and_prepare_data(config: dict, symbol: str, timeframe: str, limit: int) -> pd.DataFrame:
     """
-    Fetches historical data from a local JSON file first, falling back to the API.
-    Raises exceptions on failure.
+    Fetches historical data by first consulting the CacheManager (which now uses SQLite),
+    and falling back to the API if the cache is a miss.
     """
-    # Normalize the symbol using the centralized function
-    normalized_symbol = normalize_symbol(symbol)
+    cache_manager = CacheManager()
 
-    timeframe_groups = config.get('trading', {}).get('TIMEFRAME_GROUPS', {})
-    group = _get_timeframe_group(timeframe, timeframe_groups)
+    # 1. Attempt to get data from cache
+    cached_data = cache_manager.get(symbol, timeframe)
 
-    # Construct the path to the local data file
-    file_path = os.path.join('data', normalized_symbol, group, f"{timeframe}.json")
+    data_to_process = None
 
-    data_dict = None
-
-    # 1. Try to load from local file, checking for validity and TTL
-    if os.path.exists(file_path):
-        logger.info(f"Attempting to load data for {normalized_symbol} from local file: {file_path}")
-        try:
-            with open(file_path, 'r') as f:
-                loaded_payload = json.load(f)
-
-            # Check for content and TTL
-            if not loaded_payload or not loaded_payload.get('data'):
-                logger.warning(f"Local file {file_path} is empty or invalid. Falling back to API.")
-                data_dict = None
-            else:
-                save_timestamp_str = loaded_payload.get("save_timestamp")
-                ttl_hours = loaded_payload.get("ttl_hours", 24)
-
-                if save_timestamp_str:
-                    save_timestamp = datetime.fromisoformat(save_timestamp_str)
-                    if datetime.utcnow() > save_timestamp + timedelta(hours=ttl_hours):
-                        logger.info(f"Cache for {normalized_symbol} on {timeframe} has expired. Fetching fresh data.")
-                        data_dict = None  # Expired, force fallback
-                    else:
-                        logger.info("Local data is fresh. Using cached data.")
-                        data_dict = loaded_payload  # Fresh, use it
-                else:
-                    # Old format file without TTL, use it but warn
-                    logger.warning(f"Local file {file_path} is in old format (no TTL). Using it for this session.")
-                    data_dict = loaded_payload
-        except (json.JSONDecodeError, IOError) as e:
-            logger.warning(f"Could not read or parse local file {file_path}: {e}. Falling back to API.")
-            data_dict = None # Ensure fallback
-
-    # 2. Fallback to API if local file doesn't exist or is invalid
-    if data_dict is None:
-        logger.info(f"Local data not found for {normalized_symbol}. Fetching from API...")
+    if cached_data:
+        data_to_process = cached_data
+    else:
+        # 2. Fallback to API if cache miss
+        logger.info(f"Cache miss for {symbol} on {timeframe}. Fetching from API.")
         fetcher = DataFetcher(config)
         try:
-            # Use normalized_symbol for the API call
-            data_dict = fetcher.fetch_historical_data(normalized_symbol, timeframe, limit=limit)
+            api_result = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
+
+            if api_result and api_result.get("data"):
+                fresh_data = api_result["data"]
+                # 3. Save the fresh data back to the cache
+                cache_manager.set(symbol, timeframe, fresh_data)
+                data_to_process = fresh_data
+            else:
+                 logger.warning(f"API returned no data for {symbol} on {timeframe}.")
+
         except (APIError, NetworkError) as e:
-            logger.error(f"Failed to fetch data from API for {normalized_symbol}: {e}")
-            raise # Re-raise the exception to be handled by the caller
+            logger.error(f"Failed to fetch data from API for {symbol}: {e}")
+            raise  # Re-raise the exception to be handled by the caller
 
-    # 3. Process data into a DataFrame
-    if not data_dict or 'data' not in data_dict:
-        raise InsufficientDataError(f"No data found for {symbol} on {timeframe}, either locally or from the API.")
+    # 4. Process whatever data we ended up with (from cache or API)
+    if not data_to_process:
+        raise InsufficientDataError(f"No data could be retrieved for {symbol} on {timeframe}, either from cache or API.")
 
-    df = pd.DataFrame(data_dict['data'])
-    numeric_cols = ['open', 'high', 'low', 'close', 'volume', 'timestamp']
-    for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    df.dropna(subset=['timestamp', 'open', 'high', 'low', 'close', 'volume'], inplace=True)
-    return df
+    try:
+        df = DataValidator.validate_and_clean_dataframe(data_to_process)
+        return df
+    except ValueError as e:
+        logger.error(f"Data validation failed for {symbol} on {timeframe}: {e}")
+        raise InsufficientDataError(f"Data for {symbol} on {timeframe} failed validation: {e}") from e
 
 async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Runs the Multi-Timeframe-Aware analysis and sends the formatted result."""

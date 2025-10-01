@@ -9,6 +9,7 @@ from src.config import get_config
 from src.data_retrieval.data_fetcher import DataFetcher
 from src.data_retrieval.exceptions import APIError, NetworkError
 from src.utils.symbol_util import normalize_symbol
+from src.cache_manager import CacheManager
 
 # --- Setup Logging ---
 logging.basicConfig(
@@ -20,64 +21,47 @@ logger = logging.getLogger(__name__)
 async def fetch_and_save_symbol_data(
     symbol: str,
     timeframe: str,
-    group: str,
     fetcher: DataFetcher,
+    cache_manager: CacheManager,
     semaphore: asyncio.Semaphore,
-    limit: int
+    limit: int,
 ):
     """
-    Fetches, saves, and logs data for a single symbol/timeframe combination
-    while respecting the semaphore.
+    Fetches data for a single symbol/timeframe and saves it via the CacheManager.
     """
     async with semaphore:
         logger.info(f"Fetching data for {symbol} on {timeframe} with limit {limit}...")
         try:
-            # Fetch data using the robust fetcher
+            # fetch_historical_data is a synchronous function
             data_dict = fetcher.fetch_historical_data(symbol, timeframe, limit=limit)
 
-            # Before saving, ensure that the fetched data is not empty.
-            if not data_dict or not data_dict.get('data'):
-                logger.warning(f"⚠️ No actual data returned for {symbol} on {timeframe}. Skipping file creation.")
-                return False  # Return False as no file was saved
-
-            # Normalize the symbol to ensure consistent directory naming
-            normalized_symbol = normalize_symbol(symbol)
-
-            # Create directory structure, e.g., data/BTC-USDT/long_term/
-            directory_path = os.path.join('data', normalized_symbol, group)
-            os.makedirs(directory_path, exist_ok=True)
-
-            # Prepare the final data structure with TTL metadata
-            save_payload = {
-                "save_timestamp": datetime.utcnow().isoformat(),
-                "ttl_hours": 24,  # Default TTL of 24 hours
-                "data": data_dict['data']
-            }
-
-            # Save the enhanced data payload to JSON file
-            file_path = os.path.join(directory_path, f"{timeframe}.json")
-            with open(file_path, 'w') as f:
-                json.dump(save_payload, f, indent=4)
-
-            logger.info(f"✅ Successfully saved data for {symbol} on {timeframe} to {file_path} with TTL.")
-            return True
+            # The data_dict from fetcher is {"symbol": symbol, "data": list_of_dicts}
+            if data_dict and data_dict.get("data"):
+                # Use the CacheManager to save the data.
+                cache_manager.set(symbol, timeframe, data_dict["data"])
+                return True
+            else:
+                logger.warning(f"No data returned from fetcher for {symbol} on {timeframe}. Skipping save.")
+                return False
 
         except (APIError, NetworkError) as e:
             logger.error(f"❌ Failed to fetch data for {symbol} on {timeframe}: {e}")
             return False
+        finally:
+            # A small delay to be respectful to the API, even with a semaphore
+            await asyncio.sleep(0.1)
 
-        # A small delay to be respectful to the API, even with a semaphore
-        await asyncio.sleep(0.1)
 
 async def populate_all_data():
     """
     Concurrently iterates through the watchlist and timeframes,
-    fetches the data for each, and saves it to the appropriate file.
+    fetches the data for each, and saves it to the cache via the CacheManager.
     """
     logger.info("--- Starting Concurrent Data Population ---")
 
     config = get_config()
     fetcher = DataFetcher(config)
+    cache_manager = CacheManager()
 
     watchlist = config.get('trading', {}).get('WATCHLIST', [])
     timeframes = config.get('trading', {}).get('TIMEFRAMES', [])
@@ -88,26 +72,20 @@ async def populate_all_data():
     semaphore = asyncio.Semaphore(concurrency_limit)
     logger.info(f"Concurrency limit set to {concurrency_limit}")
 
-    # Create a reverse map to find the group for a given timeframe
-    tf_to_group = {tf: group for group, tfs in timeframe_groups.items() for tf in tfs}
-
     # Get candle limits from config
     candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
-    default_limit = candle_limits.get('default', 1000) # Fallback to 1000 if not specified
+    default_limit = candle_limits.get('default', 1000)  # Fallback to 1000 if not specified
 
     tasks = []
     for symbol in watchlist:
         for timeframe in timeframes:
-            group = tf_to_group.get(timeframe)
-            if not group:
-                logger.warning(f"Timeframe {timeframe} does not belong to any group. Skipping.")
-                continue
-
             # Determine the correct limit for the timeframe
             limit = candle_limits.get(timeframe, default_limit)
 
             # Create a task for each fetch operation
-            task = fetch_and_save_symbol_data(symbol, timeframe, group, fetcher, semaphore, limit)
+            task = fetch_and_save_symbol_data(
+                symbol, timeframe, fetcher, cache_manager, semaphore, limit
+            )
             tasks.append(task)
 
     if not tasks:
