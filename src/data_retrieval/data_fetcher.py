@@ -27,7 +27,7 @@ class DataFetcher:
             debug=self.debug
         )
 
-    def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 300) -> Dict:
+    def fetch_historical_data(self, symbol: str, timeframe: str, limit: int = 1000) -> Dict:
         """
         Fetches historical candlestick data for a given symbol and timeframe.
 
@@ -46,12 +46,9 @@ class DataFetcher:
         # Convert symbol to API-compatible format (e.g., BTC/USDT -> BTC-USDT)
         api_symbol = symbol.replace('/', '-')
 
-        # OKX API expects uppercase 'H' for hour timeframes.
-        # This ensures '1h' becomes '1H', '4h' becomes '4H', etc., while leaving '30m' unaffected.
-        if 'h' in timeframe and 'm' not in timeframe:
-            api_timeframe = timeframe.upper()
-        else:
-            api_timeframe = timeframe
+        # OKX API expects specific capitalization (e.g., 1H, 4H, 1D).
+        # This makes the conversion more robust.
+        api_timeframe = timeframe.replace('h', 'H').replace('d', 'D')
 
         logger.info(f"Fetching {limit} historical data for {symbol} on {timeframe} (API symbol: {api_symbol}, API timeframe: {api_timeframe})...")
 
