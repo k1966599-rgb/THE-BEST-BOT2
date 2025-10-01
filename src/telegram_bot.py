@@ -219,7 +219,8 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     await query.answer()
 
     context.user_data['timeframe'] = query.data.split('_', 1)[1]
-    symbol = context.user_data['symbol']
+    display_symbol = context.user_data['symbol']
+    normalized_symbol = normalize_symbol(display_symbol)
     timeframe = context.user_data['timeframe']
     config = context.bot_data['config']
     fetcher = DataFetcher(config) # Still needed for FiboAnalyzer
@@ -237,30 +238,30 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             await query.edit_message_text(text=f"جاري جلب بيانات الإطار الزمني الأعلى ({parent_timeframe})...")
             parent_limit = candle_limits.get(parent_timeframe, candle_limits.get('default', 1000))
             # Pass config instead of fetcher directly
-            parent_df = await _fetch_and_prepare_data(config, symbol, parent_timeframe, limit=parent_limit)
+            parent_df = await _fetch_and_prepare_data(config, normalized_symbol, parent_timeframe, limit=parent_limit)
 
             parent_analyzer = FiboAnalyzer(config, fetcher, timeframe=parent_timeframe)
-            parent_analysis = parent_analyzer.get_analysis(parent_df, symbol, parent_timeframe)
+            parent_analysis = parent_analyzer.get_analysis(parent_df, normalized_symbol, parent_timeframe)
             higher_tf_trend_info = {
                 'trend': parent_analysis.get('trend', 'N/A'),
                 'timeframe': parent_timeframe
             }
 
-        await query.edit_message_text(text=f"جاري جلب البيانات لـ {symbol} على فريم {timeframe}...")
+        await query.edit_message_text(text=f"جاري جلب البيانات لـ {display_symbol} على فريم {timeframe}...")
         # Pass config instead of fetcher directly
-        df = await _fetch_and_prepare_data(config, symbol, timeframe, limit=limit)
+        df = await _fetch_and_prepare_data(config, normalized_symbol, timeframe, limit=limit)
 
-        await query.edit_message_text(text=f"جاري تحليل {symbol} على فريم {timeframe}...")
+        await query.edit_message_text(text=f"جاري تحليل {display_symbol} على فريم {timeframe}...")
 
         analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
-        analysis_info = analyzer.get_analysis(df, symbol, timeframe, higher_tf_trend_info=higher_tf_trend_info)
+        analysis_info = analyzer.get_analysis(df, normalized_symbol, timeframe, higher_tf_trend_info=higher_tf_trend_info)
 
         # Generate the chart
         await query.edit_message_text(text="جاري إنشاء الرسم البياني...")
-        chart_bytes = generate_analysis_chart(df, analysis_info, symbol)
+        chart_bytes = generate_analysis_chart(df, analysis_info, display_symbol)
 
         # Format the text report
-        formatted_report = format_analysis_from_template(analysis_info, symbol, timeframe)
+        formatted_report = format_analysis_from_template(analysis_info, display_symbol, timeframe)
 
         if chart_bytes:
             # Send the photo directly from the bytes in memory
@@ -270,23 +271,23 @@ async def run_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             await query.message.reply_text(formatted_report)
 
     except InsufficientDataError as e:
-        logger.warning(f"Caught InsufficientDataError for {symbol} on {timeframe}: {e}")
+        logger.warning(f"Caught InsufficientDataError for {display_symbol} on {timeframe}: {e}")
         if hasattr(e, 'required') and hasattr(e, 'available'):
             await query.message.reply_text(
-                f"لا توجد بيانات كافية لـ {symbol} على فريم {timeframe}. "
+                f"لا توجد بيانات كافية لـ {display_symbol} على فريم {timeframe}. "
                 f"المطلوب: {e.required} شمعة، المتاح: {e.available} شمعة."
             )
         else:
             await query.message.reply_text(
-                f"لا توجد بيانات تاريخية كافية للتحليل لـ {symbol} على فريم {timeframe}."
+                f"لا توجد بيانات تاريخية كافية للتحليل لـ {display_symbol} على فريم {timeframe}."
             )
     except (APIError, NetworkError) as e:
-        logger.error(f"Detailed network error for {symbol} on {timeframe}: {e}")
+        logger.error(f"Detailed network error for {display_symbol} on {timeframe}: {e}")
         # Provide a more detailed error message to the user for debugging
         detailed_error_message = f"فشل الاتصال بالـ API.\n\n**السبب:**\n`{e}`\n\nيرجى التحقق من إعدادات الـ API أو المحاولة مرة أخرى."
         await query.message.reply_text(detailed_error_message)
     except Exception as e:
-        logger.error(f"An unexpected error occurred during analysis for {symbol} on {timeframe}: {e}", exc_info=True)
+        logger.error(f"An unexpected error occurred during analysis for {display_symbol} on {timeframe}: {e}", exc_info=True)
         await query.message.reply_text("حدث خطأ غير متوقع. يرجى مراجعة سجلات الأخطاء.")
 
     await start(update, context)
@@ -312,18 +313,19 @@ async def run_periodic_analysis(application: Application):
     candle_limits = config.get('trading', {}).get('CANDLE_FETCH_LIMITS', {})
     logger.info(get_text("periodic_start_log").format(count=len(watchlist)))
 
-    for symbol in watchlist:
+    for display_symbol in watchlist:
+        normalized_symbol = normalize_symbol(display_symbol)
         for timeframe in all_timeframes:
             try:
                 analyzer = FiboAnalyzer(config, fetcher, timeframe=timeframe)
                 limit = candle_limits.get(timeframe, candle_limits.get('default', 1000))
                 # Pass config to the data fetching function
-                df = await _fetch_and_prepare_data(config, symbol, timeframe, limit=limit)
-                analysis_info = analyzer.get_analysis(df, symbol, timeframe)
+                df = await _fetch_and_prepare_data(config, normalized_symbol, timeframe, limit=limit)
+                analysis_info = analyzer.get_analysis(df, normalized_symbol, timeframe)
 
                 if analysis_info.get('signal') in ['BUY', 'SELL']:
-                    report = format_analysis_from_template(analysis_info, symbol, timeframe)
-                    chart_bytes = generate_analysis_chart(df, analysis_info, symbol)
+                    report = format_analysis_from_template(analysis_info, display_symbol, timeframe)
+                    chart_bytes = generate_analysis_chart(df, analysis_info, display_symbol)
 
                     if chart_bytes:
                         await application.bot.send_photo(
@@ -336,10 +338,10 @@ async def run_periodic_analysis(application: Application):
                         await application.bot.send_message(chat_id=admin_chat_id, text=report)
 
                     logger.info(get_text("periodic_sent_alert_log").format(
-                        signal=analysis_info['signal'], symbol=symbol, timeframe=timeframe
+                        signal=analysis_info['signal'], symbol=display_symbol, timeframe=timeframe
                     ))
             except Exception as e:
-                logger.error(f"Error in periodic analysis for {symbol} on {timeframe}: {e}")
+                logger.error(f"Error in periodic analysis for {display_symbol} on {timeframe}: {e}")
             await asyncio.sleep(2)
     logger.info(get_text("periodic_end_log"))
 
