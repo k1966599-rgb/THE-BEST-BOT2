@@ -51,7 +51,7 @@ def format_analysis_from_template(analysis_data: Dict[str, Any], symbol: str, ti
     key_resistance = analysis_data.get('key_resistance', {})
     swing_high = analysis_data.get('swing_high', {}).get('price')
     swing_low = analysis_data.get('swing_low', {}).get('price')
-    fibo_trend = retracements.get('trend', 'up') # Default to 'up' if not present
+    fibo_trend = analysis_data.get('fibo_trend', 'up') # Default to 'up' if not present
 
     # --- Smart Summary Interpretation ---
     summary_text = "لا توجد إشارة واضحة حاليًا. يوصى بالمراقبة."
